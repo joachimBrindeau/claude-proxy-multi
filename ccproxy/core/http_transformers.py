@@ -361,13 +361,24 @@ class HTTPRequestTransformer(RequestTransformer):
 
         return proxy_headers
 
-    def _count_cache_control_blocks(self, data: dict[str, Any]) -> dict[str, int]:
+    def _count_cache_control_blocks(
+        self, data: dict[str, Any], early_exit_threshold: int | None = None
+    ) -> dict[str, int]:
         """Count cache_control blocks in different parts of the request.
+
+        Args:
+            data: Request data dictionary
+            early_exit_threshold: If provided, return early once total exceeds this value.
+                When early exit is triggered, individual counts may be incomplete but
+                total will be at least threshold + 1.
 
         Returns:
             Dictionary with counts for 'injected_system', 'user_system', and 'messages'
         """
         counts = {"injected_system": 0, "user_system": 0, "messages": 0}
+
+        def _get_total() -> int:
+            return counts["injected_system"] + counts["user_system"] + counts["messages"]
 
         # Count in system field
         system = data.get("system")
@@ -392,6 +403,10 @@ class HTTPRequestTransformer(RequestTransformer):
                         else:
                             counts["user_system"] += 1
 
+        # Early exit if threshold exceeded after system count
+        if early_exit_threshold is not None and _get_total() > early_exit_threshold:
+            return counts
+
         # Count in messages
         messages = data.get("messages", [])
         for msg in messages:
@@ -400,8 +415,71 @@ class HTTPRequestTransformer(RequestTransformer):
                 for block in content:
                     if isinstance(block, dict) and "cache_control" in block:
                         counts["messages"] += 1
+                        # Early exit check within messages loop
+                        if early_exit_threshold is not None and _get_total() > early_exit_threshold:
+                            return counts
 
         return counts
+
+    def _remove_cache_control_from_messages(
+        self, data: dict[str, Any], to_remove: int
+    ) -> int:
+        """Remove cache_control from messages (lowest priority).
+
+        Args:
+            data: Request data dictionary (modified in place)
+            to_remove: Maximum number to remove
+
+        Returns:
+            Number of cache_control blocks actually removed
+        """
+        removed = 0
+        messages = data.get("messages", [])
+        for msg in reversed(messages):
+            if removed >= to_remove:
+                break
+            content = msg.get("content")
+            if isinstance(content, list):
+                for block in reversed(content):
+                    if removed >= to_remove:
+                        break
+                    if isinstance(block, dict) and "cache_control" in block:
+                        del block["cache_control"]
+                        removed += 1
+                        logger.debug("removed_cache_control", location="message")
+        return removed
+
+    def _remove_cache_control_from_user_system(
+        self, data: dict[str, Any], to_remove: int
+    ) -> int:
+        """Remove cache_control from user system prompts (skip injected).
+
+        Args:
+            data: Request data dictionary (modified in place)
+            to_remove: Maximum number to remove
+
+        Returns:
+            Number of cache_control blocks actually removed
+        """
+        removed = 0
+        system = data.get("system")
+        if not isinstance(system, list):
+            return removed
+
+        for block in reversed(system):
+            if removed >= to_remove:
+                break
+            if isinstance(block, dict) and "cache_control" in block:
+                text = block.get("text", "")
+                # Skip injected prompts (highest priority)
+                if (
+                    "Claude Code" not in text
+                    and "Anthropic's official CLI" not in text
+                ):
+                    del block["cache_control"]
+                    removed += 1
+                    logger.debug("removed_cache_control", location="user_system")
+        return removed
 
     def _limit_cache_control_blocks(
         self, data: dict[str, Any], max_blocks: int = 4
@@ -422,15 +500,11 @@ class HTTPRequestTransformer(RequestTransformer):
         """
         import copy
 
-        # Deep copy to avoid modifying original
         data = copy.deepcopy(data)
-
-        # Count existing blocks
         counts = self._count_cache_control_blocks(data)
         total = counts["injected_system"] + counts["user_system"] + counts["messages"]
 
         if total <= max_blocks:
-            # No need to remove anything
             return data
 
         logger.warning(
@@ -442,49 +516,19 @@ class HTTPRequestTransformer(RequestTransformer):
             messages=counts["messages"],
         )
 
-        # Calculate how many to remove
         to_remove = total - max_blocks
         removed = 0
 
         # Remove from messages first (lowest priority)
         if to_remove > 0 and counts["messages"] > 0:
-            messages = data.get("messages", [])
-            for msg in reversed(messages):  # Remove from end first
-                if removed >= to_remove:
-                    break
-                content = msg.get("content")
-                if isinstance(content, list):
-                    for block in reversed(content):
-                        if removed >= to_remove:
-                            break
-                        if isinstance(block, dict) and "cache_control" in block:
-                            del block["cache_control"]
-                            removed += 1
-                            logger.debug("removed_cache_control", location="message")
+            removed += self._remove_cache_control_from_messages(data, to_remove)
 
         # Remove from user system prompts next
-        if removed < to_remove and counts["user_system"] > 0:
-            system = data.get("system")
-            if isinstance(system, list):
-                # Find and remove cache_control from user system blocks (non-injected)
-                for block in reversed(system):
-                    if removed >= to_remove:
-                        break
-                    if isinstance(block, dict) and "cache_control" in block:
-                        text = block.get("text", "")
-                        # Skip injected prompts (highest priority)
-                        if (
-                            "Claude Code" not in text
-                            and "Anthropic's official CLI" not in text
-                        ):
-                            del block["cache_control"]
-                            removed += 1
-                            logger.debug(
-                                "removed_cache_control", location="user_system"
-                            )
+        remaining = to_remove - removed
+        if remaining > 0 and counts["user_system"] > 0:
+            removed += self._remove_cache_control_from_user_system(data, remaining)
 
-        # In theory, we should never need to remove injected system cache_control
-        # but include this for completeness
+        # Log if we couldn't remove enough
         if removed < to_remove:
             logger.error(
                 "cannot_preserve_injected_cache_control",

@@ -19,6 +19,17 @@ suppress_debug = [
 ]
 
 
+def format_timestamp_ms(
+    logger: Any, log_method: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
+    """Format timestamp with milliseconds instead of microseconds."""
+    if "timestamp_raw" in event_dict:
+        # Truncate microseconds to milliseconds (6 digits to 3)
+        timestamp_raw = event_dict.pop("timestamp_raw")
+        event_dict["timestamp"] = timestamp_raw[:-3]
+    return event_dict
+
+
 def configure_structlog(log_level: int = logging.INFO) -> None:
     """Configure structlog with shared processors following canonical pattern."""
     # Shared processors for all structlog loggers
@@ -49,17 +60,6 @@ def configure_structlog(log_level: int = logging.INFO) -> None:
             key="timestamp_raw",
         )
     )
-
-    # Then add processor to convert microseconds to milliseconds
-    def format_timestamp_ms(
-        logger: Any, log_method: str, event_dict: MutableMapping[str, Any]
-    ) -> MutableMapping[str, Any]:
-        """Format timestamp with milliseconds instead of microseconds."""
-        if "timestamp_raw" in event_dict:
-            # Truncate microseconds to milliseconds (6 digits to 3)
-            timestamp_raw = event_dict.pop("timestamp_raw")
-            event_dict["timestamp"] = timestamp_raw[:-3]
-        return event_dict
 
     processors.extend(
         [
@@ -172,17 +172,6 @@ def setup_logging(
             fmt="%Y-%m-%d %H:%M:%S.%f", key="timestamp_raw"
         )
     )
-
-    # Processor to convert microseconds to milliseconds
-    def format_timestamp_ms(
-        logger: Any, log_method: str, event_dict: MutableMapping[str, Any]
-    ) -> MutableMapping[str, Any]:
-        """Format timestamp with milliseconds instead of microseconds."""
-        if "timestamp_raw" in event_dict:
-            # Truncate microseconds to milliseconds (6 digits to 3)
-            timestamp_raw = event_dict.pop("timestamp_raw")
-            event_dict["timestamp"] = timestamp_raw[:-3]
-        return event_dict
 
     file_timestamper = structlog.processors.TimeStamper(fmt="iso")
 

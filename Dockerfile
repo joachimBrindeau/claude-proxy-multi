@@ -19,6 +19,8 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=0
+# Set version for builds without .git directory
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=0.1.7
 
 WORKDIR /app
 
@@ -29,18 +31,19 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   git \
   && rm -rf /var/lib/apt/lists/*
 
+# Copy project files for dependency installation
+COPY pyproject.toml uv.lock README.md ./
+
 # Install Python dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-  --mount=type=bind,source=uv.lock,target=uv.lock \
-  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  uv sync --locked --no-install-project --no-dev
+  uv sync --frozen --no-install-project --no-dev
 
 # Copy application code
 COPY . /app
 
 # Install the project
 RUN --mount=type=cache,target=/root/.cache/uv \
-  uv sync --locked --no-dev
+  uv sync --frozen --no-dev
 
 # Stage 3: Runtime
 FROM python:3.11-slim-bookworm
@@ -78,6 +81,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Copy Python application from builder
 COPY --from=builder /app /app
+
+# Make app directory readable by all users (for privilege dropping)
+RUN chmod -R o+rX /app
 
 WORKDIR /app
 

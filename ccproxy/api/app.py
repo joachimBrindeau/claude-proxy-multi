@@ -28,6 +28,7 @@ from ccproxy.api.routes.metrics import (
 )
 from ccproxy.api.routes.permissions import router as permissions_router
 from ccproxy.api.routes.proxy import router as proxy_router
+from ccproxy.api.routes.status import router as status_router
 from ccproxy.auth.oauth.routes import router as oauth_router
 from ccproxy.config.settings import Settings, get_settings
 from ccproxy.core.logging import setup_logging
@@ -50,6 +51,16 @@ from ccproxy.utils.startup_helpers import (
     validate_claude_authentication_startup,
     validate_codex_authentication_startup,
 )
+from ccproxy.rotation.startup import (
+    initialize_file_watcher_startup,
+    initialize_refresh_scheduler_startup,
+    initialize_rotation_pool_startup,
+    setup_rotation_middleware,
+    shutdown_file_watcher,
+    shutdown_refresh_scheduler,
+    shutdown_rotation_pool,
+)
+from ccproxy.ui.accounts import mount_accounts_ui
 
 
 logger = get_logger(__name__)
@@ -127,6 +138,22 @@ LIFECYCLE_COMPONENTS: list[LifecycleComponent] = [
         "name": "Permission Service",
         "startup": initialize_permission_service_startup,
         "shutdown": setup_permission_service_shutdown,
+    },
+    # Multi-account rotation components
+    {
+        "name": "Rotation Pool",
+        "startup": initialize_rotation_pool_startup,
+        "shutdown": shutdown_rotation_pool,
+    },
+    {
+        "name": "Token Refresh Scheduler",
+        "startup": initialize_refresh_scheduler_startup,
+        "shutdown": shutdown_refresh_scheduler,
+    },
+    {
+        "name": "Accounts File Watcher",
+        "startup": initialize_file_watcher_startup,
+        "shutdown": shutdown_file_watcher,
     },
 ]
 
@@ -292,8 +319,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # You can customize the server name here
     app.add_middleware(ServerHeaderMiddleware, server_name="uvicorn")
 
+    # Add rotation middleware for multi-account support
+    # This is added last so it runs first (middleware order is reversed)
+    setup_rotation_middleware(app)
+
     # Include health router (always enabled)
     app.include_router(health_router, tags=["health"])
+
+    # Include rotation status router for account monitoring
+    app.include_router(status_router, tags=["rotation-status"])
 
     # Include observability routers with granular controls
     if settings.observability.metrics_endpoint_enabled:
@@ -353,6 +387,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if favicon_path.exists():
             # For single files, we'll handle this in the dashboard route or add a specific route
             pass
+
+    # Mount accounts management UI (HTMX)
+    try:
+        mount_accounts_ui(app)
+    except Exception as e:
+        logger.warning(
+            "accounts_ui_mount_failed",
+            error=str(e),
+            message="Account management UI not available",
+        )
 
     return app
 

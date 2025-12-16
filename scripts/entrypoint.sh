@@ -151,6 +151,12 @@ fi
 mkdir -p "$CLAUDE_HOME"/{.cache,.config,.local}
 chown -R claude:"$CLAUDE_GROUP_NAME" "$CLAUDE_HOME"
 
+# Create symlink for Claude data at ~/.claude (needed for accounts.json, credentials)
+if [[ -d /config ]] && [[ ! -e "$CLAUDE_HOME/.claude" ]]; then
+  echo "Creating symlink: $CLAUDE_HOME/.claude -> /config"
+  ln -s /config "$CLAUDE_HOME/.claude"
+fi
+
 # Ensure workspace directory exists
 mkdir -p "$CLAUDE_WORKSPACE"
 chown -R claude:"$CLAUDE_GROUP_NAME" "$CLAUDE_WORKSPACE"

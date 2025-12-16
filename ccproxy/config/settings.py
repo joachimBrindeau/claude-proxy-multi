@@ -12,6 +12,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from ccproxy.config.discovery import find_toml_config_file
+from ccproxy.core.validators import parse_comma_separated
 
 from .auth import AuthSettings
 from .claude import ClaudeSettings
@@ -459,37 +460,31 @@ class ConfigurationManager:
         # )
         self._logging_configured = True
 
-    def get_cli_overrides_from_args(self, **cli_args: Any) -> dict[str, Any]:
-        """Extract non-None CLI arguments as configuration overrides."""
-        overrides = {}
+    @staticmethod
+    def _extract_config_section(
+        cli_args: dict[str, Any], keys: list[str]
+    ) -> dict[str, Any]:
+        """Extract non-None values for specified keys from CLI args.
 
-        # Server settings
-        server_settings = {}
-        for key in ["host", "port", "reload", "log_level", "log_file"]:
-            if cli_args.get(key) is not None:
-                server_settings[key] = cli_args[key]
-        if server_settings:
-            overrides["server"] = server_settings
+        Args:
+            cli_args: CLI arguments dictionary
+            keys: List of keys to extract
 
-        # Security settings
-        if cli_args.get("auth_token") is not None:
-            overrides["security"] = {"auth_token": cli_args["auth_token"]}
+        Returns:
+            Dictionary with non-None values
+        """
+        return {key: cli_args[key] for key in keys if cli_args.get(key) is not None}
 
-        # Claude settings
-        claude_settings = {}
-        if cli_args.get("claude_cli_path") is not None:
-            claude_settings["cli_path"] = cli_args["claude_cli_path"]
+    @staticmethod
+    def _build_pool_config(
+        claude_settings: dict[str, Any], cli_args: dict[str, Any]
+    ) -> None:
+        """Build pool configuration from CLI args.
 
-        # Direct Claude settings (not nested in code_options)
-        for key in [
-            "sdk_message_mode",
-            "system_prompt_injection_mode",
-            "builtin_permissions",
-        ]:
-            if cli_args.get(key) is not None:
-                claude_settings[key] = cli_args[key]
-
-        # Handle pool configuration
+        Args:
+            claude_settings: Claude settings dict to update (modified in place)
+            cli_args: CLI arguments
+        """
         if cli_args.get("sdk_pool") is not None:
             claude_settings["sdk_pool"] = {"enabled": cli_args["sdk_pool"]}
 
@@ -503,24 +498,55 @@ class ConfigurationManager:
                 "enabled": cli_args["sdk_session_pool"]
             }
 
+    def get_cli_overrides_from_args(self, **cli_args: Any) -> dict[str, Any]:
+        """Extract non-None CLI arguments as configuration overrides."""
+        overrides: dict[str, Any] = {}
+
+        # Server settings
+        server_settings = self._extract_config_section(
+            cli_args, ["host", "port", "reload", "log_level", "log_file"]
+        )
+        if server_settings:
+            overrides["server"] = server_settings
+
+        # Security settings
+        if cli_args.get("auth_token") is not None:
+            overrides["security"] = {"auth_token": cli_args["auth_token"]}
+
+        # Claude settings
+        claude_settings: dict[str, Any] = {}
+        if cli_args.get("claude_cli_path") is not None:
+            claude_settings["cli_path"] = cli_args["claude_cli_path"]
+
+        # Direct Claude settings
+        claude_settings.update(
+            self._extract_config_section(
+                cli_args,
+                ["sdk_message_mode", "system_prompt_injection_mode", "builtin_permissions"],
+            )
+        )
+
+        # Pool configuration
+        self._build_pool_config(claude_settings, cli_args)
+
         # Claude Code options
-        claude_opts = {}
-        for key in [
-            "max_thinking_tokens",
-            "permission_mode",
-            "cwd",
-            "max_turns",
-            "append_system_prompt",
-            "permission_prompt_tool_name",
-            "continue_conversation",
-        ]:
-            if cli_args.get(key) is not None:
-                claude_opts[key] = cli_args[key]
+        claude_opts = self._extract_config_section(
+            cli_args,
+            [
+                "max_thinking_tokens",
+                "permission_mode",
+                "cwd",
+                "max_turns",
+                "append_system_prompt",
+                "permission_prompt_tool_name",
+                "continue_conversation",
+            ],
+        )
 
         # Handle comma-separated lists
         for key in ["allowed_tools", "disallowed_tools"]:
             if cli_args.get(key):
-                claude_opts[key] = [tool.strip() for tool in cli_args[key].split(",")]
+                claude_opts[key] = parse_comma_separated(cli_args[key])
 
         if claude_opts:
             claude_settings["code_options"] = claude_opts
@@ -531,9 +557,7 @@ class ConfigurationManager:
         # CORS settings
         if cli_args.get("cors_origins"):
             overrides["cors"] = {
-                "origins": [
-                    origin.strip() for origin in cli_args["cors_origins"].split(",")
-                ]
+                "origins": parse_comma_separated(cli_args["cors_origins"])
             }
 
         return overrides

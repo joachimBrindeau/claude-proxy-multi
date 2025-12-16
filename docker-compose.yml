@@ -3,20 +3,35 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    hostname: ccproxy
     ports:
-      - "8000:8000"
+      - "8100:8000"
     environment:
       - SERVER__HOST=0.0.0.0
       - SERVER__PORT=8000
       - SERVER__LOG_LEVEL=INFO
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      # Multi-account rotation settings
+      - CCPROXY_ACCOUNTS_PATH=/config/accounts.json
+      - CCPROXY_ROTATION_ENABLED=true
+      - CCPROXY_HOT_RELOAD=true
+    volumes:
+      # Mount ~/.claude for accounts.json and credentials
+      # Note: Use absolute path because snap-based Docker uses different $HOME
+      - ${CLAUDE_HOME:-/home/joachim/.claude}:/config
     # env_file:
     #   - .env
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:$SERVER__PORT/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 5s
+    networks:
+      - global
+
+networks:
+  global:
+    external: true

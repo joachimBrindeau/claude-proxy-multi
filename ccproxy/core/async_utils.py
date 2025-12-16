@@ -147,50 +147,6 @@ async def async_timer() -> AsyncIterator[Callable[[], float]]:
     yield get_elapsed
 
 
-async def retry_async(
-    func: Callable[..., Awaitable[T]],
-    *args: Any,
-    max_retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: tuple[type[Exception], ...] = (Exception,),
-    **kwargs: Any,
-) -> T:
-    """Retry an async function with exponential backoff.
-
-    Args:
-        func: The async function to retry
-        *args: Positional arguments to pass to the function
-        max_retries: Maximum number of retries
-        delay: Initial delay between retries
-        backoff: Backoff multiplier
-        exceptions: Exception types to catch and retry on
-        **kwargs: Keyword arguments to pass to the function
-
-    Returns:
-        The result of the successful function call
-
-    Raises:
-        The last exception if all retries fail
-    """
-    last_exception = None
-    current_delay = delay
-
-    for attempt in range(max_retries + 1):
-        try:
-            return await func(*args, **kwargs)
-        except exceptions as e:
-            last_exception = e
-            if attempt < max_retries:
-                await asyncio.sleep(current_delay)
-                current_delay *= backoff
-            else:
-                raise
-
-    # This should never be reached, but just in case
-    raise last_exception if last_exception else Exception("Retry failed")
-
-
 async def wait_for_condition(
     condition: Callable[[], bool | Awaitable[bool]],
     timeout: float = 30.0,

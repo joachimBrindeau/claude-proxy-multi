@@ -1,0 +1,33 @@
+[Unit]
+Description=CCProxy API Server with Multi-Account Rotation
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={{WORKING_DIR}}
+ExecStart={{UV_PATH}} run ccproxy serve --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ccproxy-rotation
+
+# Standard environment
+Environment="PATH={{USER_PATH}}"
+Environment="HOME={{USER_HOME}}"
+Environment="UV_PROJECT={{UV_PROJECT}}"
+
+# Rotation configuration
+Environment="CCPROXY_ACCOUNTS_PATH={{ACCOUNTS_PATH}}"
+Environment="CCPROXY_ROTATION_ENABLED=true"
+Environment="CCPROXY_HOT_RELOAD=true"
+
+# Optional: Custom settings
+# Environment="SERVER__HOST=0.0.0.0"
+# Environment="SERVER__PORT=8080"
+# Environment="SERVER__LOG_LEVEL=INFO"
+
+{{EXTRA_ENV}}
+
+[Install]
+WantedBy=default.target

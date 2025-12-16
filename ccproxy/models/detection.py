@@ -121,7 +121,7 @@ class ClaudeCacheData(BaseModel):
             description="Cache timestamp",
             default_factory=lambda: datetime.now(UTC),
         ),
-    ] = None  # type: ignore # Pydantic handles this via default_factory
+    ]
 
     model_config = ConfigDict(extra="forbid")
 
@@ -203,6 +203,6 @@ class CodexCacheData(BaseModel):
             description="Cache timestamp",
             default_factory=lambda: datetime.now(UTC),
         ),
-    ] = None  # type: ignore # Pydantic handles this via default_factory
+    ]
 
     model_config = ConfigDict(extra="forbid")

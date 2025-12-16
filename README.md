@@ -123,6 +123,87 @@ ccproxy auth info         # Claude only
 
 Warning is shown on startup if no credentials are setup.
 
+## Multi-Account Rotation
+
+CCProxy supports automatic rotation between multiple Claude accounts, enabling higher throughput by distributing requests across accounts and automatically failing over when rate limits are hit.
+
+### Configuration
+
+Create an `accounts.json` file at `~/.claude/accounts.json`:
+
+```json
+{
+  "version": 1,
+  "accounts": {
+    "primary": {
+      "accessToken": "sk-ant-oat01-YOUR-ACCESS-TOKEN",
+      "refreshToken": "sk-ant-ort01-YOUR-REFRESH-TOKEN",
+      "expiresAt": 1747909518727
+    },
+    "secondary": {
+      "accessToken": "sk-ant-oat01-YOUR-SECOND-ACCESS-TOKEN",
+      "refreshToken": "sk-ant-ort01-YOUR-SECOND-REFRESH-TOKEN",
+      "expiresAt": 1747909518727
+    }
+  }
+}
+```
+
+You can get tokens from your existing Claude authentication:
+- Access tokens start with `sk-ant-oat01-`
+- Refresh tokens start with `sk-ant-ort01-`
+- `expiresAt` is the Unix timestamp in milliseconds
+
+### Features
+
+- **Round-Robin Rotation**: Requests are distributed across available accounts
+- **Rate Limit Failover**: Automatically retries with the next account on HTTP 429
+- **Proactive Token Refresh**: Tokens are refreshed 10 minutes before expiration
+- **Hot Reload**: Add/remove accounts by editing `accounts.json` without restart
+- **Manual Selection**: Use `X-Account-Name` header to force a specific account
+
+### Status Endpoint
+
+Monitor account status via the `/status` endpoint:
+
+```bash
+# Get aggregate status
+curl http://localhost:8000/status
+
+# List all accounts
+curl http://localhost:8000/status/accounts
+
+# Get specific account status
+curl http://localhost:8000/status/accounts/primary
+
+# Manually refresh a token
+curl -X POST http://localhost:8000/status/accounts/primary/refresh
+
+# Re-enable an account after fixing auth issues
+curl -X POST http://localhost:8000/status/accounts/primary/enable
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CCPROXY_ACCOUNTS_PATH` | `~/.claude/accounts.json` | Path to accounts file |
+| `CCPROXY_ROTATION_ENABLED` | `true` | Enable/disable rotation |
+| `CCPROXY_HOT_RELOAD` | `true` | Enable file watcher for hot-reload |
+
+### Selecting a Specific Account
+
+To bypass rotation and use a specific account, add the `X-Account-Name` header:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/chat/completions \
+  -H "X-Account-Name: primary" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "claude-sonnet-4-20250514", "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+Note: When using manual selection, rate limit errors are returned directly without retry.
+
 ## Usage
 
 ### Running the Server

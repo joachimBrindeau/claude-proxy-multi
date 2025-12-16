@@ -67,7 +67,7 @@ def _log_http_error_compact(operation: str, response: httpx.Response) -> None:
 class OAuthClient:
     """OAuth client for handling Anthropic OAuth flows."""
 
-    def __init__(self, config: OAuthSettings | None = None):
+    def __init__(self, config: OAuthConfig | None = None):
         """Initialize OAuth client.
 
         Args:
@@ -101,6 +101,7 @@ class OAuthClient:
             Authorization URL
         """
         params = {
+            "code": "true",  # Required: tells Claude to show code on callback page
             "response_type": "code",
             "client_id": self.config.client_id,
             "redirect_uri": self.config.redirect_uri,
@@ -138,7 +139,7 @@ class OAuthClient:
         )
 
         headers = {
-            "Content-Type": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
             "anthropic-beta": self.config.beta_version,
             "User-Agent": self.config.user_agent,
         }
@@ -147,7 +148,7 @@ class OAuthClient:
             response = await client.post(
                 self.config.token_url,
                 headers=headers,
-                json=token_request.model_dump(),
+                data=token_request.model_dump(),  # form-encoded
                 timeout=self.config.request_timeout,
             )
 
@@ -177,7 +178,7 @@ class OAuthClient:
         }
 
         headers = {
-            "Content-Type": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
             "anthropic-beta": self.config.beta_version,
             "User-Agent": self.config.user_agent,
         }
@@ -186,7 +187,7 @@ class OAuthClient:
             response = await client.post(
                 self.config.token_url,
                 headers=headers,
-                json=refresh_request,
+                data=refresh_request,  # form-encoded
                 timeout=self.config.request_timeout,
             )
 
@@ -356,6 +357,7 @@ class OAuthClient:
         try:
             # Build authorization URL
             auth_params = {
+                "code": "true",  # Required: tells Claude to show code on callback page
                 "response_type": "code",
                 "client_id": self.config.client_id,
                 "redirect_uri": self.config.redirect_uri,
@@ -396,18 +398,17 @@ class OAuthClient:
             if not authorization_code:
                 raise OAuthLoginError("No authorization code received")
 
-            # Exchange authorization code for tokens
+            # Exchange authorization code for tokens (form-encoded - standard OAuth 2.0)
             token_data = {
                 "grant_type": "authorization_code",
                 "code": authorization_code,
                 "redirect_uri": self.config.redirect_uri,
                 "client_id": self.config.client_id,
                 "code_verifier": code_verifier,
-                "state": state,
             }
 
             headers = {
-                "Content-Type": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded",
                 "anthropic-beta": self.config.beta_version,
                 "User-Agent": self.config.user_agent,
             }
@@ -416,7 +417,7 @@ class OAuthClient:
                 response = await client.post(
                     self.config.token_url,
                     headers=headers,
-                    json=token_data,
+                    data=token_data,  # form-encoded
                     timeout=30.0,
                 )
 
