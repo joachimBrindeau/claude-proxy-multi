@@ -16,6 +16,7 @@ from fastapi import Request
 from fastapi.responses import StreamingResponse
 from starlette.responses import Response
 
+
 if TYPE_CHECKING:
     from ccproxy.config.settings import Settings
     from ccproxy.core.codex_transformers import CodexRequestTransformer

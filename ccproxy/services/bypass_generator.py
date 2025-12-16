@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from ccproxy.observability.access_logger import log_request_access
 from ccproxy.observability.streaming_response import StreamingResponseWithLogging
 
+
 if TYPE_CHECKING:
     from ccproxy.adapters.openai.adapter import OpenAIAdapter
     from ccproxy.observability import PrometheusMetrics

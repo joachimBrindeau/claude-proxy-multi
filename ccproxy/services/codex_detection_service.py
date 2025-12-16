@@ -7,6 +7,7 @@ import json
 import os
 import socket
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -179,7 +180,10 @@ class CodexDetectionService:
             instructions = self._extract_instructions(captured_data["body"])
 
             return CodexCacheData(
-                codex_version=version, headers=headers, instructions=instructions
+                codex_version=version,
+                headers=headers,
+                instructions=instructions,
+                cached_at=datetime.now(UTC),
             )
 
         except Exception as e:

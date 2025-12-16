@@ -38,12 +38,12 @@ class OAuthConfig:
     token_url: str = OAUTH_TOKEN_URL
     client_id: str = OAUTH_CLIENT_ID
     redirect_uri: str = OAUTH_REDIRECT_URI
-    scopes: list[str] = None  # Defaults to OAUTH_SCOPES if None
+    scopes: list[str] | None = None  # Defaults to OAUTH_SCOPES if None
     beta_version: str = OAUTH_BETA_VERSION
     user_agent: str = OAUTH_USER_AGENT
     timeout: float = 30.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Set default scopes if not provided."""
         if self.scopes is None:
             self.scopes = OAUTH_SCOPES.copy()

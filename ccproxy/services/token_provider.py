@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import structlog
 from fastapi import HTTPException, Request
 
+
 if TYPE_CHECKING:
     from ccproxy.services.credentials.manager import CredentialsManager
 

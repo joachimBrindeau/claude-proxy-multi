@@ -7,6 +7,7 @@ import json
 import os
 import socket
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -170,7 +171,10 @@ class ClaudeDetectionService:
             system_prompt = self._extract_system_prompt(captured_data["body"])
 
             return ClaudeCacheData(
-                claude_version=version, headers=headers, system_prompt=system_prompt
+                claude_version=version,
+                headers=headers,
+                system_prompt=system_prompt,
+                cached_at=datetime.now(UTC),
             )
 
         except Exception as e:

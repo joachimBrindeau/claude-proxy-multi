@@ -32,6 +32,16 @@ from ccproxy.api.routes.status import router as status_router
 from ccproxy.auth.oauth.routes import router as oauth_router
 from ccproxy.config.settings import Settings, get_settings
 from ccproxy.core.logging import setup_logging
+from ccproxy.rotation.startup import (
+    initialize_file_watcher_startup,
+    initialize_refresh_scheduler_startup,
+    initialize_rotation_pool_startup,
+    setup_rotation_middleware,
+    shutdown_file_watcher,
+    shutdown_refresh_scheduler,
+    shutdown_rotation_pool,
+)
+from ccproxy.ui.accounts import mount_accounts_ui
 from ccproxy.utils.models_provider import get_models_list
 from ccproxy.utils.startup_helpers import (
     check_claude_cli_startup,
@@ -51,16 +61,6 @@ from ccproxy.utils.startup_helpers import (
     validate_claude_authentication_startup,
     validate_codex_authentication_startup,
 )
-from ccproxy.rotation.startup import (
-    initialize_file_watcher_startup,
-    initialize_refresh_scheduler_startup,
-    initialize_rotation_pool_startup,
-    setup_rotation_middleware,
-    shutdown_file_watcher,
-    shutdown_refresh_scheduler,
-    shutdown_rotation_pool,
-)
-from ccproxy.ui.accounts import mount_accounts_ui
 
 
 logger = get_logger(__name__)

@@ -4,6 +4,7 @@ This module provides structured logging for debugging and monitoring
 API traffic, including Codex and standard Claude API requests.
 """
 
+import contextlib
 import json
 import time
 from typing import TYPE_CHECKING, Any
@@ -12,6 +13,7 @@ import structlog
 
 from ccproxy.services.request_metadata import redact_sensitive_headers
 from ccproxy.utils.simple_request_logger import append_streaming_log, write_request_log
+
 
 if TYPE_CHECKING:
     from ccproxy.observability.context import RequestContext
@@ -62,10 +64,8 @@ class VerboseLogger:
                 # Truncate at 1024 chars for readability
                 body_preview = full_body[:1024]
                 # Try to parse as JSON for better formatting
-                try:
+                with contextlib.suppress(json.JSONDecodeError):
                     full_body = json.loads(full_body)
-                except json.JSONDecodeError:
-                    pass  # Keep as string
             except Exception:
                 body_preview = f"<binary data of length {len(body)}>"
 

@@ -8,6 +8,7 @@ import json
 
 import structlog
 
+
 logger = structlog.get_logger(__name__)
 
 # Sensitive headers that should be redacted in logs

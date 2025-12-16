@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from structlog import get_logger
 
 from ccproxy.rotation.pool import RotationPool
@@ -22,35 +22,84 @@ router = APIRouter(tags=["status"])
 class AccountStatusResponse(BaseModel):
     """Status response for a single account."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str = Field(description="Account identifier")
     state: str = Field(description="Current state: available, rate_limited, auth_error, disabled")
-    tokenExpiresAt: str = Field(description="ISO8601 timestamp of token expiration")
-    tokenExpiresIn: int = Field(description="Seconds until token expiration")
-    rateLimitedUntil: str | None = Field(
-        default=None, description="ISO8601 timestamp when rate limit resets"
+    token_expires_at: str = Field(
+        serialization_alias="tokenExpiresAt",
+        validation_alias="tokenExpiresAt",
+        description="ISO8601 timestamp of token expiration",
     )
-    lastUsed: str | None = Field(
-        default=None, description="ISO8601 timestamp of last request"
+    token_expires_in: int = Field(
+        serialization_alias="tokenExpiresIn",
+        validation_alias="tokenExpiresIn",
+        description="Seconds until token expiration",
     )
-    lastError: str | None = Field(default=None, description="Most recent error message")
+    rate_limited_until: str | None = Field(
+        default=None,
+        serialization_alias="rateLimitedUntil",
+        validation_alias="rateLimitedUntil",
+        description="ISO8601 timestamp when rate limit resets",
+    )
+    last_used: str | None = Field(
+        default=None,
+        serialization_alias="lastUsed",
+        validation_alias="lastUsed",
+        description="ISO8601 timestamp of last request",
+    )
+    last_error: str | None = Field(
+        default=None,
+        serialization_alias="lastError",
+        validation_alias="lastError",
+        description="Most recent error message",
+    )
 
 
 class RotationStatusResponse(BaseModel):
     """Aggregate status response for rotation pool."""
 
-    totalAccounts: int = Field(description="Total configured accounts")
-    availableAccounts: int = Field(description="Accounts ready for requests")
-    rateLimitedAccounts: int = Field(description="Accounts in rate-limit cooldown")
-    authErrorAccounts: int = Field(description="Accounts needing re-authentication")
-    nextAccount: str | None = Field(description="Next account in rotation order")
+    model_config = ConfigDict(populate_by_name=True)
+
+    total_accounts: int = Field(
+        serialization_alias="totalAccounts",
+        validation_alias="totalAccounts",
+        description="Total configured accounts",
+    )
+    available_accounts: int = Field(
+        serialization_alias="availableAccounts",
+        validation_alias="availableAccounts",
+        description="Accounts ready for requests",
+    )
+    rate_limited_accounts: int = Field(
+        serialization_alias="rateLimitedAccounts",
+        validation_alias="rateLimitedAccounts",
+        description="Accounts in rate-limit cooldown",
+    )
+    auth_error_accounts: int = Field(
+        serialization_alias="authErrorAccounts",
+        validation_alias="authErrorAccounts",
+        description="Accounts needing re-authentication",
+    )
+    next_account: str | None = Field(
+        serialization_alias="nextAccount",
+        validation_alias="nextAccount",
+        description="Next account in rotation order",
+    )
     accounts: list[AccountStatusResponse] = Field(description="Per-account details")
 
 
 class HealthResponse(BaseModel):
     """Health check response with rotation awareness."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     status: str = Field(description="Service health status")
-    availableAccounts: int = Field(description="Number of accounts ready for requests")
+    available_accounts: int = Field(
+        serialization_alias="availableAccounts",
+        validation_alias="availableAccounts",
+        description="Number of accounts ready for requests",
+    )
     timestamp: str = Field(description="Current server timestamp")
 
 
@@ -91,7 +140,7 @@ async def health_check(request: Request) -> HealthResponse:
 
     return HealthResponse(
         status=status,
-        availableAccounts=available,
+        available_accounts=available,
         timestamp=datetime.now(UTC).isoformat(),
     )
 
@@ -106,11 +155,11 @@ async def get_rotation_status(request: Request) -> RotationStatusResponse:
     status = pool.get_status()
 
     return RotationStatusResponse(
-        totalAccounts=status["totalAccounts"],
-        availableAccounts=status["availableAccounts"],
-        rateLimitedAccounts=status["rateLimitedAccounts"],
-        authErrorAccounts=status["authErrorAccounts"],
-        nextAccount=status["nextAccount"],
+        total_accounts=status["totalAccounts"],
+        available_accounts=status["availableAccounts"],
+        rate_limited_accounts=status["rateLimitedAccounts"],
+        auth_error_accounts=status["authErrorAccounts"],
+        next_account=status["nextAccount"],
         accounts=[
             AccountStatusResponse(**account)
             for account in status["accounts"]

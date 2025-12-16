@@ -9,6 +9,7 @@ from ccproxy.auth.oauth.models import (
     OAuthTokenResponse,
 )
 
+
 # Lazy import to avoid circular dependency with routes
 if TYPE_CHECKING:
     from ccproxy.auth.oauth.routes import (

@@ -216,12 +216,13 @@ class TokenRefreshScheduler:
         except TokenExchangeError as e:
             # Check for expired/invalid refresh token
             response_text = e.response_text or ""
-            if e.status_code == 400:
-                if "invalid_grant" in response_text.lower() or "expired" in response_text.lower():
-                    raise RefreshTokenExpiredError(
-                        f"Refresh token is invalid or expired: {response_text}"
-                    )
-            raise RefreshTokenError(f"Token refresh failed: {e}")
+            is_invalid_grant = "invalid_grant" in response_text.lower()
+            is_expired = "expired" in response_text.lower()
+            if e.status_code == 400 and (is_invalid_grant or is_expired):
+                raise RefreshTokenExpiredError(
+                    f"Refresh token is invalid or expired: {response_text}"
+                ) from e
+            raise RefreshTokenError(f"Token refresh failed: {e}") from e
 
         # Parse response
         access_token = data.get("access_token")

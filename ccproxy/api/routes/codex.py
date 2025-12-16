@@ -8,8 +8,8 @@ from collections.abc import AsyncIterator
 import httpx
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
-from httpx_sse import EventSource, ServerSentEvent
 from fastapi.responses import StreamingResponse
+from httpx_sse import EventSource
 from starlette.responses import Response
 
 from ccproxy.adapters.openai.models import (

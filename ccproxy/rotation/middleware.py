@@ -254,14 +254,14 @@ class RotationMiddleware:
                     is_streaming = "text/event-stream" in content_type
 
                     # For 429 errors, we might retry - don't send yet
-                    if status_code == 429 and attempt < self.max_retries:
+                    if status_code == 429 and attempt < self.max_retries:  # noqa: B023
                         should_retry = True
                         return
 
                     # Mark rate limited BEFORE sending response to avoid race condition
                     if status_code == 429:
                         self.pool.mark_rate_limited(
-                            account.name, headers=_decode_headers(response_headers)
+                            account.name, headers=_decode_headers(response_headers)  # noqa: B023
                         )
 
                     # For streaming or non-retryable responses, send immediately
@@ -274,7 +274,7 @@ class RotationMiddleware:
                     # If we're potentially retrying, buffer the response
                     if should_retry:
                         if body_chunk:
-                            response_body_parts.append(body_chunk)
+                            response_body_parts.append(body_chunk)  # noqa: B023
                         return
 
                     # Otherwise send immediately

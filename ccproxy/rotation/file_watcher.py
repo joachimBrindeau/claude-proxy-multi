@@ -5,9 +5,8 @@ Uses watchdog for efficient file system event monitoring.
 """
 
 import asyncio
-from collections.abc import Awaitable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from pathlib import Path
-from typing import Callable
 
 from structlog import get_logger
 from watchdog.events import FileSystemEvent, FileSystemEventHandler

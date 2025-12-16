@@ -15,6 +15,7 @@ from ccproxy.rotation.file_watcher import AccountsFileWatcher
 from ccproxy.rotation.pool import AccountState, RotationPool
 from ccproxy.rotation.refresh import TokenRefreshScheduler
 
+
 __all__ = [
     "Account",
     "AccountCredentials",
