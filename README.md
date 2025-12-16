@@ -9,7 +9,16 @@
 [![Claude API](https://img.shields.io/badge/Claude-API-orange.svg)](https://www.anthropic.com/)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-412991.svg)](https://platform.openai.com/)
 
-*A feature-rich fork of [CaddyGlow/ccproxy-api](https://github.com/CaddyGlow/ccproxy-api) with enterprise-grade multi-account rotation*
+---
+
+### Fork of [CaddyGlow/ccproxy-api](https://github.com/CaddyGlow/ccproxy-api)
+
+This project is built on top of the excellent **CCProxy** by [@CaddyGlow](https://github.com/CaddyGlow).
+All core proxy functionality, authentication, and API translation comes from the original project.
+
+**This fork adds:** Multi-account rotation with automatic failover
+
+---
 
 [Features](#-features) · [Quick Start](#-quick-start) · [Multi-Account Setup](#-multi-account-rotation) · [API Reference](#-api-endpoints) · [Configuration](#-configuration)
 
@@ -17,24 +26,27 @@
 
 ---
 
-## Why This Fork?
+## What This Fork Adds
 
-This fork extends the original CCProxy with **production-ready multi-account rotation**, enabling you to:
+Built on top of CaddyGlow's CCProxy, this fork adds **multi-account rotation** for production deployments:
 
 - **3x+ throughput** by distributing requests across multiple Claude accounts
 - **Zero downtime** with automatic failover when accounts hit rate limits
 - **Hands-off operation** with proactive token refresh before expiration
 - **Live updates** via hot-reload - add/remove accounts without restart
 
-| Feature | Original | This Fork |
-|---------|:--------:|:---------:|
-| Single account proxy | ✅ | ✅ |
-| Multi-account rotation | ❌ | ✅ |
-| Rate limit failover | ❌ | ✅ |
-| Proactive token refresh | ❌ | ✅ |
-| Hot-reload accounts | ❌ | ✅ |
-| Account status API | ❌ | ✅ |
-| Web UI for accounts | ❌ | ✅ |
+| Feature | Source |
+|---------|:------:|
+| Claude & Codex proxy | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| OAuth2 authentication | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| SDK & API modes | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| OpenAI format translation | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| Observability suite | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| **Multi-account rotation** | This Fork |
+| **Rate limit failover** | This Fork |
+| **Proactive token refresh** | This Fork |
+| **Hot-reload accounts** | This Fork |
+| **Account status API** | This Fork |
 
 ---
 
@@ -464,7 +476,22 @@ MIT License - see [LICENSE](LICENSE).
 
 ## 🙏 Acknowledgments
 
-- [CaddyGlow/ccproxy-api](https://github.com/CaddyGlow/ccproxy-api) - Original project
+### Original Project
+
+This fork would not exist without the excellent work by **[@CaddyGlow](https://github.com/CaddyGlow)** on [ccproxy-api](https://github.com/CaddyGlow/ccproxy-api).
+
+The original CCProxy provides:
+- Multi-provider proxy architecture (Claude + OpenAI Codex)
+- OAuth2 PKCE authentication flows
+- SDK and API operating modes
+- OpenAI-compatible API translation
+- MCP server integration
+- Observability suite (metrics, dashboard, logging)
+
+**If you don't need multi-account rotation, use the [original project](https://github.com/CaddyGlow/ccproxy-api).**
+
+### Also Thanks To
+
 - [Anthropic](https://anthropic.com) - Claude API & SDK
 - [OpenAI](https://openai.com) - Codex API
 
