@@ -224,11 +224,43 @@ class RotationPool:
         return sum(1 for a in self._accounts.values() if a.state == AccountState.AUTH_ERROR)
 
     def load(self) -> None:
-        """Load accounts from file."""
+        """Load accounts from file.
+
+        Preserves runtime state (rate limits, capacity info, etc.) for existing accounts.
+        Only credentials are updated from the file.
+        """
         accounts_file = load_accounts(self._accounts_path)
-        self._accounts = accounts_file.accounts
+        new_accounts = accounts_file.accounts
+
+        # Preserve runtime state for existing accounts
+        for name, new_account in new_accounts.items():
+            if name in self._accounts:
+                existing = self._accounts[name]
+                # Preserve runtime state by copying it to the new account
+                new_account.state = existing.state
+                new_account.rate_limited_until = existing.rate_limited_until
+                new_account.last_used = existing.last_used
+                new_account.last_error = existing.last_error
+                new_account.tokens_limit = existing.tokens_limit
+                new_account.tokens_remaining = existing.tokens_remaining
+                new_account.tokens_remaining_percent = existing.tokens_remaining_percent
+                new_account.requests_limit = existing.requests_limit
+                new_account.requests_remaining = existing.requests_remaining
+                new_account.requests_remaining_percent = existing.requests_remaining_percent
+                new_account.capacity_checked_at = existing.capacity_checked_at
+                logger.debug(
+                    "account_state_preserved",
+                    account=name,
+                    state=existing.state,
+                    rate_limited_until=existing.rate_limited_until,
+                )
+
+        self._accounts = new_accounts
         self._account_order = list(self._accounts.keys())
-        self._rotation_index = 0
+
+        # Only reset rotation index if this is the first load
+        if self._rotation_index >= len(self._account_order):
+            self._rotation_index = 0
 
         # Track file modification time
         path = self.accounts_path
