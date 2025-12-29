@@ -323,18 +323,42 @@ auth_token = "your-secret-token"
 
 ### Docker Deployment
 
+**Quick Start (Recommended):**
+
+```bash
+# One command to start
+docker run -d -p 8000:8000 -v ccproxy-config:/config \
+  --name ccproxy ghcr.io/joachimbrindeau/ccproxy-multi:latest
+
+# Open http://localhost:8000 to add accounts via web UI
+```
+
+**Docker Compose:**
+
 ```yaml
 # docker-compose.yml
 services:
   ccproxy:
-    image: ghcr.io/joachimbrindeau/ccproxy-api:latest
+    image: ghcr.io/joachimbrindeau/ccproxy-multi:latest
     ports:
       - "8000:8000"
     volumes:
-      - ./accounts.json:/config/accounts.json:ro
+      - ccproxy-config:/config
     environment:
       - CCPROXY_ACCOUNTS_PATH=/config/accounts.json
+      - CCPROXY_ROTATION_ENABLED=true
+      - CCPROXY_HOT_RELOAD=true
+
+volumes:
+  ccproxy-config:
 ```
+
+**First Run:**
+
+1. Start the container
+2. Visit `http://localhost:8000/` (redirects to setup if no accounts)
+3. Click "Add Account" and complete OAuth flow
+4. Credentials are saved to the volume, persisting across restarts
 
 ---
 

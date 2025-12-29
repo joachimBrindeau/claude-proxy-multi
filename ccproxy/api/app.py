@@ -24,6 +24,7 @@ from ccproxy.api.routes.health import router as health_router
 from ccproxy.api.routes.mcp import setup_mcp
 from ccproxy.api.routes.permissions import router as permissions_router
 from ccproxy.api.routes.proxy import router as proxy_router
+from ccproxy.api.routes.root import router as root_router
 from ccproxy.api.routes.status import router as status_router
 from ccproxy.auth.oauth.routes import router as oauth_router
 from ccproxy.config.settings import Settings, get_settings
@@ -288,6 +289,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Add rotation middleware for multi-account support
     # This is added last so it runs first (middleware order is reversed)
     setup_rotation_middleware(app)
+
+    # Include root landing page router (first-run setup redirect)
+    app.include_router(root_router, tags=["root"])
 
     # Include health router (always enabled)
     app.include_router(health_router, tags=["health"])

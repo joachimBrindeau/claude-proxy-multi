@@ -19,6 +19,7 @@ dependencies = [
   "jsonschema>=0.33.2",
   "keyring>=25.6.0",
   "orjson>=3.11.5",
+  "packaging>=23.0",
   "platformdirs>=4.3.6",
   "pybreaker>=1.4.1",
   "pydantic>=2.8.0",
