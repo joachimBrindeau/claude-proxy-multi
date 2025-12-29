@@ -7,39 +7,35 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "aiofiles>=24.1.0",
+  "apscheduler>=3.10.0",
   "cachetools>=6.2.4",
-  "jsonschema>=0.33.2",
+  "claude-code-sdk>=0.0.19",
+  "diskcache>=5.6.3",
+  "fastapi-mcp",
   "fastapi[standard]>=0.115.14",
   "httpx>=0.28.1",
   "httpx-sse>=0.4.1",
+  "jinja2>=3.1.0",
+  "jsonschema>=0.33.2",
   "keyring>=25.6.0",
+  "orjson>=3.11.5",
   "platformdirs>=4.3.6",
-  "prometheus-client>=0.22.1",
+  "pybreaker>=1.4.1",
   "pydantic>=2.8.0",
   "pydantic-settings>=2.4.0",
+  "pyjwt>=2.10.1",
+  "python-dateutil>=2.9.0",
   "rich>=13.0.0",
   "rich-toolkit>=0.14.8",
+  "shortuuid>=1.0.13",
   "structlog>=25.4.0",
   "tenacity>=9.1.2",
+  "textual>=3.7.1",
   "tomli>=2.0.0; python_version<'3.11'",
   "typer>=0.16.0",
-  "duckdb>=1.1.0",
   "typing-extensions>=4.0.0",
   "uvicorn>=0.34.0",
-  "sqlmodel>=0.0.24",
-  "duckdb-engine>=0.17.0",
-  "apscheduler>=3.10.0",
   "watchdog>=3.0.0",
-  "fastapi-mcp",
-  "textual>=3.7.1",
-  "claude-code-sdk>=0.0.19",
-  "pyjwt>=2.10.1",
-  "jinja2>=3.1.0",
-  "shortuuid>=1.0.13",
-  "python-dateutil>=2.9.0",
-  "diskcache>=5.6.3",
-  "pybreaker>=1.4.1",
-  "orjson>=3.11.5",
 ]
 
 [build-system]
@@ -275,18 +271,12 @@ disable_error_code = ["attr-defined"]
 # Files with intentional Any from untyped imports
 [[tool.mypy.overrides]]
 module = [
-    "ccproxy.observability.pushgateway",
     "ccproxy.utils.id_generator",
     "ccproxy.core.async_utils",
 ]
 disallow_any_unimported = false
 disallow_subclassing_any = false
 disable_error_code = ["no-any-return", "no-any-unimported", "misc", "operator", "unused-ignore"]
-
-# Files with dynamic attribute access
-[[tool.mypy.overrides]]
-module = "ccproxy.utils.cost_calculator"
-disable_error_code = ["attr-defined"]
 
 # Retry decorators can modify return types
 [[tool.mypy.overrides]]

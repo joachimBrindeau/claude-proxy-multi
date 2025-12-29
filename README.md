@@ -319,10 +319,6 @@ refresh_buffer_seconds = 600
 
 [security]
 auth_token = "your-secret-token"
-
-[observability]
-metrics_enabled = true
-dashboard_enabled = true
 ```
 
 ### Docker Deployment

@@ -32,38 +32,6 @@ class SchedulerSettings(BaseSettings):
         description="Timeout in seconds for graceful task shutdown",
     )
 
-    # Observability tasks (migrated from ObservabilitySettings)
-    pushgateway_enabled: bool = Field(
-        default=False,
-        description="Whether pushgateway metrics pushing task is enabled",
-    )
-
-    pushgateway_interval_seconds: float = Field(
-        default=60.0,
-        ge=1.0,
-        le=3600.0,  # Max 1 hour
-        description="Interval in seconds between pushgateway metric pushes",
-    )
-
-    pushgateway_max_backoff_seconds: float = Field(
-        default=300.0,
-        ge=1.0,
-        le=1800.0,  # Max 30 minutes
-        description="Maximum backoff delay for failed pushgateway operations",
-    )
-
-    stats_printing_enabled: bool = Field(
-        default=False,
-        description="Whether stats printing task is enabled",
-    )
-
-    stats_printing_interval_seconds: float = Field(
-        default=300.0,
-        ge=1.0,
-        le=3600.0,  # Max 1 hour
-        description="Interval in seconds between stats printing",
-    )
-
     # Version checking task settings
     version_check_enabled: bool = Field(
         default=True,
