@@ -125,8 +125,6 @@ def _group_config_rows(
             group_name = "Authentication Configuration"
         elif setting.startswith("docker"):
             group_name = "Docker Configuration"
-        elif setting.startswith("observability"):
-            group_name = "Observability Configuration"
         elif setting.startswith("scheduler"):
             group_name = "Scheduler Configuration"
         else:

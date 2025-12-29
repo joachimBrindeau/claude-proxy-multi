@@ -609,16 +609,12 @@ class TestClaudeSDKStartup:
             patch(
                 "ccproxy.utils.startup_helpers.CredentialsAuthManager"
             ) as MockAuthManager,
-            patch("ccproxy.utils.startup_helpers.get_metrics") as mock_get_metrics,
             patch("ccproxy.utils.startup_helpers.ClaudeSDKService") as MockSDKService,
             patch("ccproxy.claude_sdk.manager.SessionManager") as MockSessionManager,
         ):
             # Setup mocks
             mock_auth_manager = Mock()
             MockAuthManager.return_value = mock_auth_manager
-
-            mock_metrics = Mock()
-            mock_get_metrics.return_value = mock_metrics
 
             mock_session_manager = AsyncMock()
             MockSessionManager.return_value = mock_session_manager
@@ -637,7 +633,6 @@ class TestClaudeSDKStartup:
                 MockSDKService.assert_called_once()
                 call_kwargs = MockSDKService.call_args[1]
                 assert call_kwargs["auth_manager"] == mock_auth_manager
-                assert call_kwargs["metrics"] == mock_metrics
                 assert call_kwargs["settings"] == mock_settings
                 assert call_kwargs["session_manager"] == mock_session_manager
 
@@ -655,15 +650,11 @@ class TestClaudeSDKStartup:
             patch(
                 "ccproxy.utils.startup_helpers.CredentialsAuthManager"
             ) as MockAuthManager,
-            patch("ccproxy.utils.startup_helpers.get_metrics") as mock_get_metrics,
             patch("ccproxy.utils.startup_helpers.ClaudeSDKService") as MockSDKService,
         ):
             # Setup mocks
             mock_auth_manager = Mock()
             MockAuthManager.return_value = mock_auth_manager
-
-            mock_metrics = Mock()
-            mock_get_metrics.return_value = mock_metrics
 
             mock_claude_service = Mock()
             MockSDKService.return_value = mock_claude_service

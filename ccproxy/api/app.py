@@ -295,11 +295,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Include rotation status router for account monitoring
     app.include_router(status_router, tags=["rotation-status"])
 
-    # NOTE: Observability routers (prometheus_router, logs_router, dashboard_router) were
-    # removed during codebase consolidation. The settings.observability.* flags remain
-    # for future re-implementation. These features defaulted to disabled anyway.
-    # See: ccproxy/config/observability.py for the settings that control these endpoints.
-
     app.include_router(oauth_router, prefix="/oauth", tags=["oauth"])
 
     # Claude SDK routes

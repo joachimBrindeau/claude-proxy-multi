@@ -14,7 +14,6 @@ from structlog.typing import ExcInfo, Processor
 
 suppress_debug = [
     "ccproxy.scheduler",
-    "ccproxy.observability.context",
     "ccproxy.utils.simple_request_logger",
 ]
 

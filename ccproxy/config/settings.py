@@ -18,7 +18,6 @@ from .auth import AuthSettings
 from .claude import ClaudeSettings
 from .cors import CORSSettings
 from .docker_settings import DockerSettings
-from .observability import ObservabilitySettings
 from .reverse_proxy import ReverseProxySettings
 from .scheduler import SchedulerSettings
 from .security import SecuritySettings
@@ -100,12 +99,6 @@ class Settings(BaseSettings):
     docker: DockerSettings = Field(
         default_factory=DockerSettings,
         description="Docker configuration for running Claude commands in containers",
-    )
-
-    # Observability settings
-    observability: ObservabilitySettings = Field(
-        default_factory=ObservabilitySettings,
-        description="Observability configuration settings",
     )
 
     # Scheduler settings
@@ -207,18 +200,6 @@ class Settings(BaseSettings):
         elif hasattr(v, "__dict__"):
             return DockerSettings(**v.__dict__)
 
-        return v
-
-    @field_validator("observability", mode="before")
-    @classmethod
-    def validate_observability(cls, v: Any) -> Any:
-        """Validate and convert observability settings."""
-        if v is None:
-            return ObservabilitySettings()
-        if isinstance(v, ObservabilitySettings):
-            return v
-        if isinstance(v, dict):
-            return ObservabilitySettings(**v)
         return v
 
     @field_validator("scheduler", mode="before")

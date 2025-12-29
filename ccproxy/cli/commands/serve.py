@@ -735,10 +735,6 @@ def api(
             docker_mode=docker,
             docker_image=settings.docker.docker_image if docker else None,
             auth_enabled=bool(settings.security.auth_token),
-            duckdb_enabled=settings.observability.duckdb_enabled,
-            duckdb_path=settings.observability.duckdb_path
-            if settings.observability.duckdb_enabled
-            else None,
             claude_cli_path=settings.claude.cli_path,
         )
 

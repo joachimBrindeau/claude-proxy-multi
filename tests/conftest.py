@@ -23,14 +23,13 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from ccproxy.api.app import create_app
-from ccproxy.observability.context import RequestContext
+from ccproxy.core.request_context import RequestContext
 
 
 if TYPE_CHECKING:
     from tests.factories import FastAPIAppFactory, FastAPIClientFactory
 from ccproxy.auth.manager import AuthManager
 from ccproxy.config.auth import AuthSettings, CredentialStorageSettings
-from ccproxy.config.observability import ObservabilitySettings
 from ccproxy.config.security import SecuritySettings
 from ccproxy.config.server import ServerSettings
 from ccproxy.config.settings import Settings
@@ -154,15 +153,6 @@ def test_settings(isolated_environment: Path) -> Settings:
                 storage_paths=[isolated_environment / ".claude/"]
             )
         ),
-        observability=ObservabilitySettings(
-            # Enable all observability endpoints for testing
-            metrics_endpoint_enabled=True,
-            logs_endpoints_enabled=True,
-            logs_collection_enabled=True,
-            dashboard_enabled=True,
-            log_storage_backend="duckdb",
-            duckdb_path=str(isolated_environment / "test_metrics.duckdb"),
-        ),
     )
 
 
@@ -182,15 +172,6 @@ def auth_settings(isolated_environment: Path) -> Settings:
             storage=CredentialStorageSettings(
                 storage_paths=[isolated_environment / ".claude/"]
             )
-        ),
-        observability=ObservabilitySettings(
-            # Enable all observability endpoints for testing
-            metrics_endpoint_enabled=True,
-            logs_endpoints_enabled=True,
-            logs_collection_enabled=True,
-            dashboard_enabled=True,
-            log_storage_backend="duckdb",
-            duckdb_path=str(isolated_environment / "test_metrics.duckdb"),
         ),
     )
 
@@ -477,15 +458,6 @@ def app_factory(tmp_path: Path) -> Callable[[dict[str, Any]], FastAPI]:
             security=SecuritySettings(auth_token=None),
             auth=AuthSettings(
                 storage=CredentialStorageSettings(storage_paths=[tmp_path / ".claude/"])
-            ),
-            observability=ObservabilitySettings(
-                # Enable all observability endpoints for testing
-                metrics_endpoint_enabled=True,
-                logs_endpoints_enabled=True,
-                logs_collection_enabled=True,
-                dashboard_enabled=True,
-                log_storage_backend="duckdb",
-                duckdb_path=str(tmp_path / "test_metrics.duckdb"),
             ),
         )
         if auth_config.get("has_configured_token"):
