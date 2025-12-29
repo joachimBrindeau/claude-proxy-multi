@@ -820,7 +820,7 @@ class OAuthProxyHandler(http.server.BaseHTTPRequestHandler):
 
     server_url: str = DEFAULT_SERVER
 
-    def do_GET(self) -> None:
+    def do_GET(self) -> None:  # noqa: N802
         """Handle GET requests - redirect callbacks to server."""
         # Parse the request path
         parsed = urllib.parse.urlparse(self.path)

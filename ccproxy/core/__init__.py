@@ -75,7 +75,6 @@ from ccproxy.core.http import (
 )
 from ccproxy.core.interfaces import (
     APIAdapter,
-    MetricExporter,
     StreamTransformer,
     TokenStorage,
 )
@@ -135,7 +134,6 @@ __all__ = [
     "HTTPXClient",
     # Interface abstractions
     "APIAdapter",
-    "MetricExporter",
     "IRequestTransformer",
     "IResponseTransformer",
     "StreamTransformer",

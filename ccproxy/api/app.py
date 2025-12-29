@@ -60,10 +60,10 @@ logger = get_logger(__name__)
 # Type definitions for lifecycle components
 class LifecycleComponent(TypedDict):
     name: str
-    startup: Callable[[FastAPI, Any], Awaitable[None]] | None
+    startup: Callable[[FastAPI, Settings], Awaitable[None]] | None
     shutdown: (
         Callable[[FastAPI], Awaitable[None]]
-        | Callable[[FastAPI, Any], Awaitable[None]]
+        | Callable[[FastAPI, Settings], Awaitable[None]]
         | None
     )
 

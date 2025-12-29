@@ -7,8 +7,6 @@ Uses pure ASGI middleware (not BaseHTTPMiddleware) to allow proper retry
 since Starlette's BaseHTTPMiddleware cannot call call_next() multiple times.
 """
 
-from typing import Any
-
 import orjson
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -16,6 +14,7 @@ from starlette import status
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from structlog import get_logger
 
+from ccproxy.rotation.accounts import Account
 from ccproxy.rotation.constants import (
     RATE_LIMIT_RETRY_AFTER_SECONDS,
     ROTATION_ENABLED_PATHS,
@@ -404,7 +403,7 @@ class RotationMiddleware:
         return None
 
 
-def get_rotation_account(request: Request) -> Any | None:
+def get_rotation_account(request: Request) -> Account | None:
     """Get the rotation account from request state.
 
     Helper function for route handlers to access the selected account.
@@ -415,7 +414,8 @@ def get_rotation_account(request: Request) -> Any | None:
     Returns:
         Account if set by middleware, None otherwise
     """
-    return getattr(request.state, "rotation_account", None)
+    account: Account | None = getattr(request.state, "rotation_account", None)
+    return account
 
 
 def get_rotation_token(request: Request) -> str | None:

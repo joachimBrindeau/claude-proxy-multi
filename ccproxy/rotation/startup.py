@@ -3,9 +3,11 @@
 Integrates with ccproxy's lifecycle management.
 """
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import orjson
 from fastapi import FastAPI
@@ -17,6 +19,10 @@ from ccproxy.rotation.file_watcher import (
 from ccproxy.rotation.middleware import RotationMiddleware
 from ccproxy.rotation.pool import init_rotation_pool
 from ccproxy.rotation.refresh import init_refresh_scheduler
+
+
+if TYPE_CHECKING:
+    from ccproxy.config.settings import Settings
 
 
 logger = get_logger(__name__)
@@ -100,7 +106,7 @@ def is_rotation_enabled() -> bool:
     return True
 
 
-async def initialize_rotation_pool_startup(app: FastAPI, settings: Any) -> None:
+async def initialize_rotation_pool_startup(app: FastAPI, settings: Settings) -> None:
     """Initialize the rotation pool on startup.
 
     Note: The pool is typically already created by setup_rotation_middleware().
@@ -161,7 +167,9 @@ async def initialize_rotation_pool_startup(app: FastAPI, settings: Any) -> None:
         app.state.rotation_enabled = False
 
 
-async def initialize_refresh_scheduler_startup(app: FastAPI, settings: Any) -> None:
+async def initialize_refresh_scheduler_startup(
+    app: FastAPI, settings: Settings
+) -> None:
     """Initialize the token refresh scheduler on startup.
 
     Args:
@@ -220,7 +228,7 @@ async def shutdown_rotation_pool(app: FastAPI) -> None:
         logger.info("rotation_pool_saved")
 
 
-async def initialize_file_watcher_startup(app: FastAPI, settings: Any) -> None:
+async def initialize_file_watcher_startup(app: FastAPI, settings: Settings) -> None:
     """Initialize the file watcher for hot-reload on startup.
 
     Args:

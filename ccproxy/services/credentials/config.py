@@ -1,9 +1,15 @@
 """Configuration for credentials and OAuth."""
 
+from __future__ import annotations
+
 import os
-from typing import Any
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
+
+
+if TYPE_CHECKING:
+    from ccproxy.config.auth import OAuthSettings
 
 
 def _get_default_storage_paths() -> list[str]:
@@ -23,7 +29,7 @@ def _get_default_storage_paths() -> list[str]:
     ]
 
 
-def _get_oauth_settings() -> Any:
+def _get_oauth_settings() -> OAuthSettings:
     """Lazy import OAuthSettings to avoid circular imports."""
     from ccproxy.config.auth import OAuthSettings
 
