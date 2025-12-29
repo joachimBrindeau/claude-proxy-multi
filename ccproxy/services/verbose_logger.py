@@ -15,7 +15,7 @@ from ccproxy.utils.simple_request_logger import append_streaming_log, write_requ
 
 
 if TYPE_CHECKING:
-    from ccproxy.observability.context import RequestContext
+    from ccproxy.core.request_context import RequestContext
     from ccproxy.services.proxy_service import RequestData
 
 logger = structlog.get_logger(__name__)

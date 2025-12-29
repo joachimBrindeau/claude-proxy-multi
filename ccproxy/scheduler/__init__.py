@@ -20,8 +20,8 @@ from .core import Scheduler
 from .registry import TaskRegistry, register_task
 from .tasks import (
     BaseScheduledTask,
-    PushgatewayTask,
-    StatsPrintingTask,
+    PoolStatsTask,
+    VersionUpdateCheckTask,
 )
 
 
@@ -33,6 +33,6 @@ __all__ = [
     "TaskRegistry",
     "register_task",
     "BaseScheduledTask",
-    "PushgatewayTask",
-    "StatsPrintingTask",
+    "PoolStatsTask",
+    "VersionUpdateCheckTask",
 ]

@@ -8,10 +8,7 @@ management using dependency injection patterns without any global state.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
-
-# Type alias for metrics factory function
-from typing import Any, TypeAlias
+from typing import Any
 
 import structlog
 from claude_code_sdk import ClaudeCodeOptions
@@ -25,23 +22,17 @@ from ccproxy.core.errors import ClaudeProxyError
 logger = structlog.get_logger(__name__)
 
 
-MetricsFactory: TypeAlias = Callable[[], Any | None]
-
-
 class SessionManager:
     """Manages the lifecycle of session-based Claude SDK clients with dependency injection."""
 
     def __init__(
         self,
         settings: Settings,
-        metrics_factory: MetricsFactory | None = None,
     ) -> None:
-        """Initialize SessionManager with optional settings and metrics factory.
+        """Initialize SessionManager with settings.
 
         Args:
-            settings: Optional settings containing session pool configuration
-            metrics_factory: Optional callable that returns a metrics instance.
-                           If None, no metrics will be used.
+            settings: Settings containing session pool configuration
         """
         import structlog
 
@@ -50,14 +41,12 @@ class SessionManager:
         self._settings = settings
         self._session_pool: SessionPool | None = None
         self._lock = asyncio.Lock()
-        self._metrics_factory = metrics_factory
 
         # Initialize session pool if enabled
         session_pool_enabled = self._should_enable_session_pool()
         logger.debug(
             "session_manager_init",
             has_settings=bool(settings),
-            has_metrics_factory=bool(metrics_factory),
             session_pool_enabled=session_pool_enabled,
         )
 

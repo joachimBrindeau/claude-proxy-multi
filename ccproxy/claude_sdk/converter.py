@@ -205,13 +205,6 @@ class MessageConverter:
         # Extract token usage from result message
         usage = result_message.usage_model
 
-        # Log token extraction for debugging
-        # logger.debug(
-        #     "assistant_message_content",
-        #     content_blocks=[block.type for block in assistant_message.content],
-        #     content_count=len(assistant_message.content),
-        # )
-
         logger.debug(
             "token_usage_extracted",
             input_tokens=usage.input_tokens,

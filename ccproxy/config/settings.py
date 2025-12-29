@@ -403,22 +403,6 @@ class ConfigurationManager:
         """Configure logging once based on settings."""
         if self._logging_configured:
             return
-
-        # Import here to avoid circular import
-
-        effective_level = log_level or (
-            self._settings.server.log_level if self._settings else "INFO"
-        )
-
-        # Determine format based on log level - Rich for DEBUG, JSON for production
-        "rich" if effective_level.upper() == "DEBUG" else "json"
-
-        # setup_dual_logging(
-        #     level=effective_level,
-        #     format_type=format_type,
-        #     configure_uvicorn=True,
-        #     verbose_tracebacks=effective_level.upper() == "DEBUG",
-        # )
         self._logging_configured = True
 
     @staticmethod

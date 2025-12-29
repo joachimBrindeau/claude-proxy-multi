@@ -2,14 +2,11 @@
 
 import asyncio
 import time
-from typing import Any
 
 import structlog
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp
-
-from ccproxy.api.dependencies import get_cached_settings
 
 
 logger = structlog.get_logger(__name__)
@@ -26,7 +23,9 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         """
         super().__init__(app)
 
-    async def dispatch(self, request: Request, call_next: Any) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         """Process the request and log access details.
 
         Args:
@@ -38,15 +37,6 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         """
         # Record start time
         start_time = time.perf_counter()
-
-        # Store log storage in request state if collection is enabled
-
-        settings = get_cached_settings(request)
-
-        if settings.observability.logs_collection_enabled and hasattr(
-            request.app.state, "log_storage"
-        ):
-            request.state.log_storage = request.app.state.log_storage
 
         # Extract client info
         client_ip = "unknown"
@@ -65,12 +55,10 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
             if hasattr(request.state, "request_id"):
                 request_id = request.state.request_id
             elif hasattr(request.state, "context"):
-                # Try to check if it's a RequestContext without importing
                 context = request.state.context
-                if hasattr(context, "request_id") and hasattr(context, "metadata"):
+                if hasattr(context, "request_id"):
                     request_id = context.request_id
         except (AttributeError, KeyError, LookupError):
-            # State/context attributes may not exist or be accessible
             pass
 
         # Process the request
@@ -80,9 +68,7 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except (Exception, asyncio.CancelledError) as e:
-            # Capture downstream exception message for finally block logging
-            # Includes asyncio.CancelledError (BaseException in Python 3.8+)
-            error_message = str(e)  # Used in finally block's logger.error() call
+            error_message = str(e)
             raise
         finally:
             try:
@@ -90,7 +76,6 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                 duration_seconds = time.perf_counter() - start_time
                 duration_ms = duration_seconds * 1000
 
-                # Extract response info
                 if response:
                     status_code = response.status_code
 
@@ -99,60 +84,33 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                     anthropic_request_id = None
                     for header_name, header_value in response.headers.items():
                         header_lower = header_name.lower()
-                        # Capture x-ratelimit-* headers
                         if header_lower.startswith(
                             "x-ratelimit-"
                         ) or header_lower.startswith("anthropic-ratelimit-"):
                             rate_limit_info[header_lower] = header_value
-                        # Capture request-id from Anthropic's response
                         elif header_lower == "request-id":
                             anthropic_request_id = header_value
 
-                    # Add anthropic request ID if present
                     if anthropic_request_id:
                         rate_limit_info["anthropic_request_id"] = anthropic_request_id
 
-                    headers = request.state.context.metadata.get("headers", {})
-                    headers.update(rate_limit_info)
-                    request.state.context.metadata["headers"] = headers
-                    request.state.context.metadata["status_code"] = status_code
-                    # Extract metadata from context if available
-                    context_metadata = {}
-                    try:
-                        if hasattr(request.state, "context"):
-                            context = request.state.context
-                            # Check if it has the expected attributes of RequestContext
-                            if hasattr(context, "metadata") and isinstance(
-                                context.metadata, dict
-                            ):
-                                # Get all metadata from the context
-                                context_metadata = context.metadata.copy()
-                                # Remove fields we're already logging separately
-                                for key in [
-                                    "method",
-                                    "path",
-                                    "client_ip",
-                                    "status_code",
-                                    "request_id",
-                                    "duration_ms",
-                                    "duration_seconds",
-                                    "query",
-                                    "user_agent",
-                                    "error_message",
-                                ]:
-                                    context_metadata.pop(key, None)
-                    except (AttributeError, KeyError, LookupError):
-                        # Context metadata attributes may not exist or be accessible
-                        pass
+                    # Update context metadata if available
+                    if hasattr(request.state, "context") and hasattr(
+                        request.state.context, "metadata"
+                    ):
+                        headers = request.state.context.metadata.get("headers", {})
+                        headers.update(rate_limit_info)
+                        request.state.context.metadata["headers"] = headers
+                        request.state.context.metadata["status_code"] = status_code
 
-                    # Use start-only logging - let context handle comprehensive access logging
-                    # Only log basic request start info since context will handle complete access log
-                    from ccproxy.observability.access_logger import log_request_start
-
-                    log_request_start(
+                    # Log request completion
+                    logger.info(
+                        "request_complete",
                         request_id=request_id or "unknown",
                         method=method,
                         path=path,
+                        status_code=status_code,
+                        duration_ms=round(duration_ms, 2),
                         client_ip=client_ip,
                         user_agent=user_agent,
                         query=query,
@@ -161,7 +119,7 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                 else:
                     # Log error case
                     logger.error(
-                        "access_log_error",
+                        "request_error",
                         request_id=request_id,
                         method=method,
                         path=path,
@@ -180,9 +138,6 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                 KeyError,
                 LookupError,
             ) as log_error:
-                # OSError for I/O issues, ValueError for serialization issues
-                # AttributeError/KeyError/LookupError for state/context access issues
-                # Use print as a last resort to indicate the issue
                 print(f"Failed to write access log: {log_error}")
 
         return response

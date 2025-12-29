@@ -3,11 +3,12 @@
 import asyncio
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Any, TypedDict
+from typing import Any
 
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 from structlog import get_logger
+from typing_extensions import TypedDict
 
 from ccproxy import __version__
 from ccproxy.api.middleware.cors import setup_cors_middleware
@@ -21,11 +22,6 @@ from ccproxy.api.middleware.server_header import ServerHeaderMiddleware
 from ccproxy.api.routes.claude import router as claude_router
 from ccproxy.api.routes.health import router as health_router
 from ccproxy.api.routes.mcp import setup_mcp
-from ccproxy.api.routes.metrics import (
-    dashboard_router,
-    logs_router,
-    prometheus_router,
-)
 from ccproxy.api.routes.permissions import router as permissions_router
 from ccproxy.api.routes.proxy import router as proxy_router
 from ccproxy.api.routes.status import router as status_router
@@ -49,8 +45,6 @@ from ccproxy.utils.startup_helpers import (
     flush_streaming_batches_shutdown,
     initialize_claude_detection_startup,
     initialize_claude_sdk_startup,
-    initialize_log_storage_shutdown,
-    initialize_log_storage_startup,
     initialize_permission_service_startup,
     setup_permission_service_shutdown,
     setup_scheduler_shutdown,
@@ -110,11 +104,6 @@ LIFECYCLE_COMPONENTS: list[LifecycleComponent] = [
         "name": "Scheduler",
         "startup": setup_scheduler_startup,
         "shutdown": setup_scheduler_shutdown,
-    },
-    {
-        "name": "Log Storage",
-        "startup": initialize_log_storage_startup,
-        "shutdown": initialize_log_storage_shutdown,
     },
     {
         "name": "Permission Service",
@@ -306,15 +295,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Include rotation status router for account monitoring
     app.include_router(status_router, tags=["rotation-status"])
 
-    # Include observability routers with granular controls
-    if settings.observability.metrics_endpoint_enabled:
-        app.include_router(prometheus_router, tags=["metrics"])
-
-    if settings.observability.logs_endpoints_enabled:
-        app.include_router(logs_router, prefix="/logs", tags=["logs"])
-
-    if settings.observability.dashboard_enabled:
-        app.include_router(dashboard_router, tags=["dashboard"])
+    # NOTE: Observability routers (prometheus_router, logs_router, dashboard_router) were
+    # removed during codebase consolidation. The settings.observability.* flags remain
+    # for future re-implementation. These features defaulted to disabled anyway.
+    # See: ccproxy/config/observability.py for the settings that control these endpoints.
 
     app.include_router(oauth_router, prefix="/oauth", tags=["oauth"])
 

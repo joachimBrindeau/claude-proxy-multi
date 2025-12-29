@@ -16,7 +16,6 @@ from ccproxy.core.async_utils import patched_typing
 from ccproxy.core.errors import ClaudeProxyError, ServiceUnavailableError
 from ccproxy.models import claude_sdk as sdk_models
 from ccproxy.models.claude_sdk import SDKMessage
-from ccproxy.observability import timed_operation
 
 
 with patched_typing():
@@ -361,10 +360,7 @@ class ClaudeSDKClient:
         | sdk_models.ResultMessage
     ]:
         """Execute query using direct connection (no pool)."""
-        async with (
-            timed_operation("claude_sdk_query_direct", request_id) as op,
-            self._handle_sdk_exceptions("direct_query", request_id),
-        ):
+        async with self._handle_sdk_exceptions("direct_query", request_id):
             client = ImportedClaudeSDKClient(options)
             try:
                 await client.connect()
@@ -376,8 +372,11 @@ class ClaudeSDKClient:
                     message_count += 1
                     yield msg
 
-                op["message_count"] = message_count
-                self._last_api_call_time_ms = op.get("duration_ms", 0.0)
+                logger.debug(
+                    "claude_sdk_query_direct_completed",
+                    message_count=message_count,
+                    request_id=request_id,
+                )
 
             finally:
                 # Critical: Always disconnect non-session clients to prevent reuse
@@ -409,113 +408,113 @@ class ClaudeSDKClient:
         | sdk_models.ResultMessage
     ]:
         """Execute query using session-aware pooled connection."""
-        async with timed_operation("claude_sdk_query_session_pool", request_id) as op:
-            try:
-                if not session_id:
-                    raise ClaudeSDKError("Session ID required for session pool")
+        try:
+            if not session_id:
+                raise ClaudeSDKError("Session ID required for session pool")
 
-                if not self._session_manager:
-                    raise ClaudeSDKError("No session manager available")
+            if not self._session_manager:
+                raise ClaudeSDKError("No session manager available")
 
-                # Enable continue conversation for session pool
-                # so conversation is possible to resume based on session_id
-                options.continue_conversation = True
+            # Enable continue conversation for session pool
+            # so conversation is possible to resume based on session_id
+            options.continue_conversation = True
 
-                session_client = await self._session_manager.get_session_client(
-                    session_id, options
-                )
+            session_client = await self._session_manager.get_session_client(
+                session_id, options
+            )
 
-                async with session_client.lock:  # Prevent concurrent access
-                    session_client.update_usage()
+            async with session_client.lock:  # Prevent concurrent access
+                session_client.update_usage()
 
-                    # Ensure client is connected
-                    if not session_client.claude_client:
-                        logger.error(
-                            "session_client_not_connected",
+                # Ensure client is connected
+                if not session_client.claude_client:
+                    logger.error(
+                        "session_client_not_connected",
+                        session_id=session_id,
+                        status=session_client.status,
+                    )
+                    raise ClaudeSDKError(
+                        f"Session client not connected for session {session_id}"
+                    )
+
+                # Mark session as having active stream
+                session_client.has_active_stream = True
+
+                # Create wrapped stream generator
+                async def stream_with_cleanup() -> AsyncIterator[
+                    sdk_models.UserMessage
+                    | sdk_models.AssistantMessage
+                    | sdk_models.SystemMessage
+                    | sdk_models.ResultMessage
+                ]:
+                    stream_iterator = None
+                    try:
+                        message_count = 0
+                        if not session_client.claude_client:
+                            raise ClaudeSDKError("Session client not connected")
+
+                        stream_iterator = self._execute_with_client(
+                            session_client.claude_client,
+                            message,
+                            session_id,
+                            request_id,
+                            session_client=session_client,
+                        )
+
+                        async for msg in stream_iterator:
+                            message_count += 1
+                            yield msg
+
+                        logger.debug(
+                            "claude_sdk_query_session_pool_completed",
+                            message_count=message_count,
                             session_id=session_id,
-                            status=session_client.status,
-                        )
-                        raise ClaudeSDKError(
-                            f"Session client not connected for session {session_id}"
+                            request_id=request_id,
                         )
 
-                    # Mark session as having active stream
-                    session_client.has_active_stream = True
+                    except GeneratorExit:
+                        # Client disconnected - mark session for drain
+                        logger.warning(
+                            "claude_sdk_session_stream_interrupted",
+                            session_id=session_id,
+                            request_id=request_id,
+                            message="Client disconnected, session will drain stream on next interrupt",
+                        )
 
-                    # Create wrapped stream generator
-                    async def stream_with_cleanup() -> AsyncIterator[
-                        sdk_models.UserMessage
-                        | sdk_models.AssistantMessage
-                        | sdk_models.SystemMessage
-                        | sdk_models.ResultMessage
-                    ]:
-                        stream_iterator = None
-                        try:
-                            message_count = 0
-                            if not session_client.claude_client:
-                                raise ClaudeSDKError("Session client not connected")
+                        # Just mark that stream needs draining
+                        # The SessionClient.interrupt() will handle the actual draining
+                        session_client.has_active_stream = True
+                        raise
+                    finally:
+                        # Clean up if stream completed normally
+                        if not session_client.has_active_stream:
+                            session_client.has_active_stream = False
 
-                            stream_iterator = self._execute_with_client(
-                                session_client.claude_client,
-                                message,
-                                session_id,
-                                request_id,
-                                session_client=session_client,
-                            )
-
-                            async for msg in stream_iterator:
-                                message_count += 1
-                                yield msg
-
-                            op["message_count"] = message_count
-                            op["session_id"] = session_id
-                            self._last_api_call_time_ms = op.get("duration_ms", 0.0)
-
-                        except GeneratorExit:
-                            # Client disconnected - mark session for drain
-                            logger.warning(
-                                "claude_sdk_session_stream_interrupted",
-                                session_id=session_id,
-                                request_id=request_id,
-                                message="Client disconnected, session will drain stream on next interrupt",
-                            )
-
-                            # Just mark that stream needs draining
-                            # The SessionClient.interrupt() will handle the actual draining
-                            session_client.has_active_stream = True
-                            raise
-                        finally:
-                            # Clean up if stream completed normally
-                            if not session_client.has_active_stream:
-                                session_client.has_active_stream = False
-
-                    # Yield from the wrapped generator
-                    async for msg in stream_with_cleanup():
-                        yield msg
-
-            except StreamTimeoutError:
-                raise  # Let service layer handle
-            except (
-                ClaudeSDKError,
-                CLIConnectionError,
-                CLINotFoundError,
-                ProcessError,
-                OSError,
-            ) as e:
-                # Session pool query errors: SDK errors, connection issues, process failures
-                logger.error(
-                    "claude_sdk_session_pool_query_error",
-                    error=str(e),
-                    error_type=type(e).__name__,
-                    session_id=session_id,
-                    exc_info=True,
-                )
-                # Fall back to direct query
-                logger.info(
-                    "claude_sdk_fallback_to_direct_query", session_id=session_id
-                )
-                async for msg in self._query(message, options, request_id, session_id):
+                # Yield from the wrapped generator
+                async for msg in stream_with_cleanup():
                     yield msg
+
+        except StreamTimeoutError:
+            raise  # Let service layer handle
+        except (
+            ClaudeSDKError,
+            CLIConnectionError,
+            CLINotFoundError,
+            ProcessError,
+            OSError,
+        ) as e:
+            # Session pool query errors: SDK errors, connection issues, process failures
+            logger.error(
+                "claude_sdk_session_pool_query_error",
+                error=str(e),
+                error_type=type(e).__name__,
+                session_id=session_id,
+                exc_info=True,
+            )
+            # Fall back to direct query
+            logger.info("claude_sdk_fallback_to_direct_query", session_id=session_id)
+            async for msg in self._query(message, options, request_id, session_id):
+                yield msg
 
     async def _wait_for_first_chunk(
         self,

@@ -1,15 +1,12 @@
 """Request ID middleware for generating and tracking request IDs."""
 
-from datetime import UTC, datetime
-from typing import Any
-
 import shortuuid
 import structlog
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp
 
-from ccproxy.observability.context import request_context
+from ccproxy.core.request_context import RequestContext
 
 
 logger = structlog.get_logger(__name__)
@@ -26,7 +23,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         """
         super().__init__(app)
 
-    async def dispatch(self, request: Request, call_next: Any) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         """Process the request and add request ID/context.
 
         Args:
@@ -39,36 +38,21 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Generate or extract request ID
         request_id = request.headers.get("x-request-id") or shortuuid.uuid()
 
-        # Generate datetime for consistent logging across all layers
-        log_timestamp = datetime.now(UTC)
-
-        # Get DuckDB storage from app state if available
-        storage = getattr(request.app.state, "duckdb_storage", None)
-
-        # Use the proper request context manager to ensure __aexit__ is called
-        async with request_context(
+        # Create minimal context
+        ctx = RequestContext(
             request_id=request_id,
-            storage=storage,
-            log_timestamp=log_timestamp,
             method=request.method,
             path=str(request.url.path),
-            client_ip=request.client.host if request.client else "unknown",
-            user_agent=request.headers.get("user-agent", "unknown"),
-            query=str(request.url.query) if request.url.query else None,
-            service_type="access_log",
-        ) as ctx:
-            # Store context in request state for access by services
-            request.state.request_id = request_id
-            request.state.context = ctx
+        )
 
-            # Add DuckDB storage to context if available
-            if hasattr(request.state, "duckdb_storage"):
-                ctx.storage = request.state.duckdb_storage
+        # Store context in request state for access by services
+        request.state.request_id = request_id
+        request.state.context = ctx
 
-            # Process the request
-            response = await call_next(request)
+        # Process the request
+        response = await call_next(request)
 
-            # Add request ID to response headers
-            response.headers["x-request-id"] = request_id
+        # Add request ID to response headers
+        response.headers["x-request-id"] = request_id
 
-            return response  # type: ignore[no-any-return]
+        return response

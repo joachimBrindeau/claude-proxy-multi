@@ -20,10 +20,6 @@ from ccproxy.auth.exceptions import (
     CredentialsStorageError,
 )
 from ccproxy.exceptions import ClaudeSDKError, PermissionRequestError
-from ccproxy.observability import get_metrics
-
-# Note: get_claude_cli_info is imported locally to avoid circular imports
-from ccproxy.observability.storage.duckdb_simple import SimpleDuckDBStorage
 from ccproxy.scheduler.errors import SchedulerError
 from ccproxy.scheduler.manager import start_scheduler, stop_scheduler
 from ccproxy.services.claude_detection_service import ClaudeDetectionService
@@ -195,55 +191,6 @@ async def check_claude_cli_startup(app: FastAPI, settings: Settings) -> None:
         )
 
 
-async def initialize_log_storage_startup(app: FastAPI, settings: Settings) -> None:
-    """Initialize log storage if needed and backend is DuckDB.
-
-    Args:
-        app: FastAPI application instance
-        settings: Application settings
-    """
-    if (
-        settings.observability.needs_storage_backend
-        and settings.observability.log_storage_backend == "duckdb"
-    ):
-        try:
-            storage = SimpleDuckDBStorage(
-                database_path=settings.observability.duckdb_path
-            )
-            await storage.initialize()
-            app.state.log_storage = storage
-            logger.debug(
-                "log_storage_initialized",
-                backend="duckdb",
-                path=str(settings.observability.duckdb_path),
-                collection_enabled=settings.observability.logs_collection_enabled,
-            )
-        # Catch database/storage initialization errors (file access, connection, validation)
-        except (OSError, RuntimeError, ValueError) as e:
-            logger.error("log_storage_initialization_failed", error=str(e))
-            # Continue without log storage (graceful degradation)
-        except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
-            logger.error("log_storage_initialization_failed", error=str(e))
-            # Continue without log storage (graceful degradation)
-
-
-async def initialize_log_storage_shutdown(app: FastAPI) -> None:
-    """Close log storage if initialized.
-
-    Args:
-        app: FastAPI application instance
-    """
-    if hasattr(app.state, "log_storage") and app.state.log_storage:
-        try:
-            await app.state.log_storage.close()
-            logger.debug("log_storage_closed")
-        # Catch database close errors (connection issues, file system errors)
-        except (OSError, RuntimeError) as e:
-            logger.error("log_storage_close_failed", error=str(e))
-        except Exception as e:  # noqa: BLE001 - shutdown code needs catch-all for graceful cleanup
-            logger.error("log_storage_close_failed", error=str(e))
-
-
 async def setup_scheduler_startup(app: FastAPI, settings: Settings) -> None:
     """Start scheduler system and configure tasks.
 
@@ -359,9 +306,6 @@ async def initialize_claude_sdk_startup(app: FastAPI, settings: Settings) -> Non
         # Create auth manager with settings
         auth_manager = CredentialsAuthManager()
 
-        # Get global metrics instance
-        metrics = get_metrics()
-
         # Check if session pool should be enabled from settings configuration
         use_session_pool = settings.claude.sdk_session_pool.enabled
 
@@ -371,9 +315,7 @@ async def initialize_claude_sdk_startup(app: FastAPI, settings: Settings) -> Non
             from ccproxy.claude_sdk.manager import SessionManager
 
             # Create SessionManager with dependency injection
-            session_manager = SessionManager(
-                settings=settings, metrics_factory=lambda: metrics
-            )
+            session_manager = SessionManager(settings=settings)
 
             # Start the session manager (initializes session pool if enabled)
             await session_manager.start()
@@ -381,7 +323,6 @@ async def initialize_claude_sdk_startup(app: FastAPI, settings: Settings) -> Non
         # Create ClaudeSDKService instance
         claude_service = ClaudeSDKService(
             auth_manager=auth_manager,
-            metrics=metrics,
             settings=settings,
             session_manager=session_manager,
         )

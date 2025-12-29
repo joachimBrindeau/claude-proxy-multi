@@ -9,8 +9,6 @@ from .errors import SchedulerError, SchedulerShutdownError, TaskRegistrationErro
 from .registry import register_task
 from .tasks import (
     PoolStatsTask,
-    PushgatewayTask,
-    StatsPrintingTask,
     VersionUpdateCheckTask,
 )
 
@@ -42,49 +40,6 @@ async def setup_scheduler_tasks(scheduler: Scheduler, settings: Settings) -> Non
             else "Some network features are enabled"
         ),
     )
-
-    # Add pushgateway task if enabled
-    if scheduler_config.pushgateway_enabled:
-        try:
-            await scheduler.add_task(
-                task_name="pushgateway",
-                task_type="pushgateway",
-                interval_seconds=scheduler_config.pushgateway_interval_seconds,
-                enabled=True,
-                max_backoff_seconds=scheduler_config.pushgateway_max_backoff_seconds,
-            )
-            logger.info(
-                "pushgateway_task_added",
-                interval_seconds=scheduler_config.pushgateway_interval_seconds,
-            )
-        except (SchedulerError, TaskRegistrationError) as e:
-            # Task registration or scheduler state errors during task addition
-            logger.error(
-                "pushgateway_task_add_failed",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-
-    # Add stats printing task if enabled
-    if scheduler_config.stats_printing_enabled:
-        try:
-            await scheduler.add_task(
-                task_name="stats_printing",
-                task_type="stats_printing",
-                interval_seconds=scheduler_config.stats_printing_interval_seconds,
-                enabled=True,
-            )
-            logger.info(
-                "stats_printing_task_added",
-                interval_seconds=scheduler_config.stats_printing_interval_seconds,
-            )
-        except (SchedulerError, TaskRegistrationError) as e:
-            # Task registration or scheduler state errors during task addition
-            logger.error(
-                "stats_printing_task_add_failed",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
 
     # Add version update check task if enabled
     if scheduler_config.version_check_enabled:
@@ -118,21 +73,8 @@ def _register_default_tasks(settings: Settings) -> None:
     from .registry import get_task_registry
 
     registry = get_task_registry()
-    scheduler_config = settings.scheduler
 
-    # Only register pushgateway task if enabled
-    if scheduler_config.pushgateway_enabled and not registry.is_registered(
-        "pushgateway"
-    ):
-        register_task("pushgateway", PushgatewayTask)
-
-    # Only register stats printing task if enabled
-    if scheduler_config.stats_printing_enabled and not registry.is_registered(
-        "stats_printing"
-    ):
-        register_task("stats_printing", StatsPrintingTask)
-
-    # Always register core tasks (not metrics-related)
+    # Register core tasks
     if not registry.is_registered("version_update_check"):
         register_task("version_update_check", VersionUpdateCheckTask)
     if not registry.is_registered("pool_stats"):

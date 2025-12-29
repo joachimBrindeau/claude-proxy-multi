@@ -8,9 +8,8 @@ import structlog
 
 from ccproxy.claude_sdk.converter import MessageConverter
 from ccproxy.config.claude import SDKMessageMode
+from ccproxy.core.request_context import RequestContext
 from ccproxy.models import claude_sdk as sdk_models
-from ccproxy.observability.context import RequestContext
-from ccproxy.observability.metrics import PrometheusMetrics
 
 
 logger = structlog.get_logger(__name__)
@@ -22,16 +21,13 @@ class ClaudeStreamProcessor:
     def __init__(
         self,
         message_converter: MessageConverter,
-        metrics: PrometheusMetrics | None = None,
     ) -> None:
         """Initialize the stream processor.
 
         Args:
             message_converter: Converter for message formats.
-            metrics: Prometheus metrics instance.
         """
         self.message_converter = message_converter
-        self.metrics = metrics
 
     async def process_stream(
         self,

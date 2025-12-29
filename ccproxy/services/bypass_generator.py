@@ -14,14 +14,11 @@ import orjson
 import structlog
 from fastapi.responses import StreamingResponse
 
-from ccproxy.observability.access_logger import log_request_access
-from ccproxy.observability.streaming_response import StreamingResponseWithLogging
+from ccproxy.core.request_context import RequestContext
 
 
 if TYPE_CHECKING:
     from ccproxy.adapters.openai.adapter import OpenAIAdapter
-    from ccproxy.observability import PrometheusMetrics
-    from ccproxy.observability.context import RequestContext
     from ccproxy.testing import RealisticMockResponseGenerator
 
 logger = structlog.get_logger(__name__)
@@ -38,24 +35,21 @@ class BypassGenerator:
         self,
         mock_generator: "RealisticMockResponseGenerator",
         openai_adapter: "OpenAIAdapter",
-        metrics: "PrometheusMetrics",
     ) -> None:
         """Initialize the bypass generator.
 
         Args:
             mock_generator: Generator for realistic mock responses
             openai_adapter: Adapter for OpenAI format transformation
-            metrics: Prometheus metrics collector
         """
         self.mock_generator = mock_generator
         self.openai_adapter = openai_adapter
-        self.metrics = metrics
 
     async def generate_standard(
         self,
         model: str | None,
         is_openai_format: bool,
-        ctx: "RequestContext",
+        ctx: RequestContext,
         message_type: str = "short",
     ) -> tuple[int, dict[str, str], bytes]:
         """Generate realistic mock standard response.
@@ -134,21 +128,12 @@ class BypassGenerator:
             "content-length": str(len(response_body)),
         }
 
-        # Update context with realistic metrics
-        ctx.add_metadata(
-            status_code=200,
-            tokens_input=input_tokens,
-            tokens_output=output_tokens,
-            cache_read_tokens=cache_read_tokens,
-            cache_write_tokens=cache_write_tokens,
-        )
-
-        # Log comprehensive access log (includes Prometheus metrics)
-        await log_request_access(
-            context=ctx,
-            status_code=200,
-            method="POST",
-            metrics=self.metrics,
+        # Log bypass response generation (user requested removal of observability module)
+        logger.debug(
+            "bypass_response_generated",
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         )
 
         return 200, headers, response_body
@@ -157,7 +142,7 @@ class BypassGenerator:
         self,
         model: str | None,
         is_openai_format: bool,
-        ctx: "RequestContext",
+        ctx: RequestContext,
         message_type: str = "short",
     ) -> StreamingResponse:
         """Generate realistic mock streaming response.
@@ -228,19 +213,15 @@ class BypassGenerator:
             "connection": "keep-alive",
         }
 
-        # Update context with realistic metrics
-        ctx.add_metadata(
-            status_code=200,
-            tokens_input=input_tokens,
-            tokens_output=output_tokens,
-            cache_read_tokens=cache_read_tokens,
-            cache_write_tokens=cache_write_tokens,
+        logger.debug(
+            "bypass_streaming_started",
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         )
 
-        return StreamingResponseWithLogging(
+        return StreamingResponse(
             content=realistic_mock_stream_generator(),
-            request_context=ctx,
-            metrics=self.metrics,
             headers=headers,
         )
 

@@ -2,13 +2,12 @@
 
 import asyncio
 from collections.abc import AsyncGenerator
-from typing import Any
 
 import orjson
 import structlog
 from fastapi import Request, Response
 from fastapi.responses import StreamingResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp
 
 from ccproxy.utils.simple_request_logger import (
@@ -31,7 +30,9 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
         """
         super().__init__(app)
 
-    async def dispatch(self, request: Request, call_next: Any) -> Any:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         """Process the request and log content.
 
         Args:
@@ -142,7 +143,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
                 except (orjson.JSONDecodeError, UnicodeDecodeError):
                     try:
                         request_data["body"] = body.decode("utf-8", errors="replace")
-                    except (UnicodeDecodeError, ValueError) as e:
+                    except (UnicodeDecodeError, ValueError):
                         # Fallback for truly binary data that cannot be decoded
                         request_data["body"] = f"<binary data of length {len(body)}>"
 

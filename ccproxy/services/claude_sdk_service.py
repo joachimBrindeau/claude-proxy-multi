@@ -21,11 +21,10 @@ from ccproxy.core.errors import (
     ClaudeProxyError,
     ServiceUnavailableError,
 )
+from ccproxy.core.request_context import RequestContext
 from ccproxy.models import claude_sdk as sdk_models
 from ccproxy.models.claude_sdk import SDKMessage, create_sdk_message
 from ccproxy.models.messages import MessageResponse
-from ccproxy.observability.context import RequestContext
-from ccproxy.observability.metrics import PrometheusMetrics
 from ccproxy.utils.model_mapping import map_model_to_claude
 from ccproxy.utils.simple_request_logger import write_request_log
 
@@ -46,7 +45,6 @@ class ClaudeSDKService:
         self,
         sdk_client: ClaudeSDKClient | None = None,
         auth_manager: AuthManager | None = None,
-        metrics: PrometheusMetrics | None = None,
         settings: Settings | None = None,
         session_manager: SessionManager | None = None,
     ) -> None:
@@ -56,7 +54,6 @@ class ClaudeSDKService:
         Args:
             sdk_client: Claude SDK client instance
             auth_manager: Authentication manager (optional)
-            metrics: Prometheus metrics instance (optional)
             settings: Application settings (optional)
             session_manager: Session manager for dependency injection (optional)
         """
@@ -64,13 +61,11 @@ class ClaudeSDKService:
             settings=settings, session_manager=session_manager
         )
         self.auth_manager = auth_manager
-        self.metrics = metrics
         self.settings = settings
         self.message_converter = MessageConverter()
         self.options_handler = OptionsHandler(settings=settings)
         self.stream_processor = ClaudeStreamProcessor(
             message_converter=self.message_converter,
-            metrics=self.metrics,
         )
 
     def _convert_messages_to_sdk_message(

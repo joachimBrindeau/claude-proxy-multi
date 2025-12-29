@@ -17,7 +17,6 @@ from ccproxy.adapters.openai.adapter import (
 from ccproxy.api.dependencies import ClaudeServiceDep
 from ccproxy.core.errors import ClaudeProxyError
 from ccproxy.models.messages import MessageCreateParams, MessageResponse
-from ccproxy.observability.streaming_response import StreamingResponseWithLogging
 
 
 # Create the router for Claude SDK endpoints
@@ -75,11 +74,8 @@ async def create_openai_chat_completion(
                 # Send final chunk
                 yield b"data: [DONE]\n\n"
 
-            # Use unified streaming wrapper with logging
-            return StreamingResponseWithLogging(
+            return StreamingResponse(
                 content=openai_stream_generator(),
-                request_context=request_context,
-                metrics=getattr(claude_service, "metrics", None),
                 status_code=200,
                 media_type="text/event-stream",
                 headers={
@@ -170,12 +166,8 @@ async def create_openai_chat_completion_with_session(
                 # Send final chunk
                 yield b"data: [DONE]\n\n"
 
-            # Use unified streaming wrapper with logging
-            # Session interrupts are now handled directly by the StreamHandle
-            return StreamingResponseWithLogging(
+            return StreamingResponse(
                 content=openai_stream_generator(),
-                request_context=request_context,
-                metrics=getattr(claude_service, "metrics", None),
                 status_code=200,
                 media_type="text/event-stream",
                 headers={
@@ -271,12 +263,8 @@ async def create_anthropic_message_with_session(
                             yield b"data: " + orjson.dumps(chunk) + b"\n\n"
                 # No final [DONE] chunk for Anthropic format
 
-            # Use unified streaming wrapper with logging
-            # Session interrupts are now handled directly by the StreamHandle
-            return StreamingResponseWithLogging(
+            return StreamingResponse(
                 content=anthropic_stream_generator(),
-                request_context=request_context,
-                metrics=getattr(claude_service, "metrics", None),
                 status_code=200,
                 media_type="text/event-stream",
                 headers={
@@ -367,12 +355,8 @@ async def create_anthropic_message(
                             yield b"data: " + orjson.dumps(chunk) + b"\n\n"
                 # No final [DONE] chunk for Anthropic format
 
-            # Use unified streaming wrapper with logging for all requests
-            # Session interrupts are now handled directly by the StreamHandle
-            return StreamingResponseWithLogging(
+            return StreamingResponse(
                 content=anthropic_stream_generator(),
-                request_context=request_context,
-                metrics=getattr(claude_service, "metrics", None),
                 status_code=200,
                 media_type="text/event-stream",
                 headers={

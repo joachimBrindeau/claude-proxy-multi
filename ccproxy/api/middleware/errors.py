@@ -24,7 +24,6 @@ from ccproxy.core.errors import (
     TransformationError,
     ValidationError,
 )
-from ccproxy.observability.metrics import get_metrics
 
 
 logger = get_logger(__name__)
@@ -37,15 +36,6 @@ def setup_error_handlers(app: FastAPI) -> None:
         app: FastAPI application instance
     """
     logger.debug("error_handlers_setup_start")
-
-    # Get metrics instance for error recording
-    try:
-        metrics = get_metrics()
-        logger.debug("error_handlers_metrics_loaded")
-    except RuntimeError as e:
-        # Metrics may not be initialized yet during startup
-        logger.warning("error_handlers_metrics_unavailable", error=str(e))
-        metrics = None
 
     @app.exception_handler(ClaudeProxyError)
     async def claude_proxy_error_handler(
@@ -67,14 +57,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="claude_proxy_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -105,14 +87,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="validation_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
@@ -139,14 +113,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             user_agent=request.headers.get("user-agent", "unknown"),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="authentication_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={
@@ -172,14 +138,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             client_ip=request.client.host if request.client else "unknown",
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="permission_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content={
@@ -204,14 +162,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="not_found_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content={
@@ -237,14 +187,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             client_ip=request.client.host if request.client else "unknown",
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="rate_limit_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={
@@ -269,14 +211,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="model_not_found_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content={
@@ -301,14 +235,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="timeout_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_408_REQUEST_TIMEOUT,
             content={
@@ -333,14 +259,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="service_unavailable_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
@@ -363,14 +281,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="docker_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -403,14 +313,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type=str(error_type),
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=error_status_code,
             content={
@@ -435,14 +337,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="transformation_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -467,14 +361,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="middleware_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -499,14 +385,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="proxy_connection_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_502_BAD_GATEWAY,
             content={
@@ -531,14 +409,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             request_url=str(request.url.path),
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="proxy_timeout_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             content={
@@ -564,14 +434,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             client_ip=request.client.host if request.client else "unknown",
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="proxy_authentication_error",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={
@@ -624,22 +486,6 @@ def setup_error_handlers(app: FastAPI) -> None:
                 stack_trace=stack_trace,
             )
 
-        # Record error in metrics
-        if metrics:
-            if exc.status_code == 404:
-                error_type = "http_404"
-            elif exc.status_code == 401:
-                error_type = "http_401"
-            else:
-                error_type = "http_error"
-            metrics.record_error(
-                error_type=error_type,
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
-
-        # TODO: Add when in prod hide details in response
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -675,19 +521,6 @@ def setup_error_handlers(app: FastAPI) -> None:
                 request_url=str(request.url.path),
             )
 
-        # Record error in metrics
-        if metrics:
-            error_type = (
-                "starlette_http_404"
-                if exc.status_code == status.HTTP_404_NOT_FOUND
-                else "starlette_http_error"
-            )
-            metrics.record_error(
-                error_type=error_type,
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -722,14 +555,6 @@ def setup_error_handlers(app: FastAPI) -> None:
             exc_info=True,
         )
 
-        # Record error in metrics
-        if metrics:
-            metrics.record_error(
-                error_type="unhandled_exception",
-                endpoint=str(request.url.path),
-                model=None,
-                service_type="middleware",
-            )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={

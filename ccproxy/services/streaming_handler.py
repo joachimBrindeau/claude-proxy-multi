@@ -3,7 +3,6 @@
 This module handles streaming request processing, including:
 - Error handling before streaming starts
 - SSE stream transformation between Anthropic and OpenAI formats
-- Metrics collection during streaming
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ import structlog
 from fastapi.responses import StreamingResponse
 from httpx_sse import EventSource
 
-from ccproxy.observability.streaming_response import StreamingResponseWithLogging
+from ccproxy.core.request_context import RequestContext
 from ccproxy.services.request_metadata import redact_sensitive_headers
 from ccproxy.utils.simple_request_logger import append_streaming_log
 
@@ -26,8 +25,6 @@ from ccproxy.utils.simple_request_logger import append_streaming_log
 if TYPE_CHECKING:
     from ccproxy.adapters.openai.adapter import OpenAIAdapter
     from ccproxy.core.http_transformers import HTTPResponseTransformer
-    from ccproxy.observability import PrometheusMetrics
-    from ccproxy.observability.context import RequestContext
     from ccproxy.services.proxy_service import RequestData
     from ccproxy.services.verbose_logger import VerboseLogger
 
@@ -37,8 +34,8 @@ logger = structlog.get_logger(__name__)
 class StreamingHandler:
     """Handles streaming request processing with format transformation.
 
-    Encapsulates the streaming logic including error handling, metrics
-    collection, and format transformation between Anthropic and OpenAI.
+    Encapsulates the streaming logic including error handling
+    and format transformation between Anthropic and OpenAI.
     """
 
     def __init__(
@@ -46,7 +43,6 @@ class StreamingHandler:
         response_transformer: HTTPResponseTransformer,
         openai_adapter: OpenAIAdapter,
         verbose_logger: VerboseLogger,
-        metrics: PrometheusMetrics,
         proxy_url: str | None,
         ssl_context: Any,
         proxy_mode: str,
@@ -57,7 +53,6 @@ class StreamingHandler:
             response_transformer: Transformer for response formats
             openai_adapter: Adapter for OpenAI format transformation
             verbose_logger: Logger for verbose output
-            metrics: Prometheus metrics collector
             proxy_url: Optional proxy URL for requests
             ssl_context: SSL context for verification
             proxy_mode: Current proxy operation mode
@@ -65,7 +60,6 @@ class StreamingHandler:
         self.response_transformer = response_transformer
         self.openai_adapter = openai_adapter
         self.verbose_logger = verbose_logger
-        self.metrics = metrics
         self.proxy_url = proxy_url
         self.ssl_context = ssl_context
         self.proxy_mode = proxy_mode
@@ -83,7 +77,7 @@ class StreamingHandler:
             request_data: Transformed request data
             original_path: Original request path for context
             timeout: Request timeout
-            ctx: Request context for observability
+            ctx: Request context
 
         Returns:
             StreamingResponse or error response tuple
@@ -160,19 +154,6 @@ class StreamingHandler:
         )
         transformed_error_body = transformed_error_response["body"]
 
-        # Update context with error status
-        ctx.add_metadata(status_code=response.status_code)
-
-        # Log access log for error
-        from ccproxy.observability.access_logger import log_request_access
-
-        await log_request_access(
-            context=ctx,
-            status_code=response.status_code,
-            method=request_data["method"],
-            metrics=self.metrics,
-        )
-
         # Return error as regular response
         return (
             response.status_code,
@@ -238,10 +219,8 @@ class StreamingHandler:
         if "content-type" not in final_headers:
             final_headers["content-type"] = "text/event-stream"
 
-        return StreamingResponseWithLogging(
+        return StreamingResponse(
             content=generator,
-            request_context=ctx,
-            metrics=self.metrics,
             status_code=response_status,
             headers=final_headers,
         )
@@ -434,19 +413,7 @@ class StreamingHandler:
 
                 # Process chunk for metrics
                 chunk_str = chunk.decode("utf-8", errors="replace")
-                is_final = metrics_collector.process_chunk(chunk_str)
-
-                # If this is the final chunk, update context with metrics
-                if is_final:
-                    final_metrics = metrics_collector.get_metrics()
-
-                    ctx.add_metadata(
-                        status_code=response_status,
-                        tokens_input=final_metrics["tokens_input"],
-                        tokens_output=final_metrics["tokens_output"],
-                        cache_read_tokens=final_metrics["cache_read_tokens"],
-                        cache_write_tokens=final_metrics["cache_write_tokens"],
-                    )
+                metrics_collector.process_chunk(chunk_str)
 
                 # Handle logging based on chunk type
                 if "content_block_delta" in chunk_str and not verbose_streaming:

@@ -22,7 +22,7 @@ import os
 import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, TypedDict
+from typing import Any
 
 import httpx
 from structlog import get_logger
@@ -33,6 +33,7 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
+from typing_extensions import TypedDict
 
 
 logger = get_logger(__name__)
