@@ -65,8 +65,6 @@ def sample_access_log() -> AccessLogPayload:
         "tokens_output": 50,
         "cache_read_tokens": 0,
         "cache_write_tokens": 0,
-        "cost_usd": 0.002,
-        "cost_sdk_usd": 0.0,
     }
 
 
@@ -152,7 +150,6 @@ class TestQueueBasedDuckDBStorage:
                 "duration_seconds": 0.1 + (i * 0.01),
                 "tokens_input": 50 + i,
                 "tokens_output": 25 + i,
-                "cost_usd": 0.001 * (i + 1),
             }
             access_logs.append(log_data)
 

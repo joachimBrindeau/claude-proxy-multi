@@ -10,9 +10,10 @@ for turn to turn conversation.
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
+
+import orjson
 
 from ccproxy.adapters.openai.models import format_openai_tool_call
 
@@ -30,11 +31,11 @@ def parse_system_message_tags(text: str) -> str:
 
     def replace_system_message(match: re.Match[str]) -> str:
         try:
-            system_data = json.loads(match.group(1))
+            system_data = orjson.loads(match.group(1))
             source = system_data.get("source", "claude_code_sdk")
             system_text = system_data.get("text", "")
             return f"[{source}]: {system_text}"
-        except json.JSONDecodeError:
+        except orjson.JSONDecodeError:
             # Keep original if parsing fails
             return match.group(0)
 
@@ -58,7 +59,7 @@ def parse_tool_use_sdk_tags(
 
     def replace_tool_use(match: re.Match[str]) -> str:
         try:
-            tool_data = json.loads(match.group(1))
+            tool_data = orjson.loads(match.group(1))
 
             if collect_tool_calls:
                 # For OpenAI adapter: collect tool calls and remove from text
@@ -75,8 +76,8 @@ def parse_tool_use_sdk_tags(
                 tool_id = tool_data.get("id", "")
                 tool_name = tool_data.get("name", "")
                 tool_input = tool_data.get("input", {})
-                return f"[claude_code_sdk tool_use {tool_id}]: {tool_name}({json.dumps(tool_input)})"
-        except json.JSONDecodeError:
+                return f"[claude_code_sdk tool_use {tool_id}]: {tool_name}({orjson.dumps(tool_input).decode()})"
+        except orjson.JSONDecodeError:
             # Keep original if parsing fails
             return match.group(0)
 
@@ -97,13 +98,13 @@ def parse_tool_result_sdk_tags(text: str) -> str:
 
     def replace_tool_result(match: re.Match[str]) -> str:
         try:
-            result_data = json.loads(match.group(1))
+            result_data = orjson.loads(match.group(1))
             tool_use_id = result_data.get("tool_use_id", "")
             result_content = result_data.get("content", "")
             is_error = result_data.get("is_error", False)
             error_indicator = " (ERROR)" if is_error else ""
             return f"[claude_code_sdk tool_result {tool_use_id}{error_indicator}]: {result_content}"
-        except json.JSONDecodeError:
+        except orjson.JSONDecodeError:
             # Keep original if parsing fails
             return match.group(0)
 
@@ -123,18 +124,15 @@ def parse_result_message_tags(text: str) -> str:
 
     def replace_result_message(match: re.Match[str]) -> str:
         try:
-            result_data = json.loads(match.group(1))
+            result_data = orjson.loads(match.group(1))
             source = result_data.get("source", "claude_code_sdk")
             session_id = result_data.get("session_id", "")
             stop_reason = result_data.get("stop_reason", "")
             usage = result_data.get("usage", {})
-            cost_usd = result_data.get("total_cost_usd")
 
             formatted_content = f"[{source} result {session_id}]: stop_reason={stop_reason}, usage={usage}"
-            if cost_usd is not None:
-                formatted_content += f", cost_usd={cost_usd}"
             return formatted_content
-        except json.JSONDecodeError:
+        except orjson.JSONDecodeError:
             # Keep original if parsing fails
             return match.group(0)
 

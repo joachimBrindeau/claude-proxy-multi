@@ -6,11 +6,14 @@ and automatic state management.
 
 import asyncio
 import re
+from collections.abc import Iterator
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
+from itertools import cycle, islice
 from pathlib import Path
 from typing import Any
 
+from dateutil import parser as dateutil_parser
 from structlog import get_logger
 
 from ccproxy.rotation.accounts import (
@@ -26,7 +29,7 @@ from ccproxy.rotation.accounts import (
 logger = get_logger(__name__)
 
 
-class AccountState(str, Enum):
+class AccountState(StrEnum):
     """Account availability states."""
 
     AVAILABLE = "available"
@@ -88,8 +91,7 @@ def parse_retry_after(headers: dict[str, str]) -> int | None:
 
     # Log rate limit headers for debugging
     rate_limit_headers = {
-        k: v for k, v in headers_lower.items()
-        if "ratelimit" in k or k == "retry-after"
+        k: v for k, v in headers_lower.items() if "ratelimit" in k or k == "retry-after"
     }
     if rate_limit_headers:
         logger.info("rate_limit_headers_received", headers=rate_limit_headers)
@@ -107,14 +109,15 @@ def parse_retry_after(headers: dict[str, str]) -> int | None:
             pass
 
         try:
-            # Try parsing as HTTP date
-            from email.utils import parsedate_to_datetime
-
-            dt = parsedate_to_datetime(retry_after)
+            # Try parsing as HTTP date (RFC 2822) or ISO8601
+            dt = dateutil_parser.parse(retry_after)
+            # Ensure timezone-aware datetime (assume UTC if naive)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
             reset_ms = int(dt.timestamp() * 1000)
             logger.info("retry_after_parsed_date", date=retry_after, reset_ms=reset_ms)
             return reset_ms
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, dateutil_parser.ParserError):
             pass
 
     # Try new unified rate limit headers (Unix timestamps in seconds)
@@ -148,14 +151,24 @@ def parse_retry_after(headers: dict[str, str]) -> int | None:
         if reset_value := headers_lower.get(header_name):
             try:
                 # Parse ISO8601 timestamp (e.g., "2024-01-01T00:00:00Z")
-                dt = datetime.fromisoformat(reset_value.replace("Z", "+00:00"))
+                dt = dateutil_parser.parse(reset_value)
+                # Ensure timezone-aware datetime (assume UTC if naive)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=UTC)
                 reset_ms = int(dt.timestamp() * 1000)
-                logger.info("ratelimit_reset_parsed", header=header_name, value=reset_value, reset_ms=reset_ms)
+                logger.info(
+                    "ratelimit_reset_parsed",
+                    header=header_name,
+                    value=reset_value,
+                    reset_ms=reset_ms,
+                )
                 return reset_ms
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, dateutil_parser.ParserError):
                 pass
 
-    logger.warning("no_retry_after_header_found", available_headers=list(headers_lower.keys()))
+    logger.warning(
+        "no_retry_after_header_found", available_headers=list(headers_lower.keys())
+    )
     return None
 
 
@@ -182,8 +195,8 @@ class RotationPool:
         """
         self._accounts_path = accounts_path or DEFAULT_ACCOUNTS_PATH
         self._accounts: dict[str, Account] = {}
-        self._rotation_index: int = 0
         self._account_order: list[str] = []  # For consistent round-robin
+        self._account_cycle: Iterator[str] | None = None
         self._lock = asyncio.Lock()
         self._last_modified: float | None = None
 
@@ -216,12 +229,16 @@ class RotationPool:
     @property
     def rate_limited_count(self) -> int:
         """Get number of rate-limited accounts."""
-        return sum(1 for a in self._accounts.values() if a.state == AccountState.RATE_LIMITED)
+        return sum(
+            1 for a in self._accounts.values() if a.state == AccountState.RATE_LIMITED
+        )
 
     @property
     def auth_error_count(self) -> int:
         """Get number of accounts with auth errors."""
-        return sum(1 for a in self._accounts.values() if a.state == AccountState.AUTH_ERROR)
+        return sum(
+            1 for a in self._accounts.values() if a.state == AccountState.AUTH_ERROR
+        )
 
     def load(self) -> None:
         """Load accounts from file.
@@ -246,7 +263,9 @@ class RotationPool:
                 new_account.tokens_remaining_percent = existing.tokens_remaining_percent
                 new_account.requests_limit = existing.requests_limit
                 new_account.requests_remaining = existing.requests_remaining
-                new_account.requests_remaining_percent = existing.requests_remaining_percent
+                new_account.requests_remaining_percent = (
+                    existing.requests_remaining_percent
+                )
                 new_account.capacity_checked_at = existing.capacity_checked_at
                 logger.debug(
                     "account_state_preserved",
@@ -258,9 +277,11 @@ class RotationPool:
         self._accounts = new_accounts
         self._account_order = list(self._accounts.keys())
 
-        # Only reset rotation index if this is the first load
-        if self._rotation_index >= len(self._account_order):
-            self._rotation_index = 0
+        # Initialize cycle iterator for round-robin rotation
+        if self._account_order:
+            self._account_cycle = cycle(self._account_order)
+        else:
+            self._account_cycle = None
 
         # Track file modification time
         path = self.accounts_path
@@ -323,28 +344,19 @@ class RotationPool:
         async with self._lock:
             self._check_rate_limit_resets()
 
-            if not self._account_order:
+            if not self._account_order or not self._account_cycle:
                 logger.warning("no_accounts_configured")
                 return None
 
-            # Try each account in round-robin order
-            start_index = self._rotation_index
-            attempts = 0
-
-            while attempts < len(self._account_order):
-                account_name = self._account_order[self._rotation_index]
+            # Try each account in round-robin order using cycle iterator
+            for account_name in islice(self._account_cycle, len(self._account_order)):
                 account = self._accounts.get(account_name)
-
-                # Move to next index for next call
-                self._rotation_index = (self._rotation_index + 1) % len(self._account_order)
-                attempts += 1
 
                 if account and account.is_available:
                     account.mark_used()
                     logger.debug(
                         "account_selected",
                         account=account.name,
-                        rotation_index=start_index,
                     )
                     return account
 
@@ -374,10 +386,11 @@ class RotationPool:
         async with self._lock:
             self._check_rate_limit_resets()
 
-            for _ in range(len(self._account_order)):
-                account_name = self._account_order[self._rotation_index]
-                self._rotation_index = (self._rotation_index + 1) % len(self._account_order)
+            if not self._account_order or not self._account_cycle:
+                return None
 
+            # Try each account in round-robin order using cycle iterator
+            for account_name in islice(self._account_cycle, len(self._account_order)):
                 if account_name in exclude:
                     continue
 
@@ -487,6 +500,9 @@ class RotationPool:
         self._accounts[account.name] = account
         self._account_order.append(account.name)
 
+        # Reinitialize cycle iterator with new account list
+        self._account_cycle = cycle(self._account_order)
+
         logger.info("account_added", account=account.name)
         return True
 
@@ -506,9 +522,11 @@ class RotationPool:
         del self._accounts[account_name]
         self._account_order.remove(account_name)
 
-        # Adjust rotation index if needed
-        if self._rotation_index >= len(self._account_order):
-            self._rotation_index = 0
+        # Reinitialize cycle iterator with updated account list
+        if self._account_order:
+            self._account_cycle = cycle(self._account_order)
+        else:
+            self._account_cycle = None
 
         logger.info("account_removed", account=account_name)
         return True
@@ -547,14 +565,14 @@ class RotationPool:
         self._check_rate_limit_resets()
 
         # Find next account that would be selected
+        # We need to peek at the cycle without consuming it, so we iterate through account_order
         next_account = None
-        for i in range(len(self._account_order)):
-            idx = (self._rotation_index + i) % len(self._account_order)
-            name = self._account_order[idx]
-            account = self._accounts.get(name)
-            if account and account.is_available:
-                next_account = name
-                break
+        if self._account_order:
+            for account_name in self._account_order:
+                account = self._accounts.get(account_name)
+                if account and account.is_available:
+                    next_account = account_name
+                    break
 
         return {
             "totalAccounts": self.account_count,
@@ -563,8 +581,7 @@ class RotationPool:
             "authErrorAccounts": self.auth_error_count,
             "nextAccount": next_account,
             "accounts": [
-                self._get_account_status(account)
-                for account in self._accounts.values()
+                self._get_account_status(account) for account in self._accounts.values()
             ],
         }
 
@@ -576,7 +593,9 @@ class RotationPool:
             "tokenExpiresAt": account.credentials.expires_at_datetime.isoformat(),
             "tokenExpiresIn": account.credentials.expires_in_seconds,
             "rateLimitedUntil": (
-                datetime.fromtimestamp(account.rate_limited_until / 1000, tz=UTC).isoformat()
+                datetime.fromtimestamp(
+                    account.rate_limited_until / 1000, tz=UTC
+                ).isoformat()
                 if account.rate_limited_until
                 else None
             ),
@@ -594,7 +613,9 @@ class RotationPool:
             "requestsRemaining": account.requests_remaining,
             "requestsRemainingPercent": account.requests_remaining_percent,
             "capacityCheckedAt": (
-                datetime.fromtimestamp(account.capacity_checked_at / 1000, tz=UTC).isoformat()
+                datetime.fromtimestamp(
+                    account.capacity_checked_at / 1000, tz=UTC
+                ).isoformat()
                 if account.capacity_checked_at
                 else None
             ),

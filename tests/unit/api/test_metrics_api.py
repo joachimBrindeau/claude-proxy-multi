@@ -38,7 +38,6 @@ class TestMetricsAPIEndpoints:
                 "response_time": 1.5,
                 "tokens_input": 150,
                 "tokens_output": 75,
-                "cost_usd": 0.0023,
             }
         ]
         storage.get_analytics.return_value = {
@@ -51,7 +50,6 @@ class TestMetricsAPIEndpoints:
                 "p95_response_time": 2.5,
                 "total_tokens_input": 15000,
                 "total_tokens_output": 7500,
-                "total_cost_usd": 0.23,
             },
             "hourly_data": [
                 {"hour": "2024-01-01 10:00:00", "request_count": 25, "error_count": 1},
@@ -62,13 +60,11 @@ class TestMetricsAPIEndpoints:
                     "model": "claude-3-sonnet",
                     "request_count": 60,
                     "avg_response_time": 1.1,
-                    "total_cost": 0.15,
                 },
                 {
                     "model": "claude-3-haiku",
                     "request_count": 40,
                     "avg_response_time": 0.8,
-                    "total_cost": 0.08,
                 },
             ],
             "query_time": time.time(),
@@ -115,7 +111,6 @@ class TestMetricsAPIEndpoints:
                     "response_time": 1.5,
                     "tokens_input": 150,
                     "tokens_output": 75,
-                    "cost_usd": 0.0023,
                 }
                 mock_result.all.return_value = [mock_log]
                 mock_session.exec.return_value = mock_result
@@ -305,21 +300,19 @@ class TestMetricsAPIEndpoints:
                         mock_result_temp.first.return_value = 100
                     elif exec_call_count == 2:  # avg_duration
                         mock_result_temp.first.return_value = 1.2
-                    elif exec_call_count == 3:  # total_cost
-                        mock_result_temp.first.return_value = 0.23
-                    elif exec_call_count == 4:  # total_tokens_input
+                    elif exec_call_count == 3:  # total_tokens_input
                         mock_result_temp.first.return_value = 15000
-                    elif exec_call_count == 5:  # total_tokens_output
+                    elif exec_call_count == 4:  # total_tokens_output
                         mock_result_temp.first.return_value = 7500
-                    elif exec_call_count == 6:  # cache_read_tokens
+                    elif exec_call_count == 5:  # cache_read_tokens
                         mock_result_temp.first.return_value = 500
-                    elif exec_call_count == 7:  # cache_write_tokens
+                    elif exec_call_count == 6:  # cache_write_tokens
                         mock_result_temp.first.return_value = 300
-                    elif exec_call_count == 8:  # successful_requests
+                    elif exec_call_count == 7:  # successful_requests
                         mock_result_temp.first.return_value = 95
-                    elif exec_call_count == 9:  # error_requests
+                    elif exec_call_count == 8:  # error_requests
                         mock_result_temp.first.return_value = 5
-                    elif exec_call_count == 10:  # unique_services
+                    elif exec_call_count == 9:  # unique_services
                         mock_result_temp.all.return_value = ["proxy_service"]
                     else:  # service-specific queries
                         mock_result_temp.first.return_value = 50

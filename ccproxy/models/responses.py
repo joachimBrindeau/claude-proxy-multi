@@ -252,19 +252,3 @@ class InternalServerError(APIError):
     type: Annotated[
         Literal["internal_server_error"], Field(description="Error type")
     ] = "internal_server_error"
-
-
-class CodexResponse(BaseModel):
-    """OpenAI Codex completion response model."""
-
-    id: Annotated[str, Field(description="Response ID")]
-    model: Annotated[str, Field(description="Model used for completion")]
-    content: Annotated[str, Field(description="Generated content")]
-    finish_reason: Annotated[
-        str | None, Field(description="Reason the response finished")
-    ] = None
-    usage: Annotated[Usage | None, Field(description="Token usage information")] = None
-
-    model_config = ConfigDict(
-        extra="allow"
-    )  # Allow additional fields for compatibility

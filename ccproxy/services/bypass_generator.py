@@ -5,12 +5,12 @@ bypassing the actual upstream API when the X-CCProxy-Bypass-Upstream header is s
 """
 
 import asyncio
-import json
 import random
 import time
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
+import orjson
 import structlog
 from fastapi.responses import StreamingResponse
 
@@ -74,7 +74,7 @@ class BypassGenerator:
             error_response, status_code = self.mock_generator.generate_error_response(
                 "openai" if is_openai_format else "anthropic"
             )
-            response_body = json.dumps(error_response).encode()
+            response_body = orjson.dumps(error_response)
             return status_code, {"content-type": "application/json"}, response_body
 
         # Generate realistic content and token counts
@@ -125,9 +125,9 @@ class BypassGenerator:
         if is_openai_format:
             # Transform to OpenAI format using existing adapter
             openai_response = self.openai_adapter.adapt_response(anthropic_response)
-            response_body = json.dumps(openai_response).encode()
+            response_body = orjson.dumps(openai_response)
         else:
-            response_body = json.dumps(anthropic_response).encode()
+            response_body = orjson.dumps(anthropic_response)
 
         headers = {
             "content-type": "application/json",
@@ -135,21 +135,12 @@ class BypassGenerator:
         }
 
         # Update context with realistic metrics
-        cost_usd = self.mock_generator.calculate_realistic_cost(
-            input_tokens,
-            output_tokens,
-            model or "claude-3-5-sonnet-20241022",
-            cache_read_tokens,
-            cache_write_tokens,
-        )
-
         ctx.add_metadata(
             status_code=200,
             tokens_input=input_tokens,
             tokens_output=output_tokens,
             cache_read_tokens=cache_read_tokens,
             cache_write_tokens=cache_write_tokens,
-            cost_usd=cost_usd,
         )
 
         # Log comprehensive access log (includes Prometheus metrics)
@@ -227,7 +218,7 @@ class BypassGenerator:
                     delay_seconds *= random.uniform(0.5, 1.5)
                     await asyncio.sleep(max(0.01, delay_seconds))
 
-                yield f"data: {json.dumps(chunk)}\n\n".encode()
+                yield b"data: " + orjson.dumps(chunk) + b"\n\n"
 
             yield b"data: [DONE]\n\n"
 
@@ -238,21 +229,12 @@ class BypassGenerator:
         }
 
         # Update context with realistic metrics
-        cost_usd = self.mock_generator.calculate_realistic_cost(
-            input_tokens,
-            output_tokens,
-            model or "claude-3-5-sonnet-20241022",
-            cache_read_tokens,
-            cache_write_tokens,
-        )
-
         ctx.add_metadata(
             status_code=200,
             tokens_input=input_tokens,
             tokens_output=output_tokens,
             cache_read_tokens=cache_read_tokens,
             cache_write_tokens=cache_write_tokens,
-            cost_usd=cost_usd,
         )
 
         return StreamingResponseWithLogging(

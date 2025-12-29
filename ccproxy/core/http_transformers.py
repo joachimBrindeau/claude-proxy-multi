@@ -1,7 +1,8 @@
 """HTTP-level transformers for proxy service."""
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+import orjson
 import structlog
 from typing_extensions import TypedDict
 
@@ -9,16 +10,10 @@ from ccproxy.core.transformers import RequestTransformer, ResponseTransformer
 from ccproxy.core.types import ProxyRequest, ProxyResponse, TransformContext
 
 
-if TYPE_CHECKING:
-    pass
-
-
 logger = structlog.get_logger(__name__)
 
 # Claude Code system prompt constants
 claude_code_prompt = "You are Claude Code, Anthropic's official CLI for Claude."
-
-# claude_code_prompt = "<system-reminder>\nAs you answer the user's questions, you can use the following context:\n# important-instruction-reminders\nDo what has been asked; nothing more, nothing less.\nNEVER create files unless they're absolutely necessary for achieving your goal.\nALWAYS prefer editing an existing file to creating a new one.\nNEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.\n\n      \n      IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.\n</system-reminder>\n"
 
 
 def get_detected_system_field(
@@ -151,10 +146,8 @@ class HTTPRequestTransformer(RequestTransformer):
                     app_state,
                 )
             elif isinstance(request.body, dict):
-                import json
-
                 transformed_body = self.transform_request_body(
-                    json.dumps(request.body).encode("utf-8"),
+                    orjson.dumps(request.body),
                     transformed_path,
                     self.proxy_mode,
                     app_state,
@@ -378,7 +371,9 @@ class HTTPRequestTransformer(RequestTransformer):
         counts = {"injected_system": 0, "user_system": 0, "messages": 0}
 
         def _get_total() -> int:
-            return counts["injected_system"] + counts["user_system"] + counts["messages"]
+            return (
+                counts["injected_system"] + counts["user_system"] + counts["messages"]
+            )
 
         # Count in system field
         system = data.get("system")
@@ -416,7 +411,10 @@ class HTTPRequestTransformer(RequestTransformer):
                     if isinstance(block, dict) and "cache_control" in block:
                         counts["messages"] += 1
                         # Early exit check within messages loop
-                        if early_exit_threshold is not None and _get_total() > early_exit_threshold:
+                        if (
+                            early_exit_threshold is not None
+                            and _get_total() > early_exit_threshold
+                        ):
                             return counts
 
         return counts
@@ -472,10 +470,7 @@ class HTTPRequestTransformer(RequestTransformer):
             if isinstance(block, dict) and "cache_control" in block:
                 text = block.get("text", "")
                 # Skip injected prompts (highest priority)
-                if (
-                    "Claude Code" not in text
-                    and "Anthropic's official CLI" not in text
-                ):
+                if "Claude Code" not in text and "Anthropic's official CLI" not in text:
                     del block["cache_control"]
                     removed += 1
                     logger.debug("removed_cache_control", location="user_system")
@@ -572,10 +567,8 @@ class HTTPRequestTransformer(RequestTransformer):
             Transformed request body as bytes with system prompt injection
         """
         try:
-            import json
-
-            data = json.loads(body.decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            data = orjson.loads(body)
+        except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
             # Return original if not valid JSON
             logger.warning(
                 "http_transform_json_decode_failed",
@@ -628,7 +621,9 @@ class HTTPRequestTransformer(RequestTransformer):
         # Limit cache_control blocks to comply with Anthropic's limit
         data = self._limit_cache_control_blocks(data)
 
-        return json.dumps(data).encode("utf-8")
+        # orjson.dumps returns bytes directly
+        result: bytes = orjson.dumps(data)
+        return result
 
     def _is_openai_request(self, path: str, body: bytes) -> bool:
         """Check if this is an OpenAI API request."""
@@ -639,9 +634,7 @@ class HTTPRequestTransformer(RequestTransformer):
         # Check body-based indicators
         if body:
             try:
-                import json
-
-                data = json.loads(body.decode("utf-8"))
+                data = orjson.loads(body)
                 # Look for OpenAI-specific patterns
                 model = data.get("model", "")
                 if model.startswith(("gpt-", "o1-", "text-davinci")):
@@ -650,7 +643,7 @@ class HTTPRequestTransformer(RequestTransformer):
                 messages = data.get("messages", [])
                 if messages and any(msg.get("role") == "system" for msg in messages):
                     return True
-            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
                 logger.warning(
                     "openai_request_detection_json_decode_failed",
                     error=str(e),
@@ -658,7 +651,6 @@ class HTTPRequestTransformer(RequestTransformer):
                     if body
                     else None,
                 )
-                pass
 
         return False
 
@@ -666,16 +658,23 @@ class HTTPRequestTransformer(RequestTransformer):
         """Transform OpenAI request format to Anthropic format."""
         try:
             # Use the OpenAI adapter for transformation
-            import json
-
             from ccproxy.adapters.openai.adapter import OpenAIAdapter
 
             adapter = OpenAIAdapter()
-            openai_data = json.loads(body.decode("utf-8"))
+            openai_data = orjson.loads(body)
             anthropic_data = adapter.adapt_request(openai_data)
-            return json.dumps(anthropic_data).encode("utf-8")
+            result: bytes = orjson.dumps(anthropic_data)
+            return result
 
-        except Exception as e:
+        except (
+            orjson.JSONDecodeError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ) as e:
+            # Catches: JSON parse errors, invalid data types, missing keys, adapter instantiation errors
+            # Note: Broad exception needed as adapter.adapt_request() can raise various errors
             logger.warning(
                 "openai_transformation_failed",
                 error=str(e),
@@ -724,9 +723,7 @@ class HTTPResponseTransformer(ResponseTransformer):
                     body_bytes, original_path
                 )
             elif isinstance(response.body, dict):
-                import json
-
-                body_bytes = json.dumps(response.body).encode("utf-8")
+                body_bytes = orjson.dumps(response.body)
                 transformed_body = self.transform_response_body(
                     body_bytes, original_path
                 )
@@ -782,15 +779,13 @@ class HTTPResponseTransformer(ResponseTransformer):
             transformed_error_body = body
             if self._is_openai_request(original_path):
                 try:
-                    import json
-
                     from ccproxy.adapters.openai.adapter import OpenAIAdapter
 
-                    error_data = json.loads(body.decode("utf-8"))
+                    error_data = orjson.loads(body)
                     openai_adapter = OpenAIAdapter()
                     openai_error = openai_adapter.adapt_error(error_data)
-                    transformed_error_body = json.dumps(openai_error).encode("utf-8")
-                except (json.JSONDecodeError, UnicodeDecodeError):
+                    transformed_error_body = orjson.dumps(openai_error)
+                except (orjson.JSONDecodeError, UnicodeDecodeError):
                     # Keep original error if parsing fails
                     pass
 

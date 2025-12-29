@@ -7,6 +7,7 @@ eliminating code duplication between different streaming endpoints.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import TYPE_CHECKING, Any
 
@@ -99,7 +100,15 @@ class StreamingResponseWithLogging(StreamingResponse):
                     status_code=final_status_code,
                     metrics=metrics,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, asyncio.CancelledError) as e:
+                # OSError: storage I/O errors; RuntimeError: async/queue issues
+                # ValueError: invalid state; CancelledError: async cancellation
+                logger.warning(
+                    "streaming_access_log_failed",
+                    error=str(e),
+                    request_id=context.request_id,
+                )
+            except Exception as e:  # noqa: BLE001 - logging errors should never crash streaming response
                 logger.warning(
                     "streaming_access_log_failed",
                     error=str(e),

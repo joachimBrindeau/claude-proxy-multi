@@ -6,10 +6,10 @@ for handling format transformations and streaming.
 
 from __future__ import annotations
 
-import json
 import uuid
 from typing import Any, Literal
 
+import orjson
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ccproxy.models.types import ModalityType, ReasoningEffort
@@ -370,7 +370,7 @@ def format_openai_tool_call(tool_use: dict[str, Any]) -> OpenAIToolCall:
     """Convert Anthropic tool use to OpenAI tool call format."""
     tool_input = tool_use.get("input", {})
     if isinstance(tool_input, dict):
-        arguments_str = json.dumps(tool_input)
+        arguments_str = orjson.dumps(tool_input).decode()
     else:
         arguments_str = str(tool_input)
 

@@ -5,10 +5,11 @@ and health checks with rotation awareness.
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
+from starlette import status
 from structlog import get_logger
 
 from ccproxy.rotation.pool import RotationPool
@@ -25,7 +26,9 @@ class AccountStatusResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: str = Field(description="Account identifier")
-    state: str = Field(description="Current state: available, rate_limited, auth_error, disabled")
+    state: str = Field(
+        description="Current state: available, rate_limited, auth_error, disabled"
+    )
     token_expires_at: str = Field(
         serialization_alias="tokenExpiresAt",
         validation_alias="tokenExpiresAt",
@@ -118,10 +121,10 @@ def get_pool_from_request(request: Request) -> RotationPool:
     pool = getattr(request.app.state, "rotation_pool", None)
     if pool is None:
         raise HTTPException(
-            status_code=503,
-            detail="Rotation pool not initialized"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Rotation pool not initialized",
         )
-    return pool
+    return cast(RotationPool, pool)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -160,10 +163,7 @@ async def get_rotation_status(request: Request) -> RotationStatusResponse:
         rate_limited_accounts=status["rateLimitedAccounts"],
         auth_error_accounts=status["authErrorAccounts"],
         next_account=status["nextAccount"],
-        accounts=[
-            AccountStatusResponse(**account)
-            for account in status["accounts"]
-        ],
+        accounts=[AccountStatusResponse(**account) for account in status["accounts"]],
     )
 
 
@@ -173,10 +173,7 @@ async def list_account_status(request: Request) -> list[AccountStatusResponse]:
     pool = get_pool_from_request(request)
     status = pool.get_status()
 
-    return [
-        AccountStatusResponse(**account)
-        for account in status["accounts"]
-    ]
+    return [AccountStatusResponse(**account) for account in status["accounts"]]
 
 
 @router.get("/status/accounts/{name}", response_model=AccountStatusResponse)
@@ -197,12 +194,11 @@ async def get_account_status(request: Request, name: str) -> AccountStatusRespon
 
     if account is None:
         raise HTTPException(
-            status_code=404,
-            detail=f"Account '{name}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Account '{name}' not found"
         )
 
-    status = pool._get_account_status(account)
-    return AccountStatusResponse(**status)
+    account_status = pool._get_account_status(account)
+    return AccountStatusResponse(**account_status)
 
 
 @router.post("/status/accounts/{name}/refresh")
@@ -220,16 +216,15 @@ async def refresh_account_token(request: Request, name: str) -> dict[str, Any]:
 
     if account is None:
         raise HTTPException(
-            status_code=404,
-            detail=f"Account '{name}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Account '{name}' not found"
         )
 
     # Get refresh scheduler from app state
     scheduler = getattr(request.app.state, "refresh_scheduler", None)
     if scheduler is None:
         raise HTTPException(
-            status_code=503,
-            detail="Token refresh scheduler not available"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Token refresh scheduler not available",
         )
 
     success = await scheduler.refresh_account_now(name)
@@ -242,8 +237,8 @@ async def refresh_account_token(request: Request, name: str) -> dict[str, Any]:
         }
     else:
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to refresh token for account '{name}'"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to refresh token for account '{name}'",
         )
 
 
@@ -264,8 +259,7 @@ async def enable_account(request: Request, name: str) -> dict[str, Any]:
 
     if account is None:
         raise HTTPException(
-            status_code=404,
-            detail=f"Account '{name}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Account '{name}' not found"
         )
 
     old_state = account.state

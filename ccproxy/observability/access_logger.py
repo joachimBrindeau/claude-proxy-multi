@@ -25,6 +25,18 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
+def _remove_none_values(data: dict[str, Any]) -> dict[str, Any]:
+    """Remove None values from a dictionary."""
+    return {k: v for k, v in data.items() if v is not None}
+
+
+def _extract_metadata_fields(
+    metadata: dict[str, Any], field_names: list[str]
+) -> dict[str, Any]:
+    """Extract specified fields from metadata, excluding None values."""
+    return {f: metadata[f] for f in field_names if metadata.get(f) is not None}
+
+
 async def log_request_access(
     context: RequestContext,
     status_code: int | None = None,
@@ -88,72 +100,70 @@ async def log_request_access(
             }
         )
 
-    # Add token and cost metrics if available
-    token_fields = [
-        "tokens_input",
-        "tokens_output",
-        "cache_read_tokens",
-        "cache_write_tokens",
-        "cost_usd",
-        "cost_sdk_usd",
-        "num_turns",
-    ]
-
-    for field in token_fields:
-        value = ctx_metadata.get(field)
-        if value is not None:
-            log_data[field] = value
+    # Add token metrics if available
+    log_data.update(
+        _extract_metadata_fields(
+            ctx_metadata,
+            [
+                "tokens_input",
+                "tokens_output",
+                "cache_read_tokens",
+                "cache_write_tokens",
+                "num_turns",
+            ],
+        )
+    )
 
     # Add service and endpoint info
-    service_fields = ["endpoint", "model", "streaming", "service_type", "headers"]
-
-    for field in service_fields:
-        value = ctx_metadata.get(field)
-        if value is not None:
-            log_data[field] = value
+    log_data.update(
+        _extract_metadata_fields(
+            ctx_metadata,
+            ["endpoint", "model", "streaming", "service_type", "headers"],
+        )
+    )
 
     # Add session context metadata if available
-    session_fields = [
-        "session_id",
-        "session_type",  # "session_pool" or "direct"
-        "session_status",  # active, idle, connecting, etc.
-        "session_age_seconds",  # how long session has been alive
-        "session_message_count",  # number of messages in session
-        "session_pool_enabled",  # whether session pooling is enabled
-        "session_idle_seconds",  # how long since last activity
-        "session_error_count",  # number of errors in this session
-        "session_is_new",  # whether this is a newly created session
-    ]
-
-    for field in session_fields:
-        value = ctx_metadata.get(field)
-        if value is not None:
-            log_data[field] = value
+    log_data.update(
+        _extract_metadata_fields(
+            ctx_metadata,
+            [
+                "session_id",
+                "session_type",
+                "session_status",
+                "session_age_seconds",
+                "session_message_count",
+                "session_pool_enabled",
+                "session_idle_seconds",
+                "session_error_count",
+                "session_is_new",
+            ],
+        )
+    )
 
     # Add rate limit headers if available
-    rate_limit_fields = [
-        "x-ratelimit-limit",
-        "x-ratelimit-remaining",
-        "x-ratelimit-reset",
-        "anthropic-ratelimit-requests-limit",
-        "anthropic-ratelimit-requests-remaining",
-        "anthropic-ratelimit-requests-reset",
-        "anthropic-ratelimit-tokens-limit",
-        "anthropic-ratelimit-tokens-remaining",
-        "anthropic-ratelimit-tokens-reset",
-        "anthropic_request_id",
-    ]
-
-    for field in rate_limit_fields:
-        value = ctx_metadata.get(field)
-        if value is not None:
-            log_data[field] = value
+    log_data.update(
+        _extract_metadata_fields(
+            ctx_metadata,
+            [
+                "x-ratelimit-limit",
+                "x-ratelimit-remaining",
+                "x-ratelimit-reset",
+                "anthropic-ratelimit-requests-limit",
+                "anthropic-ratelimit-requests-remaining",
+                "anthropic-ratelimit-requests-reset",
+                "anthropic-ratelimit-tokens-limit",
+                "anthropic-ratelimit-tokens-remaining",
+                "anthropic-ratelimit-tokens-reset",
+                "anthropic_request_id",
+            ],
+        )
+    )
 
     # Add any additional metadata provided
     log_data.update(additional_metadata)
 
     # Remove None values to keep log clean
-    log_data = {k: v for k, v in log_data.items() if v is not None}
+    log_data = _remove_none_values(log_data)
 
     logger = context.logger.bind(**log_data)
 
@@ -202,51 +212,20 @@ async def log_request_access(
             )
 
         # Record token usage
-        tokens_input = ctx_metadata.get("tokens_input")
-        if tokens_input:
-            metrics.record_tokens(
-                token_count=tokens_input,
-                token_type="input",
-                model=model,
-                service_type=service_type,
-            )
-
-        tokens_output = ctx_metadata.get("tokens_output")
-        if tokens_output:
-            metrics.record_tokens(
-                token_count=tokens_output,
-                token_type="output",
-                model=model,
-                service_type=service_type,
-            )
-
-        cache_read_tokens = ctx_metadata.get("cache_read_tokens")
-        if cache_read_tokens:
-            metrics.record_tokens(
-                token_count=cache_read_tokens,
-                token_type="cache_read",
-                model=model,
-                service_type=service_type,
-            )
-
-        cache_write_tokens = ctx_metadata.get("cache_write_tokens")
-        if cache_write_tokens:
-            metrics.record_tokens(
-                token_count=cache_write_tokens,
-                token_type="cache_write",
-                model=model,
-                service_type=service_type,
-            )
-
-        # Record cost
-        cost_usd = ctx_metadata.get("cost_usd")
-        if cost_usd:
-            metrics.record_cost(
-                cost_usd=cost_usd,
-                model=model,
-                cost_type="total",
-                service_type=service_type,
-            )
+        token_types = {
+            "tokens_input": "input",
+            "tokens_output": "output",
+            "cache_read_tokens": "cache_read",
+            "cache_write_tokens": "cache_write",
+        }
+        for metadata_key, token_type in token_types.items():
+            if token_count := ctx_metadata.get(metadata_key):
+                metrics.record_tokens(
+                    token_count=token_count,
+                    token_type=token_type,
+                    model=model,
+                    service_type=service_type,
+                )
 
     # Record error if there was one
     if metrics and error_message:
@@ -303,8 +282,6 @@ async def _store_access_log(
             "tokens_output": log_data.get("tokens_output", 0),
             "cache_read_tokens": log_data.get("cache_read_tokens", 0),
             "cache_write_tokens": log_data.get("cache_write_tokens", 0),
-            "cost_usd": log_data.get("cost_usd", 0.0),
-            "cost_sdk_usd": log_data.get("cost_sdk_usd", 0.0),
             "num_turns": log_data.get("num_turns", 0),
             # Session context metadata
             "session_type": log_data.get("session_type", ""),
@@ -322,24 +299,12 @@ async def _store_access_log(
         if storage:
             await storage.store_request(storage_data)
 
-    except Exception as e:
-        # Log error but don't fail the request
+    except (OSError, RuntimeError) as e:
+        # OSError: file/db access errors; RuntimeError: DuckDB internal errors
         logger.error(
             "access_log_duckdb_error",
             error=str(e),
             request_id=log_data.get("request_id"),
-        )
-
-
-async def _write_to_storage(storage: Any, data: dict[str, Any]) -> None:
-    """Write data to storage asynchronously."""
-    try:
-        await storage.store_request(data)
-    except Exception as e:
-        logger.error(
-            "duckdb_store_error",
-            error=str(e),
-            request_id=data.get("request_id"),
         )
 
 
@@ -364,17 +329,16 @@ async def _emit_access_event(event_type: str, data: dict[str, Any]) -> None:
             "duration_seconds": data.get("duration_seconds"),
             "tokens_input": data.get("tokens_input"),
             "tokens_output": data.get("tokens_output"),
-            "cost_usd": data.get("cost_usd"),
             "endpoint": data.get("endpoint"),
         }
 
         # Remove None values
-        sse_data = {k: v for k, v in sse_data.items() if v is not None}
+        sse_data = _remove_none_values(sse_data)
 
         await emit_sse_event(event_type, sse_data)
 
-    except Exception as e:
-        # Log error but don't fail the request
+    except (RuntimeError, ValueError) as e:
+        # RuntimeError: queue/SSE issues; ValueError: invalid state
         logger.debug(
             "sse_emit_failed",
             event_type=event_type,
@@ -420,7 +384,7 @@ def log_request_start(
     log_data.update(additional_metadata)
 
     # Remove None values
-    log_data = {k: v for k, v in log_data.items() if v is not None}
+    log_data = _remove_none_values(log_data)
 
     logger.debug("access_log_start", **log_data)
 
@@ -442,13 +406,13 @@ def log_request_start(
         }
 
         # Remove None values
-        sse_data = {k: v for k, v in sse_data.items() if v is not None}
+        sse_data = _remove_none_values(sse_data)
 
         # Schedule async event emission
         asyncio.create_task(emit_sse_event("request_start", sse_data))
 
-    except Exception as e:
-        # Log error but don't fail the request
+    except (RuntimeError, ValueError) as e:
+        # RuntimeError: no event loop/queue issues; ValueError: invalid state
         logger.debug(
             "sse_emit_failed",
             event_type="request_start",

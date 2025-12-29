@@ -16,6 +16,8 @@ from typing import Any
 import httpx
 from structlog import get_logger
 
+from ccproxy.exceptions import TokenExchangeError
+
 from .constants import (
     OAUTH_AUTHORIZE_URL,
     OAUTH_BETA_VERSION,
@@ -29,10 +31,22 @@ from .constants import (
 
 logger = get_logger(__name__)
 
+__all__ = [
+    "TokenExchangeConfig",
+    "TokenExchangeError",
+    "OAuthConfig",
+    "exchange_code_sync",
+    "exchange_code_async",
+]
+
 
 @dataclass
-class OAuthConfig:
-    """OAuth configuration with sensible defaults."""
+class TokenExchangeConfig:
+    """Lightweight config for token exchange operations.
+
+    This is a simple dataclass for token exchange. For full OAuth settings,
+    use OAuthSettings from ccproxy.config.auth.
+    """
 
     authorize_url: str = OAUTH_AUTHORIZE_URL
     token_url: str = OAUTH_TOKEN_URL
@@ -49,16 +63,11 @@ class OAuthConfig:
             self.scopes = OAUTH_SCOPES.copy()
 
 
-class TokenExchangeError(Exception):
-    """Raised when token exchange fails."""
-
-    def __init__(self, message: str, status_code: int | None = None, response_text: str | None = None):
-        super().__init__(message)
-        self.status_code = status_code
-        self.response_text = response_text
+# Backwards compatibility alias
+OAuthConfig = TokenExchangeConfig
 
 
-def _build_headers(config: OAuthConfig) -> dict[str, str]:
+def _build_headers(config: TokenExchangeConfig) -> dict[str, str]:
     """Build standard OAuth headers for JSON requests."""
     return {
         "Content-Type": "application/json",
@@ -86,7 +95,7 @@ def _handle_error_response(response: httpx.Response, operation: str) -> None:
 async def exchange_code_async(
     code: str,
     code_verifier: str,
-    config: OAuthConfig | None = None,
+    config: TokenExchangeConfig | None = None,
 ) -> dict[str, Any]:
     """Exchange authorization code for tokens (async).
 
@@ -102,7 +111,7 @@ async def exchange_code_async(
         TokenExchangeError: If token exchange fails
     """
     if config is None:
-        config = OAuthConfig()
+        config = TokenExchangeConfig()
 
     # Use JSON body format (not form-encoded) as required by Anthropic's OAuth endpoint
     token_data = {
@@ -134,7 +143,7 @@ async def exchange_code_async(
 def exchange_code_sync(
     code: str,
     code_verifier: str,
-    config: OAuthConfig | None = None,
+    config: TokenExchangeConfig | None = None,
 ) -> dict[str, Any]:
     """Exchange authorization code for tokens (sync).
 
@@ -150,7 +159,7 @@ def exchange_code_sync(
         TokenExchangeError: If token exchange fails
     """
     if config is None:
-        config = OAuthConfig()
+        config = TokenExchangeConfig()
 
     # Use JSON body format (not form-encoded) as required by Anthropic's OAuth endpoint
     token_data = {
@@ -181,7 +190,7 @@ def exchange_code_sync(
 
 async def refresh_token_async(
     refresh_token: str,
-    config: OAuthConfig | None = None,
+    config: TokenExchangeConfig | None = None,
 ) -> dict[str, Any]:
     """Refresh access token (async).
 
@@ -196,7 +205,7 @@ async def refresh_token_async(
         TokenExchangeError: If token refresh fails
     """
     if config is None:
-        config = OAuthConfig()
+        config = TokenExchangeConfig()
 
     # Use JSON body format (not form-encoded) as required by Anthropic's OAuth endpoint
     token_data = {

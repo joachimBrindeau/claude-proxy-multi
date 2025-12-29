@@ -7,7 +7,6 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Claude API](https://img.shields.io/badge/Claude-API-orange.svg)](https://www.anthropic.com/)
-[![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-412991.svg)](https://platform.openai.com/)
 
 ---
 
@@ -37,10 +36,10 @@ Built on top of CaddyGlow's CCProxy, this fork adds **multi-account rotation** f
 
 | Feature | Source |
 |---------|:------:|
-| Claude & Codex proxy | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| Claude API proxy | [Original](https://github.com/CaddyGlow/ccproxy-api) |
 | OAuth2 authentication | [Original](https://github.com/CaddyGlow/ccproxy-api) |
 | SDK & API modes | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| OpenAI format translation | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| OpenAI format compatibility | [Original](https://github.com/CaddyGlow/ccproxy-api) |
 | Observability suite | [Original](https://github.com/CaddyGlow/ccproxy-api) |
 | **Multi-account rotation** | This Fork |
 | **Rate limit failover** | This Fork |
@@ -55,12 +54,11 @@ Built on top of CaddyGlow's CCProxy, this fork adds **multi-account rotation** f
 ### Core Proxy Features (Inherited)
 
 <details>
-<summary><b>🔌 Multi-Provider Support</b></summary>
+<summary><b>🔌 Claude API Support</b></summary>
 
 - **Anthropic Claude** - Access via Claude Max subscription
-- **OpenAI Codex** - Access via ChatGPT Plus subscription (experimental)
-- **Unified API** - Single endpoint for both providers
-- **Format Translation** - Automatic conversion between Anthropic and OpenAI formats
+- **OpenAI Format** - Accepts requests in OpenAI chat completions format
+- **Format Translation** - Automatic conversion from OpenAI to Anthropic format
 
 </details>
 
@@ -77,7 +75,7 @@ Built on top of CaddyGlow's CCProxy, this fork adds **multi-account rotation** f
 <details>
 <summary><b>🔐 Authentication Options</b></summary>
 
-- OAuth2 PKCE flow for Claude and OpenAI
+- OAuth2 PKCE flow for Claude
 - Automatic credential detection from CLI tools
 - Token refresh with configurable buffer time
 - Multiple header formats (`x-api-key`, `Authorization: Bearer`)
@@ -283,14 +281,6 @@ curl -X POST http://localhost:8000/api/v1/messages \
 | `POST /sdk/v1/chat/completions` | OpenAI | SDK with Tools |
 | `GET /api/v1/models` | - | List Models |
 
-### OpenAI Codex Endpoints (Experimental)
-
-| Endpoint | Description |
-|----------|-------------|
-| `POST /codex/responses` | Auto-generated session |
-| `POST /codex/{session_id}/responses` | Persistent session |
-| `POST /codex/chat/completions` | OpenAI-compatible |
-
 ### Utility Endpoints
 
 | Endpoint | Description |
@@ -481,10 +471,9 @@ MIT License - see [LICENSE](LICENSE).
 This fork would not exist without the excellent work by **[@CaddyGlow](https://github.com/CaddyGlow)** on [ccproxy-api](https://github.com/CaddyGlow/ccproxy-api).
 
 The original CCProxy provides:
-- Multi-provider proxy architecture (Claude + OpenAI Codex)
+- Claude proxy architecture with OpenAI format compatibility
 - OAuth2 PKCE authentication flows
 - SDK and API operating modes
-- OpenAI-compatible API translation
 - MCP server integration
 - Observability suite (metrics, dashboard, logging)
 
@@ -493,7 +482,6 @@ The original CCProxy provides:
 ### Also Thanks To
 
 - [Anthropic](https://anthropic.com) - Claude API & SDK
-- [OpenAI](https://openai.com) - Codex API
 
 ---
 

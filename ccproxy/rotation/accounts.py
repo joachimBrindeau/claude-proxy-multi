@@ -3,14 +3,16 @@
 Handles loading, validating, and persisting accounts from ~/.claude/accounts.json.
 """
 
-import json
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import orjson
 from structlog import get_logger
+
+from ccproxy.rotation.constants import ONE_HOUR_MILLISECONDS
 
 
 logger = get_logger(__name__)
@@ -114,9 +116,7 @@ class Account:
                 "must be lowercase alphanumeric with underscores/hyphens"
             )
         if len(self.name) > 32:
-            raise ValueError(
-                f"Account name '{self.name}' too long: max 32 characters"
-            )
+            raise ValueError(f"Account name '{self.name}' too long: max 32 characters")
 
     @property
     def access_token(self) -> str:
@@ -145,7 +145,9 @@ class Account:
         self.state = "rate_limited"
         if reset_time is None:
             # Default to 1 hour from now
-            reset_time = int(datetime.now(UTC).timestamp() * 1000) + (60 * 60 * 1000)
+            reset_time = (
+                int(datetime.now(UTC).timestamp() * 1000) + ONE_HOUR_MILLISECONDS
+            )
         self.rate_limited_until = reset_time
         logger.info(
             "account_rate_limited",
@@ -230,7 +232,9 @@ class Account:
             self.tokens_remaining_percent = None
 
         if requests_limit and requests_remaining is not None:
-            self.requests_remaining_percent = (requests_remaining / requests_limit) * 100
+            self.requests_remaining_percent = (
+                requests_remaining / requests_limit
+            ) * 100
         else:
             self.requests_remaining_percent = None
 
@@ -325,11 +329,13 @@ def load_accounts(path: Path | None = None) -> AccountsFile:
 
     logger.debug("loading_accounts", path=str(path))
 
-    with path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
+    with path.open("rb") as f:
+        data = orjson.loads(f.read())
 
     if not isinstance(data, dict):
-        raise ValueError(f"Invalid accounts file format: expected object, got {type(data)}")
+        raise ValueError(
+            f"Invalid accounts file format: expected object, got {type(data)}"
+        )
 
     if "accounts" not in data:
         raise ValueError("Invalid accounts file: missing 'accounts' field")
@@ -367,8 +373,8 @@ def save_accounts(accounts_file: AccountsFile, path: Path | None = None) -> bool
     try:
         # Write to temp file first, then rename for atomicity
         temp_path = path.with_suffix(".json.tmp")
-        with temp_path.open("w", encoding="utf-8") as f:
-            json.dump(accounts_file.to_dict(), f, indent=2)
+        with temp_path.open("wb") as f:
+            f.write(orjson.dumps(accounts_file.to_dict(), option=orjson.OPT_INDENT_2))
 
         temp_path.rename(path)
 
@@ -379,6 +385,7 @@ def save_accounts(accounts_file: AccountsFile, path: Path | None = None) -> bool
         )
         return True
 
-    except Exception as e:
+    except OSError as e:
+        # OSError: File system errors (permissions, disk full, path issues)
         logger.error("accounts_save_failed", path=str(path), error=str(e))
         return False

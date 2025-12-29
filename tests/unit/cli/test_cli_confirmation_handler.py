@@ -517,8 +517,8 @@ class TestCLICommand:
         mock_settings.security.auth_token = None
         mock_get_settings.return_value = mock_settings
 
-        # Make asyncio.run raise an error
-        mock_asyncio_run.side_effect = Exception("Test error")
+        # Make asyncio.run raise an HTTP error (the type caught by the handler)
+        mock_asyncio_run.side_effect = httpx.HTTPError("Test error")
 
         # Should raise typer.Exit
         with pytest.raises(typer.Exit) as exc_info:

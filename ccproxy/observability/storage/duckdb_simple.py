@@ -15,6 +15,7 @@ from typing import Any
 import structlog
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, SQLModel, create_engine, desc, func, select
 from typing_extensions import TypedDict
 
@@ -53,13 +54,11 @@ class AccessLogPayload(TypedDict, total=False):
     duration_ms: float
     duration_seconds: float
 
-    # Token and cost tracking
+    # Token tracking
     tokens_input: int
     tokens_output: int
     cache_read_tokens: int
     cache_write_tokens: int
-    cost_usd: float
-    cost_sdk_usd: float
     num_turns: int  # number of conversation turns
 
     # Session context metadata
@@ -115,7 +114,9 @@ class SimpleDuckDBStorage:
                 "simple_duckdb_initialized", database_path=str(self.database_path)
             )
 
-        except Exception as e:
+        except (SQLAlchemyError, OSError) as e:
+            # SQLAlchemyError: database connection/creation failures
+            # OSError: filesystem errors when creating data directory
             logger.error("simple_duckdb_init_error", error=str(e), exc_info=True)
             raise
 
@@ -129,7 +130,8 @@ class SimpleDuckDBStorage:
             SQLModel.metadata.create_all(self._engine)
             logger.debug("duckdb_schema_created")
 
-        except Exception as e:
+        except SQLAlchemyError as e:
+            # SQLAlchemyError: schema creation failures (table/column errors)
             logger.error("simple_duckdb_schema_error", error=str(e))
             raise
 
@@ -156,7 +158,8 @@ class SimpleDuckDBStorage:
                     session.commit()
                     logger.info("Added query column to access_logs table")
 
-        except Exception as e:
+        except SQLAlchemyError as e:
+            # SQLAlchemyError: column check/alter failures (non-critical schema migration)
             logger.warning("Failed to check/add query column", error=str(e))
             # Continue without failing - the column might already exist or schema might be different
 
@@ -176,7 +179,8 @@ class SimpleDuckDBStorage:
             # Add to queue for background processing
             await self._write_queue.put(data)
             return True
-        except Exception as e:
+        except asyncio.QueueFull as e:
+            # QueueFull: queue capacity exceeded (shouldn't happen with unbounded queue)
             logger.error(
                 "queue_store_error",
                 error=str(e),
@@ -204,7 +208,8 @@ class SimpleDuckDBStorage:
                             "queue_processed_successfully",
                             request_id=data.get("request_id"),
                         )
-                except Exception as e:
+                except SQLAlchemyError as e:
+                    # SQLAlchemyError: database write failures during sync store
                     logger.error(
                         "background_worker_error",
                         error=str(e),
@@ -215,7 +220,18 @@ class SimpleDuckDBStorage:
                     # Always mark the task as done, regardless of success/failure
                     self._write_queue.task_done()
 
-            except Exception as e:
+            except asyncio.CancelledError:
+                # CancelledError: task cancellation during shutdown - re-raise to exit cleanly
+                raise
+            except OSError as e:
+                # OSError: system-level errors during queue operations
+                logger.error(
+                    "background_worker_unexpected_error",
+                    error=str(e),
+                    exc_info=True,
+                )
+                # Continue processing other items
+            except Exception as e:  # noqa: BLE001 - background worker must not crash on unexpected errors
                 logger.error(
                     "background_worker_unexpected_error",
                     error=str(e),
@@ -238,7 +254,8 @@ class SimpleDuckDBStorage:
                             "shutdown_queue_processed_successfully",
                             request_id=data.get("request_id"),
                         )
-                except Exception as e:
+                except SQLAlchemyError as e:
+                    # SQLAlchemyError: database write failures during shutdown flush
                     logger.error(
                         "shutdown_background_worker_error",
                         error=str(e),
@@ -252,7 +269,8 @@ class SimpleDuckDBStorage:
             except asyncio.QueueEmpty:
                 # No more items to process
                 break
-            except Exception as e:
+            except OSError as e:
+                # OSError: system-level errors during shutdown queue processing
                 logger.error(
                     "shutdown_background_worker_unexpected_error",
                     error=str(e),
@@ -292,8 +310,6 @@ class SimpleDuckDBStorage:
                 tokens_output=data.get("tokens_output", 0),
                 cache_read_tokens=data.get("cache_read_tokens", 0),
                 cache_write_tokens=data.get("cache_write_tokens", 0),
-                cost_usd=data.get("cost_usd", 0.0),
-                cost_sdk_usd=data.get("cost_sdk_usd", 0.0),
             )
 
             # Store using SQLModel session
@@ -309,13 +325,14 @@ class SimpleDuckDBStorage:
                 model=data.get("model", ""),
                 tokens_input=data.get("tokens_input", 0),
                 tokens_output=data.get("tokens_output", 0),
-                cost_usd=data.get("cost_usd", 0.0),
                 endpoint=data.get("endpoint", ""),
                 timestamp=timestamp_dt.isoformat() if timestamp_dt else None,
             )
             return True
 
-        except Exception as e:
+        except (SQLAlchemyError, ValueError, TypeError) as e:
+            # SQLAlchemyError: database insert/commit failures
+            # ValueError/TypeError: data conversion errors (timestamp, type validation)
             logger.error(
                 "simple_duckdb_store_error",
                 error=str(e),
@@ -366,8 +383,6 @@ class SimpleDuckDBStorage:
                         tokens_output=metric.get("tokens_output", 0),
                         cache_read_tokens=metric.get("cache_read_tokens", 0),
                         cache_write_tokens=metric.get("cache_write_tokens", 0),
-                        cost_usd=metric.get("cost_usd", 0.0),
-                        cost_sdk_usd=metric.get("cost_sdk_usd", 0.0),
                     )
                     # Use merge to handle potential duplicates
                     session.merge(access_log)
@@ -386,7 +401,9 @@ class SimpleDuckDBStorage:
             )
             return True
 
-        except Exception as e:
+        except (SQLAlchemyError, ValueError, TypeError) as e:
+            # SQLAlchemyError: database batch insert/merge failures
+            # ValueError/TypeError: data conversion errors in batch processing
             logger.error(
                 "simple_duckdb_store_batch_error",
                 error=str(e),
@@ -452,7 +469,8 @@ class SimpleDuckDBStorage:
 
                 return [dict(zip(columns, row, strict=False)) for row in rows]
 
-        except Exception as e:
+        except SQLAlchemyError as e:
+            # SQLAlchemyError: query execution failures (syntax, connection, etc.)
             logger.error("simple_duckdb_query_error", sql=sql, error=str(e))
             return []
 
@@ -475,7 +493,8 @@ class SimpleDuckDBStorage:
                 )
                 results = session.exec(statement).all()
                 return [log.dict() for log in results]
-        except Exception as e:
+        except SQLAlchemyError as e:
+            # SQLAlchemyError: database query failures for recent requests
             logger.error("sqlmodel_query_error", error=str(e))
             return []
 
@@ -542,11 +561,9 @@ class SimpleDuckDBStorage:
                     .where(*base_where_conditions)
                 ).first()
 
-                total_cost = session.exec(
-                    select(func.sum(AccessLog.cost_usd))
-                    .select_from(AccessLog)
-                    .where(*base_where_conditions)
-                ).first()
+                # Note: cost_usd field was removed from AccessLog model when
+                # local pricing calculation was deleted. Cost tracking now
+                # relies on external API response fields only.
 
                 total_tokens_input = session.exec(
                     select(func.sum(AccessLog.tokens_input))
@@ -564,14 +581,14 @@ class SimpleDuckDBStorage:
                     "summary": {
                         "total_requests": total_requests or 0,
                         "avg_duration_ms": avg_duration or 0,
-                        "total_cost_usd": total_cost or 0,
                         "total_tokens_input": total_tokens_input or 0,
                         "total_tokens_output": total_tokens_output or 0,
                     },
                     "query_time": time.time(),
                 }
 
-        except Exception as e:
+        except SQLAlchemyError as e:
+            # SQLAlchemyError: analytics query failures (aggregation errors)
             logger.error("sqlmodel_analytics_error", error=str(e))
             return {}
 
@@ -587,7 +604,8 @@ class SimpleDuckDBStorage:
             except TimeoutError:
                 logger.warning("background_worker_shutdown_timeout")
                 self._background_worker_task.cancel()
-            except Exception as e:
+            except asyncio.CancelledError as e:
+                # CancelledError: task was cancelled during shutdown
                 logger.error("background_worker_shutdown_error", error=str(e))
 
         # Process remaining items in queue (with timeout)
@@ -601,7 +619,8 @@ class SimpleDuckDBStorage:
         if self._engine:
             try:
                 self._engine.dispose()
-            except Exception as e:
+            except SQLAlchemyError as e:
+                # SQLAlchemyError: engine disposal/connection pool cleanup failures
                 logger.error("simple_duckdb_engine_close_error", error=str(e))
             finally:
                 self._engine = None
@@ -639,7 +658,8 @@ class SimpleDuckDBStorage:
                     "enabled": False,
                 }
 
-        except Exception as e:
+        except SQLAlchemyError as e:
+            # SQLAlchemyError: health check query failures
             return {
                 "status": "unhealthy",
                 "enabled": False,
@@ -658,7 +678,9 @@ class SimpleDuckDBStorage:
         try:
             # Run the reset operation in a thread pool
             return await asyncio.to_thread(self._reset_data_sync)
-        except Exception as e:
+        except (SQLAlchemyError, OSError) as e:
+            # SQLAlchemyError: database reset failures
+            # OSError: thread pool execution errors
             logger.error("simple_duckdb_reset_error", error=str(e))
             return False
 
@@ -672,6 +694,7 @@ class SimpleDuckDBStorage:
 
             logger.info("simple_duckdb_reset_success")
             return True
-        except Exception as e:
+        except SQLAlchemyError as e:
+            # SQLAlchemyError: database delete/commit failures
             logger.error("simple_duckdb_reset_sync_error", error=str(e))
             return False

@@ -1,10 +1,10 @@
 """Serve command for CCProxy API server - consolidates server-related commands."""
 
-import json
 import os
 from pathlib import Path
 from typing import Annotated, Any
 
+import orjson
 import typer
 import uvicorn
 from click import get_current_context
@@ -251,7 +251,7 @@ def _run_local_server(settings: Settings, cli_overrides: dict[str, Any]) -> None
 
     # Set environment variables for server to access CLI overrides
     if cli_overrides:
-        os.environ["CCPROXY_CONFIG_OVERRIDES"] = json.dumps(cli_overrides)
+        os.environ["CCPROXY_CONFIG_OVERRIDES"] = orjson.dumps(cli_overrides).decode()
 
     logger.debug(
         "server_starting",
@@ -576,7 +576,7 @@ def api(
         bool,
         typer.Option(
             "--no-network-calls",
-            help="Disable all network calls (version checks and pricing updates)",
+            help="Disable all network calls (version checks)",
             rich_help_panel="Privacy Settings",
         ),
     ] = False,
@@ -585,14 +585,6 @@ def api(
         typer.Option(
             "--disable-version-check",
             help="Disable version update checks (prevents calls to GitHub API)",
-            rich_help_panel="Privacy Settings",
-        ),
-    ] = False,
-    disable_pricing_updates: Annotated[
-        bool,
-        typer.Option(
-            "--disable-pricing-updates",
-            help="Disable pricing data updates (prevents downloads from GitHub)",
             rich_help_panel="Privacy Settings",
         ),
     ] = False,
@@ -652,16 +644,13 @@ def api(
 
         security_options = SecurityOptions(auth_token=auth_token)
 
-        # Handle network control flags
+        # Handle network control flags (pricing feature removed)
         scheduler_overrides = {}
         if no_network_calls:
-            # Disable both network features
-            scheduler_overrides["pricing_update_enabled"] = False
+            # Disable network features
             scheduler_overrides["version_check_enabled"] = False
         else:
             # Handle individual flags
-            if disable_pricing_updates:
-                scheduler_overrides["pricing_update_enabled"] = False
             if disable_version_check:
                 scheduler_overrides["version_check_enabled"] = False
 
@@ -773,7 +762,8 @@ def api(
         toolkit = get_rich_toolkit()
         toolkit.print(f"Configuration error: {e}", tag="error")
         raise typer.Exit(1) from e
-    except Exception as e:
+    except OSError as e:
+        # File system or I/O errors during server startup
         toolkit = get_rich_toolkit()
         toolkit.print(f"Error starting server: {e}", tag="error")
         raise typer.Exit(1) from e
@@ -980,7 +970,8 @@ def claude(
         logger.error("cli_configuration_error", error=str(e), command="claude")
         toolkit.print(f"Configuration error: {e}", tag="error")
         raise typer.Exit(1) from e
-    except Exception as e:
+    except OSError as e:
+        # File system errors (already handled OSError from execvp separately above)
         logger.error("cli_unexpected_error", error=str(e), command="claude")
         toolkit.print(f"Error executing claude command: {e}", tag="error")
         raise typer.Exit(1) from e

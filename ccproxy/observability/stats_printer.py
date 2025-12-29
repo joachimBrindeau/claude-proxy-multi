@@ -7,13 +7,23 @@ from the observability system, including Prometheus metrics and DuckDB storage.
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+import orjson
 import structlog
+
+
+# Database-related exceptions for DuckDB operations
+try:
+    import duckdb
+
+    DuckDBError = duckdb.Error
+except ImportError:
+    # Fallback if duckdb is not installed
+    DuckDBError = RuntimeError  # type: ignore[misc, assignment]
 
 from ccproxy.config.observability import ObservabilitySettings
 
@@ -34,8 +44,6 @@ class StatsSnapshot:
     tokens_output_total: int
     tokens_input_last_minute: int
     tokens_output_last_minute: int
-    cost_total_usd: float
-    cost_last_minute_usd: float
     errors_total: int
     errors_last_minute: int
     active_requests: int
@@ -92,8 +100,6 @@ class StatsCollector:
             "tokens_output_total": 0,
             "tokens_input_last_minute": 0,
             "tokens_output_last_minute": 0,
-            "cost_total_usd": 0.0,
-            "cost_last_minute_usd": 0.0,
             "errors_total": 0,
             "errors_last_minute": 0,
             "active_requests": 0,
@@ -105,7 +111,9 @@ class StatsCollector:
         if self._metrics_instance and self._metrics_instance.is_enabled():
             try:
                 await self._collect_from_prometheus(stats_data)
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError) as e:
+                # AttributeError: missing metric attributes
+                # TypeError/ValueError: invalid metric values or types
                 logger.warning(
                     "Failed to collect from Prometheus metrics", error=str(e)
                 )
@@ -114,7 +122,10 @@ class StatsCollector:
         if self._storage_instance and self._storage_instance.is_enabled():
             try:
                 await self._collect_from_duckdb(stats_data, current_time)
-            except Exception as e:
+            except (DuckDBError, OSError, KeyError) as e:
+                # DuckDBError: database query failures
+                # OSError: file access issues with database
+                # KeyError: missing keys in analytics response
                 logger.warning("Failed to collect from DuckDB storage", error=str(e))
 
         snapshot = StatsSnapshot(
@@ -129,8 +140,6 @@ class StatsCollector:
             tokens_output_total=int(stats_data["tokens_output_total"]),
             tokens_input_last_minute=int(stats_data["tokens_input_last_minute"]),
             tokens_output_last_minute=int(stats_data["tokens_output_last_minute"]),
-            cost_total_usd=float(stats_data["cost_total_usd"]),
-            cost_last_minute_usd=float(stats_data["cost_last_minute_usd"]),
             errors_total=int(stats_data["errors_total"]),
             errors_last_minute=int(stats_data["errors_last_minute"]),
             active_requests=int(stats_data["active_requests"]),
@@ -268,25 +277,6 @@ class StatsCollector:
                     stats_data["tokens_input_last_minute"] = int(tokens_input)
                     stats_data["tokens_output_last_minute"] = int(tokens_output)
 
-            # Get cost from counter
-            if hasattr(self._metrics_instance, "cost_counter"):
-                cost_counter = self._metrics_instance.cost_counter
-                total_cost = 0
-                for metric in cost_counter.collect():
-                    for sample in metric.samples:
-                        if sample.name.endswith("_total"):
-                            total_cost += sample.value
-                stats_data["cost_total_usd"] = float(total_cost)
-
-                # Calculate last minute cost
-                if self._last_snapshot:
-                    last_minute_cost = total_cost - self._last_snapshot.cost_total_usd
-                    stats_data["cost_last_minute_usd"] = max(
-                        0.0, float(last_minute_cost)
-                    )
-                else:
-                    stats_data["cost_last_minute_usd"] = float(total_cost)
-
             # Get error counts from counter
             if hasattr(self._metrics_instance, "error_counter"):
                 error_counter = self._metrics_instance.error_counter
@@ -311,12 +301,14 @@ class StatsCollector:
                 avg_response_time_ms=stats_data["avg_response_time_ms"],
                 tokens_input_total=stats_data["tokens_input_total"],
                 tokens_output_total=stats_data["tokens_output_total"],
-                cost_total_usd=stats_data["cost_total_usd"],
                 errors_total=stats_data["errors_total"],
                 active_requests=stats_data["active_requests"],
             )
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, ZeroDivisionError) as e:
+            # AttributeError: missing metric attributes or methods
+            # TypeError/ValueError: invalid metric values during collection
+            # ZeroDivisionError: division by zero in average calculations
             logger.debug("Failed to get metrics from Prometheus", error=str(e))
 
     async def _collect_from_duckdb(
@@ -337,7 +329,6 @@ class StatsCollector:
                 stats_data["tokens_output_total"] = summary.get(
                     "total_tokens_output", 0
                 )
-                stats_data["cost_total_usd"] = summary.get("total_cost_usd", 0.0)
 
             # Get last minute analytics
             one_minute_ago = current_time - 60
@@ -360,14 +351,14 @@ class StatsCollector:
                 stats_data["tokens_output_last_minute"] = last_minute_summary.get(
                     "total_tokens_output", 0
                 )
-                stats_data["cost_last_minute_usd"] = last_minute_summary.get(
-                    "total_cost_usd", 0.0
-                )
 
             # Get top model from last minute data
             await self._get_top_model(stats_data, one_minute_ago, current_time)
 
-        except Exception as e:
+        except (DuckDBError, OSError, KeyError) as e:
+            # DuckDBError: database query failures
+            # OSError: file access issues with database
+            # KeyError: missing keys in analytics response
             logger.debug("Failed to collect from DuckDB", error=str(e))
 
     async def _get_top_model(
@@ -407,7 +398,10 @@ class StatsCollector:
                 else:
                     stats_data["top_model_percentage"] = 0.0
 
-        except Exception as e:
+        except (DuckDBError, OSError, KeyError, IndexError) as e:
+            # DuckDBError: database query failures
+            # OSError: file access issues
+            # KeyError/IndexError: missing data in query results
             logger.debug("Failed to get top model", error=str(e))
 
     def _has_meaningful_activity(self, snapshot: StatsSnapshot) -> bool:
@@ -464,10 +458,6 @@ class StatsCollector:
         avg_response_str = f"{snapshot.avg_response_time_ms:.1f}ms"
         avg_response_last_min_str = f"{snapshot.avg_response_time_last_minute_ms:.1f}ms"
 
-        # Format costs
-        cost_total_str = f"${snapshot.cost_total_usd:.4f}"
-        cost_last_min_str = f"${snapshot.cost_last_minute_usd:.4f}"
-
         # Format top model percentage
         top_model_str = f"{snapshot.top_model} ({snapshot.top_model_percentage:.1f}%)"
 
@@ -475,7 +465,6 @@ class StatsCollector:
 ├─ Requests: {snapshot.requests_last_minute} (last min) / {snapshot.requests_total} (total)
 ├─ Avg Response: {avg_response_last_min_str} (last min) / {avg_response_str} (overall)
 ├─ Tokens: {snapshot.tokens_input_last_minute:,} in / {snapshot.tokens_output_last_minute:,} out (last min)
-├─ Cost: {cost_last_min_str} (last min) / {cost_total_str} (total)
 ├─ Errors: {snapshot.errors_last_minute} (last min) / {snapshot.errors_total} (total)
 ├─ Active: {snapshot.active_requests} requests
 └─ Top Model: {top_model_str}"""
@@ -498,10 +487,6 @@ class StatsCollector:
                 "input_total": snapshot.tokens_input_total,
                 "output_total": snapshot.tokens_output_total,
             },
-            "cost_usd": {
-                "last_minute": snapshot.cost_last_minute_usd,
-                "total": snapshot.cost_total_usd,
-            },
             "errors": {
                 "last_minute": snapshot.errors_last_minute,
                 "total": snapshot.errors_total,
@@ -512,7 +497,8 @@ class StatsCollector:
                 "percentage": snapshot.top_model_percentage,
             },
         }
-        return json.dumps(data, indent=2)
+        result: str = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode()
+        return result
 
     def _format_rich(self, snapshot: StatsSnapshot) -> str:
         """Format stats for rich console output with colors and styling."""
@@ -560,12 +546,6 @@ class StatsCollector:
             )
 
             table.add_row(
-                "Cost",
-                f"${snapshot.cost_last_minute_usd:.4f}",
-                f"${snapshot.cost_total_usd:.4f}",
-            )
-
-            table.add_row(
                 "Errors",
                 f"{snapshot.errors_last_minute}",
                 f"{snapshot.errors_total}",
@@ -591,7 +571,9 @@ class StatsCollector:
             # Fallback to console format if rich is not available
             logger.warning("Rich not available, falling back to console format")
             return self._format_console(snapshot)
-        except Exception as e:
+        except (OSError, ValueError) as e:
+            # OSError: console/terminal output failures
+            # ValueError: invalid data formatting issues
             logger.warning(
                 f"Rich formatting failed: {e}, falling back to console format"
             )
@@ -602,37 +584,6 @@ class StatsCollector:
         timestamp_str = snapshot.timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
         # Create a structured log entry
-        log_data = {
-            "timestamp": timestamp_str,
-            "event": "metrics_summary",
-            "requests": {
-                "last_minute": snapshot.requests_last_minute,
-                "total": snapshot.requests_total,
-            },
-            "response_time_ms": {
-                "last_minute_avg": snapshot.avg_response_time_last_minute_ms,
-                "overall_avg": snapshot.avg_response_time_ms,
-            },
-            "tokens": {
-                "input_last_minute": snapshot.tokens_input_last_minute,
-                "output_last_minute": snapshot.tokens_output_last_minute,
-                "input_total": snapshot.tokens_input_total,
-                "output_total": snapshot.tokens_output_total,
-            },
-            "cost_usd": {
-                "last_minute": snapshot.cost_last_minute_usd,
-                "total": snapshot.cost_total_usd,
-            },
-            "errors": {
-                "last_minute": snapshot.errors_last_minute,
-                "total": snapshot.errors_total,
-            },
-            "active_requests": snapshot.active_requests,
-            "top_model": {
-                "name": snapshot.top_model,
-                "percentage": snapshot.top_model_percentage,
-            },
-        }
 
         # Format as a log line with key=value pairs
         log_parts = [f"[{timestamp_str}]", "event=metrics_summary"]
@@ -647,8 +598,6 @@ class StatsCollector:
                 f"tokens_out_last_min={snapshot.tokens_output_last_minute}",
                 f"tokens_in_total={snapshot.tokens_input_total}",
                 f"tokens_out_total={snapshot.tokens_output_total}",
-                f"cost_last_min_usd={snapshot.cost_last_minute_usd:.4f}",
-                f"cost_total_usd={snapshot.cost_total_usd:.4f}",
                 f"errors_last_min={snapshot.errors_last_minute}",
                 f"errors_total={snapshot.errors_total}",
                 f"active_requests={snapshot.active_requests}",
@@ -677,7 +626,6 @@ class StatsCollector:
                     requests_last_minute=snapshot.requests_last_minute,
                     requests_total=snapshot.requests_total,
                     avg_response_time_ms=snapshot.avg_response_time_ms,
-                    cost_total_usd=snapshot.cost_total_usd,
                     active_requests=snapshot.active_requests,
                     top_model=snapshot.top_model,
                 )
@@ -689,7 +637,8 @@ class StatsCollector:
                     active_requests=snapshot.active_requests,
                 )
 
-        except Exception as e:
+        except OSError as e:
+            # OSError: console/terminal output failures when printing stats
             logger.error("Failed to print stats", error=str(e), exc_info=True)
 
 
@@ -726,7 +675,10 @@ def get_stats_collector(
                 from .metrics import get_metrics
 
                 metrics_instance = get_metrics()
-            except Exception as e:
+            except (ImportError, AttributeError, RuntimeError) as e:
+                # ImportError: metrics module not available
+                # AttributeError: metrics not properly initialized
+                # RuntimeError: metrics initialization failed
                 logger.warning("Failed to get metrics instance", error=str(e))
 
         if storage_instance is None:
@@ -735,7 +687,10 @@ def get_stats_collector(
 
                 storage_instance = SimpleDuckDBStorage(settings.duckdb_path)
                 # Note: Storage needs to be initialized before use
-            except Exception as e:
+            except (ImportError, DuckDBError, OSError) as e:
+                # ImportError: storage module not available
+                # DuckDBError: database initialization failed
+                # OSError: file access issues with database path
                 logger.warning("Failed to get storage instance", error=str(e))
 
         _global_stats_collector = StatsCollector(

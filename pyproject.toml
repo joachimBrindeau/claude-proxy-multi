@@ -2,24 +2,25 @@
 name = "ccproxy-api"
 # version = "0.1.0"
 dynamic = ["version"]
-description = "API server that provides an Anthropic and OpenAI compatible interface over Claude Code, allowing to use your Claude OAuth account or over the API."
+description = "High-performance Claude Code multi-account proxy server with Anthropic API compatibility for managing multiple Claude accounts."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "aiofiles>=24.1.0",
-  "aiosqlite>=0.21.0",
+  "cachetools>=6.2.4",
   "jsonschema>=0.33.2",
   "fastapi[standard]>=0.115.14",
   "httpx>=0.28.1",
   "httpx-sse>=0.4.1",
   "keyring>=25.6.0",
-  "openai>=1.93.0",
+  "platformdirs>=4.3.6",
   "prometheus-client>=0.22.1",
   "pydantic>=2.8.0",
   "pydantic-settings>=2.4.0",
   "rich>=13.0.0",
   "rich-toolkit>=0.14.8",
   "structlog>=25.4.0",
+  "tenacity>=9.1.2",
   "tomli>=2.0.0; python_version<'3.11'",
   "typer>=0.16.0",
   "duckdb>=1.1.0",
@@ -34,6 +35,11 @@ dependencies = [
   "claude-code-sdk>=0.0.19",
   "pyjwt>=2.10.1",
   "jinja2>=3.1.0",
+  "shortuuid>=1.0.13",
+  "python-dateutil>=2.9.0",
+  "diskcache>=5.6.3",
+  "pybreaker>=1.4.1",
+  "orjson>=3.11.5",
 ]
 
 [build-system]
@@ -88,23 +94,11 @@ dev = [
   "radon>=6.0.1",
   "pip-audit>=2.10.0",
   "pip-licenses>=5.5.0",
+  "httpx>=0.28.1",
+  "types-python-dateutil>=2.9.0.20251115",
 ]
 security = [
   "keyring>=25.0.0", # Optional keyring support for secure credential storage
-]
-docs = [
-  "mkdocs>=1.5.3",
-  "mkdocs-material>=9.5.0",
-  "mkdocstrings[python]>=0.24.0",
-  "mkdocs-gen-files>=0.5.0",
-  "mkdocs-literate-nav>=0.6.0",
-  "mkdocs-section-index>=0.3.0",
-  "mkdocs-swagger-ui-tag>=0.6.0",
-  "mkdocs-include-markdown-plugin>=6.0.0",
-  "mkdocs-mermaid2-plugin>=1.1.0",
-  "mkdocs-glightbox>=0.3.0",
-  "mkdocs-minify-plugin>=0.7.0",
-  "mkdocs-redirects>=1.2.0",
 ]
 schema = ["pydantic>=2.8.0", "check-jsonschema>=0.33.2"]
 
@@ -209,7 +203,7 @@ lines-after-imports = 2
 python_version = "3.11"
 show_column_numbers = true
 follow_imports = "normal"
-exclude = ["^[^/]+\\.py$", "docs/", "site/", "tests.depracted/", "examples/"]
+exclude = ["^[^/]+\\.py$", "site/", "tests.depracted/", "examples/"]
 
 # Enable all strict mode flags
 strict = true
@@ -242,8 +236,65 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 disallow_untyped_calls = false
 warn_unused_ignores = false
-# Ignore call-arg errors for Pydantic models with optional fields
-disable_error_code = ["call-arg"]
+# Ignore call-arg and attr-defined for test flexibility
+disable_error_code = ["call-arg", "attr-defined"]
+
+# Third-party libraries without type stubs
+[[tool.mypy.overrides]]
+module = [
+    "watchdog.*",
+    "apscheduler.*",
+    "shortuuid",
+    "tenacity",
+    "tenacity.*",
+    "orjson",
+    "diskcache",
+    "pybreaker",
+    "dateutil.*",
+    "cachetools",
+]
+ignore_missing_imports = true
+
+# Claude SDK has dynamic attributes
+[[tool.mypy.overrides]]
+module = "claude_code_sdk.*"
+ignore_missing_imports = true
+disable_error_code = ["attr-defined"]
+
+# Files that use watchdog subclasses - need to ignore subclassing Any
+[[tool.mypy.overrides]]
+module = "ccproxy.rotation.file_watcher"
+disallow_subclassing_any = false
+disallow_any_unimported = false
+
+# Claude SDK options file uses dynamic attributes
+[[tool.mypy.overrides]]
+module = "ccproxy.claude_sdk.options"
+disable_error_code = ["attr-defined"]
+
+# Files with intentional Any from untyped imports
+[[tool.mypy.overrides]]
+module = [
+    "ccproxy.observability.pushgateway",
+    "ccproxy.utils.id_generator",
+    "ccproxy.core.async_utils",
+]
+disallow_any_unimported = false
+disallow_subclassing_any = false
+disable_error_code = ["no-any-return", "no-any-unimported", "misc", "operator", "unused-ignore"]
+
+# Files with dynamic attribute access
+[[tool.mypy.overrides]]
+module = "ccproxy.utils.cost_calculator"
+disable_error_code = ["attr-defined"]
+
+# Retry decorators can modify return types
+[[tool.mypy.overrides]]
+module = [
+    "ccproxy.rotation.capacity_check",
+    "ccproxy.rotation.refresh",
+]
+disable_error_code = ["return"]
 
 
 [tool.pytest.ini_options]

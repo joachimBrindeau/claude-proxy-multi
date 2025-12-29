@@ -75,7 +75,8 @@ class Scheduler:
                     name for name, task in self._tasks.items() if task.is_running
                 ],
             )
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
+            # Runtime or validation errors during scheduler initialization
             self._running = False
             logger.error(
                 "scheduler_start_failed",
@@ -118,7 +119,8 @@ class Scheduler:
                         logger.warning(
                             "task_still_running_after_shutdown", task_name=task_name
                         )
-            except Exception as e:
+            except asyncio.CancelledError as e:
+                # Task cancellation during shutdown - propagate for proper cleanup
                 logger.error(
                     "scheduler_shutdown_error",
                     error=str(e),
@@ -180,7 +182,8 @@ class Scheduler:
                     task_enabled=task_instance.enabled,
                 )
 
-        except Exception as e:
+        except (SchedulerError, TaskRegistrationError, RuntimeError, ValueError) as e:
+            # Task creation, registration, or validation errors
             # Clean up if task was partially added
             if task_name in self._tasks:
                 del self._tasks[task_name]
@@ -216,7 +219,8 @@ class Scheduler:
             del self._tasks[task_name]
             logger.info("task_removed", task_name=task_name)
 
-        except Exception as e:
+        except (SchedulerError, asyncio.CancelledError) as e:
+            # Task stop failed or was cancelled during removal
             logger.error(
                 "task_remove_failed",
                 task_name=task_name,

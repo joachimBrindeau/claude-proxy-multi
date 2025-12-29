@@ -424,7 +424,8 @@ class TerminalPermissionHandler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError) as e:
+                # Runtime errors (event loop) or OS errors during queue processing
                 logger.error("queue_processing_error", error=str(e), exc_info=True)
 
     def _is_request_processable(
@@ -468,7 +469,8 @@ class TerminalPermissionHandler:
             self._safe_set_future_exception(
                 future, KeyboardInterrupt("User cancelled confirmation")
             )
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
+            # Runtime errors (Textual app) or OS errors during confirmation
             logger.error(
                 "confirmation_app_error",
                 request_id=request.id,
@@ -526,7 +528,8 @@ class TerminalPermissionHandler:
 
             return result
 
-        except Exception as e:
+        except (RuntimeError, OSError, asyncio.CancelledError) as e:
+            # Runtime errors, OS errors, or cancellation during confirmation handling
             logger.error(
                 "confirmation_handling_error",
                 request_id=request.id,
@@ -573,14 +576,15 @@ class TerminalPermissionHandler:
             # Show visual feedback through the app's _show_result method
             await app._show_result(allowed, message)
 
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
+            # Runtime errors (Textual app) or OS errors during dialog cancellation
             logger.error(
                 "cancel_dialog_error",
                 error=str(e),
                 exc_info=True,
             )
             # Fallback: just exit the app without feedback
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(RuntimeError, OSError):
                 app.exit(False)
 
     async def shutdown(self) -> None:

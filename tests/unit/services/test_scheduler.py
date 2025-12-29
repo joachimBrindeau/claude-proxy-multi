@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -18,7 +19,6 @@ from ccproxy.scheduler.errors import (
 from ccproxy.scheduler.manager import start_scheduler, stop_scheduler
 from ccproxy.scheduler.registry import TaskRegistry, get_task_registry
 from ccproxy.scheduler.tasks import (
-    PricingCacheUpdateTask,
     PushgatewayTask,
     StatsPrintingTask,
 )
@@ -32,7 +32,6 @@ class TestSchedulerCore:
         """Create a test scheduler instance."""
         # Register tasks before creating scheduler
         from ccproxy.scheduler.tasks import (
-            PricingCacheUpdateTask,
             PushgatewayTask,
             StatsPrintingTask,
         )
@@ -43,7 +42,6 @@ class TestSchedulerCore:
         # Register default tasks
         registry.register("pushgateway", PushgatewayTask)
         registry.register("stats_printing", StatsPrintingTask)
-        registry.register("pricing_cache_update", PricingCacheUpdateTask)
 
         scheduler = Scheduler(
             max_concurrent_tasks=5,
@@ -309,49 +307,13 @@ class TestScheduledTasks:
             await task.cleanup()
 
     @pytest.mark.asyncio
-    async def test_pricing_cache_update_task_lifecycle(self) -> None:
-        """Test PricingCacheUpdateTask lifecycle management."""
-        with patch(
-            "ccproxy.pricing.updater.PricingUpdater"
-        ) as mock_pricing_updater_class:
-            mock_pricing_updater = AsyncMock()
-            mock_pricing_updater.get_current_pricing.return_value = {
-                "model": "claude-3"
-            }
-            mock_pricing_updater.force_refresh.return_value = True
-            mock_pricing_updater_class.return_value = mock_pricing_updater
-
-            task = PricingCacheUpdateTask(
-                name="test_pricing",
-                interval_seconds=0.1,
-                enabled=True,
-                force_refresh_on_startup=True,
-            )
-
-            await task.setup()
-            assert task._pricing_updater is not None
-
-            # Test force refresh on first run
-            result = await task.run()
-            assert result is True
-            mock_pricing_updater.force_refresh.assert_called_once()
-
-            # Test regular update on second run
-            result = await task.run()
-            assert result is True
-            mock_pricing_updater.get_current_pricing.assert_called_with(
-                force_refresh=False
-            )
-
-            await task.cleanup()
-
-    @pytest.mark.asyncio
     async def test_task_error_handling(self) -> None:
         """Test task error handling and backoff calculation."""
         with patch("ccproxy.observability.metrics.get_metrics") as mock_get_metrics:
             mock_metrics = MagicMock()
             mock_metrics.is_pushgateway_enabled.return_value = True
-            mock_metrics.push_to_gateway.side_effect = Exception("Test error")
+            # Use httpx.HTTPError which is now the expected exception type
+            mock_metrics.push_to_gateway.side_effect = httpx.HTTPError("Test error")
             mock_get_metrics.return_value = mock_metrics
 
             task = PushgatewayTask(
@@ -371,8 +333,10 @@ class TestScheduledTasks:
             task._consecutive_failures = 1  # Simulate failure state
 
             # Test backoff calculation after failure
+            # With jitter_factor=0.25 (default), delay can vary by ±12.5%
+            # So minimum delay is 10.0 * (1 - 0.25 * 0.5) = 8.75
             delay = task.calculate_next_delay()
-            assert delay >= 10.0  # Should use exponential backoff
+            assert delay >= 8.5  # Should use exponential backoff with jitter tolerance
 
             await task.cleanup()
 
@@ -387,8 +351,6 @@ class TestSchedulerConfiguration:
         assert settings.enabled is True
         assert settings.max_concurrent_tasks == 10
         assert settings.graceful_shutdown_timeout == 30.0
-        assert settings.pricing_update_enabled is True  # Enabled by default for privacy
-        assert settings.pricing_update_interval_hours == 24
         assert settings.pushgateway_enabled is False  # Disabled by default
         assert settings.stats_printing_enabled is False  # Disabled by default
         assert settings.version_check_enabled is True  # Enabled by default for privacy
@@ -400,19 +362,19 @@ class TestSchedulerConfiguration:
         # Set environment variables
         os.environ["SCHEDULER__ENABLED"] = "false"
         os.environ["SCHEDULER__MAX_CONCURRENT_TASKS"] = "5"
-        os.environ["SCHEDULER__PRICING_UPDATE_INTERVAL_HOURS"] = "12"
+        os.environ["SCHEDULER__VERSION_CHECK_INTERVAL_HOURS"] = "12"
 
         try:
             settings = SchedulerSettings()
             assert settings.enabled is False
             assert settings.max_concurrent_tasks == 5
-            assert settings.pricing_update_interval_hours == 12
+            assert settings.version_check_interval_hours == 12
         finally:
             # Clean up environment variables
             for key in [
                 "SCHEDULER__ENABLED",
                 "SCHEDULER__MAX_CONCURRENT_TASKS",
-                "SCHEDULER__PRICING_UPDATE_INTERVAL_HOURS",
+                "SCHEDULER__VERSION_CHECK_INTERVAL_HOURS",
             ]:
                 os.environ.pop(key, None)
 
@@ -431,7 +393,6 @@ class TestSchedulerManagerIntegration:
         """Setup task registry for integration tests."""
         from ccproxy.scheduler.registry import get_task_registry
         from ccproxy.scheduler.tasks import (
-            PricingCacheUpdateTask,
             PushgatewayTask,
             StatsPrintingTask,
         )
@@ -442,7 +403,6 @@ class TestSchedulerManagerIntegration:
         # Register default tasks
         registry.register("pushgateway", PushgatewayTask)
         registry.register("stats_printing", StatsPrintingTask)
-        registry.register("pricing_cache_update", PricingCacheUpdateTask)
 
         yield
 
@@ -487,8 +447,6 @@ class TestSchedulerManagerIntegration:
         settings.scheduler.pushgateway_interval_seconds = 30.0
         settings.scheduler.stats_printing_enabled = True
         settings.scheduler.stats_printing_interval_seconds = 60.0
-        settings.scheduler.pricing_update_enabled = True
-        settings.scheduler.pricing_update_interval_hours = 6
         settings.scheduler.version_check_enabled = (
             False  # Disable version check for this test
         )
@@ -497,18 +455,16 @@ class TestSchedulerManagerIntegration:
             patch("ccproxy.observability.metrics.get_metrics"),
             patch("ccproxy.config.settings.get_settings"),
             patch("ccproxy.observability.stats_printer.get_stats_collector"),
-            patch("ccproxy.pricing.updater.PricingUpdater"),
         ):
             scheduler = await start_scheduler(settings)
             assert scheduler is not None
             assert scheduler.is_running
 
-            # Should have all three task types
+            # Should have both task types
             task_names = scheduler.list_tasks()
             assert "pushgateway" in task_names
             assert "stats_printing" in task_names
-            assert "pricing_cache_update" in task_names
-            assert scheduler.task_count == 3
+            assert scheduler.task_count == 2
 
             await stop_scheduler(scheduler)
 
@@ -524,8 +480,8 @@ class TestSchedulerFastAPIIntegration:
         # Create settings with scheduler enabled
         settings = Settings()
         settings.scheduler.enabled = True
-        settings.scheduler.pricing_update_enabled = True
-        settings.scheduler.pricing_update_interval_hours = 1
+        settings.scheduler.version_check_enabled = True
+        settings.scheduler.version_check_interval_hours = 1
 
         app = create_app(settings)
         yield app
@@ -539,13 +495,12 @@ class TestSchedulerFastAPIIntegration:
             patch("ccproxy.observability.metrics.get_metrics"),
             patch("ccproxy.config.settings.get_settings") as mock_get_settings,
             patch("ccproxy.observability.stats_printer.get_stats_collector"),
-            patch("ccproxy.pricing.updater.PricingUpdater"),
             TestClient(app_with_scheduler) as client,
         ):
             # Mock settings to return our test configuration
             settings = Settings()
             settings.scheduler.enabled = True
-            settings.scheduler.pricing_update_enabled = True
+            settings.scheduler.version_check_enabled = True
             mock_get_settings.return_value = settings
 
             # App should start successfully with scheduler
@@ -567,13 +522,10 @@ class TestSchedulerFastAPIIntegration:
 
         # Mock any potential blocking operations during app creation
         with (
-            patch("ccproxy.observability.metrics.get_metrics") as mock_metrics,
+            patch("ccproxy.observability.metrics.get_metrics"),
             patch("ccproxy.config.settings.get_settings") as mock_get_settings,
-            patch(
-                "ccproxy.observability.stats_printer.get_stats_collector"
-            ) as mock_stats,
-            patch("ccproxy.pricing.updater.PricingUpdater") as mock_pricing,
-            patch("ccproxy.services.credentials.CredentialsManager") as mock_creds,
+            patch("ccproxy.observability.stats_printer.get_stats_collector"),
+            patch("ccproxy.services.credentials.CredentialsManager"),
         ):
             # Mock settings to return our test configuration
             mock_get_settings.return_value = settings
@@ -593,7 +545,6 @@ class TestSchedulerErrorScenarios:
         """Setup task registry for error scenario tests."""
         from ccproxy.scheduler.registry import get_task_registry
         from ccproxy.scheduler.tasks import (
-            PricingCacheUpdateTask,
             PushgatewayTask,
             StatsPrintingTask,
         )
@@ -604,7 +555,6 @@ class TestSchedulerErrorScenarios:
         # Register default tasks
         registry.register("pushgateway", PushgatewayTask)
         registry.register("stats_printing", StatsPrintingTask)
-        registry.register("pricing_cache_update", PricingCacheUpdateTask)
 
         yield
 

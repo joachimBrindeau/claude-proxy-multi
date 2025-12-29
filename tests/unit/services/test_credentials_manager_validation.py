@@ -5,7 +5,6 @@ CredentialsManager that now raises CredentialsNotFoundError with a
 descriptive error message when no credentials are found.
 """
 
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

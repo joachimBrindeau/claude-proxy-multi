@@ -7,14 +7,19 @@ Uses pure ASGI middleware (not BaseHTTPMiddleware) to allow proper retry
 since Starlette's BaseHTTPMiddleware cannot call call_next() multiple times.
 """
 
-import json
 from typing import Any
 
+import orjson
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from starlette import status
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from structlog import get_logger
 
+from ccproxy.rotation.constants import (
+    RATE_LIMIT_RETRY_AFTER_SECONDS,
+    ROTATION_ENABLED_PATHS,
+)
 from ccproxy.rotation.pool import RotationPool
 
 
@@ -24,11 +29,7 @@ logger = get_logger(__name__)
 ACCOUNT_NAME_HEADER = "X-Account-Name"
 
 # Paths that should use rotation (proxy endpoints)
-ROTATION_PATHS = [
-    "/api/v1/chat/completions",
-    "/api/v1/messages",
-    "/sdk/v1/messages",
-]
+ROTATION_PATHS = list(ROTATION_ENABLED_PATHS)
 
 
 def _decode_headers(headers: list[tuple[bytes, bytes]]) -> dict[str, str]:
@@ -138,7 +139,7 @@ class RotationMiddleware:
 
         if account is None:
             response = JSONResponse(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 content={
                     "error": {
                         "type": "account_not_found",
@@ -151,7 +152,7 @@ class RotationMiddleware:
 
         if not account.is_available:
             response = JSONResponse(
-                status_code=503,
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={
                     "error": {
                         "type": "account_unavailable",
@@ -230,7 +231,7 @@ class RotationMiddleware:
             )
 
             # Track response state for potential retry
-            status_code = 200
+            response_status_code = status.HTTP_200_OK
             response_headers: list[tuple[bytes, bytes]] = []
             response_body_parts: list[bytes] = []
             is_streaming = False
@@ -238,11 +239,11 @@ class RotationMiddleware:
             should_retry = False
 
             async def smart_send(message: Message) -> None:
-                nonlocal status_code, response_headers, is_streaming
+                nonlocal response_status_code, response_headers, is_streaming
                 nonlocal response_sent_to_client, should_retry
 
                 if message["type"] == "http.response.start":
-                    status_code = message.get("status", 200)
+                    response_status_code = message.get("status", status.HTTP_200_OK)
                     response_headers = list(message.get("headers", []))
 
                     # Check if this is a streaming response
@@ -254,14 +255,18 @@ class RotationMiddleware:
                     is_streaming = "text/event-stream" in content_type
 
                     # For 429 errors, we might retry - don't send yet
-                    if status_code == 429 and attempt < self.max_retries:  # noqa: B023
+                    if (
+                        response_status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                        and attempt < self.max_retries  # noqa: B023
+                    ):
                         should_retry = True
                         return
 
                     # Mark rate limited BEFORE sending response to avoid race condition
-                    if status_code == 429:
+                    if response_status_code == status.HTTP_429_TOO_MANY_REQUESTS:
                         self.pool.mark_rate_limited(
-                            account.name, headers=_decode_headers(response_headers)  # noqa: B023
+                            account.name,  # noqa: B023
+                            headers=_decode_headers(response_headers),  # noqa: B023
                         )
 
                     # For streaming or non-retryable responses, send immediately
@@ -284,7 +289,10 @@ class RotationMiddleware:
             await self.app(scope, self._create_receive(body), smart_send)
 
             # Check for rate limit error - retry if we have more accounts
-            if status_code == 429 and should_retry:
+            if (
+                response_status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                and should_retry
+            ):
                 logger.info(
                     "rate_limit_detected_retrying",
                     account=account.name,
@@ -301,26 +309,36 @@ class RotationMiddleware:
                 continue
 
             # If we got 429 but ran out of retries, send the buffered response
-            if status_code == 429 and not response_sent_to_client:
+            if (
+                response_status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                and not response_sent_to_client
+            ):
                 # Mark account as rate limited BEFORE sending response
                 # to avoid race condition with client processing response
                 self.pool.mark_rate_limited(
                     account.name, headers=_decode_headers(response_headers)
                 )
 
-                await send({
-                    "type": "http.response.start",
-                    "status": status_code,
-                    "headers": response_headers,
-                })
-                await send({
-                    "type": "http.response.body",
-                    "body": b"".join(response_body_parts),
-                    "more_body": False,
-                })
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": response_status_code,
+                        "headers": response_headers,
+                    }
+                )
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": b"".join(response_body_parts),
+                        "more_body": False,
+                    }
+                )
 
             # Check for auth error (response already sent to client)
-            if status_code in (401, 403):
+            if response_status_code in (
+                status.HTTP_401_UNAUTHORIZED,
+                status.HTTP_403_FORBIDDEN,
+            ):
                 error_msg = self._extract_error_from_body(b"".join(response_body_parts))
                 self.pool.mark_auth_error(
                     account.name, error_msg or "Authentication failed"
@@ -335,7 +353,7 @@ class RotationMiddleware:
     def _no_accounts_response(self, tried: list[str]) -> JSONResponse:
         """Response when no accounts are available."""
         return JSONResponse(
-            status_code=503,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "error": {
                     "type": "no_accounts_available",
@@ -349,18 +367,18 @@ class RotationMiddleware:
 
     def _all_accounts_exhausted_response(self, tried: list[str]) -> JSONResponse:
         """Response when all retry attempts exhausted."""
-        status = self.pool.get_status()
+        pool_status = self.pool.get_status()
 
         # Find earliest rate limit reset
         reset_times = [
             a["rateLimitedUntil"]
-            for a in status["accounts"]
+            for a in pool_status["accounts"]
             if a.get("rateLimitedUntil")
         ]
         earliest_reset = min(reset_times) if reset_times else None
 
         return JSONResponse(
-            status_code=429,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={
                 "error": {
                     "type": "all_accounts_rate_limited",
@@ -369,17 +387,19 @@ class RotationMiddleware:
                     "retryAfter": earliest_reset,
                 }
             },
-            headers={"Retry-After": "3600"},
+            headers={"Retry-After": RATE_LIMIT_RETRY_AFTER_SECONDS},
         )
 
     def _extract_error_from_body(self, body: bytes) -> str | None:
         """Extract error message from response body."""
         try:
             if body:
-                data = json.loads(body)
+                data = orjson.loads(body)
                 if "error" in data:
-                    return data["error"].get("message")
-        except Exception:
+                    msg = data["error"].get("message")
+                    return str(msg) if msg else None
+        except orjson.JSONDecodeError:
+            # Response body is not valid JSON - ignore and return None
             pass
         return None
 
@@ -411,5 +431,6 @@ def get_rotation_token(request: Request) -> str | None:
     """
     account = get_rotation_account(request)
     if account:
-        return account.access_token
+        token: str = account.access_token
+        return token
     return None

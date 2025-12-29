@@ -2,12 +2,13 @@
 
 import asyncio
 import contextlib
-import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
+import orjson
+import pydantic
 import structlog
 import typer
 from structlog import get_logger
@@ -136,7 +137,8 @@ class SSEConfirmationHandler:
             if "request_id" in request_data:
                 request_data["id"] = request_data.pop("request_id")
             request = PermissionRequest.model_validate(request_data)
-        except Exception as e:
+        except pydantic.ValidationError as e:
+            # Pydantic validation failed for permission request data
             logger.error(
                 "permission_request_validation_failed", data=data, error=str(e)
             )
@@ -234,7 +236,8 @@ class SSEConfirmationHandler:
             )
             raise
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException) as e:
+            # HTTP errors during permission handling (e.g., sending response)
             logger.error(
                 "permission_handling_error",
                 request_id=request.id,
@@ -244,7 +247,9 @@ class SSEConfirmationHandler:
             # Only send response if not already resolved
             if request.id not in self._resolved_requests:
                 # If response fails, it might already be resolved
-                with contextlib.suppress(Exception):
+                with contextlib.suppress(
+                    httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException
+                ):
                     await self.send_response(request.id, False)
             return False
 
@@ -286,7 +291,8 @@ class SSEConfirmationHandler:
                     response=response.text,
                 )
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException) as e:
+            # HTTP client errors when sending permission response
             logger.error(
                 "permission_response_error",
                 request_id=request_id,
@@ -330,9 +336,9 @@ class SSEConfirmationHandler:
                 if data_lines:
                     try:
                         data_json = " ".join(data_lines)
-                        data = json.loads(data_json)
+                        data = orjson.loads(data_json)
                         yield event_type, data
-                    except json.JSONDecodeError as e:
+                    except orjson.JSONDecodeError as e:
                         logger.error(
                             "sse_parse_error",
                             event_type=event_type,
@@ -404,7 +410,8 @@ class SSEConfirmationHandler:
                 await asyncio.sleep(delay)
                 continue
 
-            except Exception as e:
+            except httpx.HTTPError as e:
+                # Other HTTP errors that aren't connection or timeout related
                 logger.error("sse_client_error", error=str(e), exc_info=True)
                 raise typer.Exit(1) from e
 
@@ -420,7 +427,8 @@ class SSEConfirmationHandler:
                 try:
                     error_bytes = await response.aread()
                     error_text = error_bytes.decode("utf-8")
-                except Exception:
+                except (httpx.HTTPError, UnicodeDecodeError):
+                    # Failed to read or decode error response body
                     error_text = "Unable to read error response"
 
                 logger.error(
@@ -453,7 +461,13 @@ class SSEConfirmationHandler:
             async for event_type, data in self.parse_sse_stream(response):
                 try:
                     await self.handle_event(event_type, data)
-                except Exception as e:
+                except (
+                    pydantic.ValidationError,
+                    httpx.HTTPError,
+                    KeyError,
+                    ValueError,
+                ) as e:
+                    # Event handling errors: validation, HTTP, missing keys, or value errors
                     logger.error(
                         "sse_event_error",
                         event_type=event_type,
@@ -544,7 +558,8 @@ def connect(
         asyncio.run(run_handler())
     except KeyboardInterrupt:
         logger.info("permission_handler_stopped")
-    except Exception as e:
+    except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException) as e:
+        # HTTP client errors during handler execution
         logger.error("permission_handler_error", error=str(e), exc_info=True)
         raise typer.Exit(1) from e
 

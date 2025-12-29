@@ -21,25 +21,18 @@ from tests.helpers.assertions import (
 )
 from tests.helpers.test_data import (
     ANTHROPIC_REQUEST_WITH_SYSTEM,
-    CODEX_REQUEST_WITH_SESSION,
-    EMPTY_INPUT_CODEX_REQUEST,
     EMPTY_MESSAGES_OPENAI_REQUEST,
     INVALID_MODEL_ANTHROPIC_REQUEST,
-    INVALID_MODEL_CODEX_REQUEST,
     INVALID_MODEL_OPENAI_REQUEST,
     INVALID_ROLE_ANTHROPIC_REQUEST,
     LARGE_REQUEST_ANTHROPIC,
-    MALFORMED_INPUT_CODEX_REQUEST,
     MALFORMED_MESSAGE_OPENAI_REQUEST,
-    MISSING_INPUT_CODEX_REQUEST,
     MISSING_MAX_TOKENS_ANTHROPIC_REQUEST,
     MISSING_MESSAGES_OPENAI_REQUEST,
     OPENAI_REQUEST_WITH_SYSTEM,
     STANDARD_ANTHROPIC_REQUEST,
-    STANDARD_CODEX_REQUEST,
     STANDARD_OPENAI_REQUEST,
     STREAMING_ANTHROPIC_REQUEST,
-    STREAMING_CODEX_REQUEST,
     STREAMING_OPENAI_REQUEST,
 )
 
@@ -398,100 +391,6 @@ class TestErrorHandling:
         )
 
         assert_service_unavailable_error(response)
-
-
-@pytest.mark.unit
-class TestCodexEndpoints:
-    """Test OpenAI Codex API endpoints."""
-
-    def test_codex_responses_success(
-        self,
-        client_with_mock_codex: TestClient,
-        mock_external_openai_codex_api: Any,
-    ) -> None:
-        """Test successful Codex responses endpoint."""
-        response = client_with_mock_codex.post(
-            "/codex/responses", json=STANDARD_CODEX_REQUEST
-        )
-
-        # Should return 200 with proper mocking
-        assert response.status_code == 200
-
-    def test_codex_responses_with_session(
-        self,
-        client_with_mock_codex: TestClient,
-        mock_external_openai_codex_api: Any,
-    ) -> None:
-        """Test Codex responses endpoint with session ID."""
-        session_id = "test-session-123"
-        response = client_with_mock_codex.post(
-            f"/codex/{session_id}/responses", json=CODEX_REQUEST_WITH_SESSION
-        )
-
-        # Should return 200 with proper mocking
-        assert response.status_code == 200
-
-    def test_codex_responses_streaming(
-        self,
-        client_with_mock_codex: TestClient,
-        mock_external_openai_codex_api_streaming: Any,
-    ) -> None:
-        """Test Codex responses endpoint with streaming."""
-        response = client_with_mock_codex.post(
-            "/codex/responses", json=STREAMING_CODEX_REQUEST
-        )
-
-        # Should return 200 with proper mocking
-        assert response.status_code == 200
-
-    def test_codex_responses_invalid_model(
-        self,
-        client_with_mock_codex: TestClient,
-        mock_external_openai_codex_api_error: Any,
-    ) -> None:
-        """Test Codex responses endpoint with invalid model."""
-        response = client_with_mock_codex.post(
-            "/codex/responses", json=INVALID_MODEL_CODEX_REQUEST
-        )
-
-        # Should return 400 for bad request with invalid model
-        assert response.status_code == 400
-
-    def test_codex_responses_missing_input(
-        self,
-        client_with_mock_codex: TestClient,
-    ) -> None:
-        """Test Codex responses endpoint with missing input."""
-        response = client_with_mock_codex.post(
-            "/codex/responses", json=MISSING_INPUT_CODEX_REQUEST
-        )
-
-        # Should return 401 for auth since auth is checked first
-        assert response.status_code == 401
-
-    def test_codex_responses_empty_input(
-        self,
-        client_with_mock_codex: TestClient,
-    ) -> None:
-        """Test Codex responses endpoint with empty input."""
-        response = client_with_mock_codex.post(
-            "/codex/responses", json=EMPTY_INPUT_CODEX_REQUEST
-        )
-
-        # Should return 401 for auth since auth is checked first
-        assert response.status_code == 401
-
-    def test_codex_responses_malformed_input(
-        self,
-        client_with_mock_codex: TestClient,
-    ) -> None:
-        """Test Codex responses endpoint with malformed input."""
-        response = client_with_mock_codex.post(
-            "/codex/responses", json=MALFORMED_INPUT_CODEX_REQUEST
-        )
-
-        # Should return 401 for auth since auth is checked first
-        assert response.status_code == 401
 
 
 @pytest.mark.unit

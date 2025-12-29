@@ -1,15 +1,11 @@
 """Core transformer abstractions for request/response transformation."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from structlog import get_logger
 
 from ccproxy.core.types import ProxyRequest, ProxyResponse, TransformContext
-
-
-if TYPE_CHECKING:
-    pass
 
 
 T = TypeVar("T", contravariant=True)
@@ -65,8 +61,8 @@ class BaseTransformer(ABC):
 
         try:
             # Calculate data sizes
-            input_size = self._calculate_data_size(input_data)
-            output_size = self._calculate_data_size(output_data) if output_data else 0
+            self._calculate_data_size(input_data)
+            self._calculate_data_size(output_data) if output_data else 0
 
             # Create a unique request ID for this transformation
             request_id = (
@@ -80,10 +76,10 @@ class BaseTransformer(ABC):
                 processing_time=duration_ms,
             )
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
             # Don't let metrics collection fail the transformation
+            # Catches: invalid data types, missing keys, attribute access errors
             logger = get_logger(__name__)
-            # logger = logging.getLogger(__name__)
             logger.debug(
                 "transformation_metrics_failed",
                 error=str(e),
@@ -140,7 +136,8 @@ class RequestTransformer(BaseTransformer):
         try:
             result = await self._transform_request(request, context)
             return result
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            # Catches: invalid data types, missing keys, transformation logic errors
             error_msg = str(e)
             raise
         finally:
@@ -195,7 +192,9 @@ class ResponseTransformer(BaseTransformer):
         try:
             result = await self._transform_response(response, context)
             return result
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            # Catches: invalid data types, missing keys, transformation logic errors
+            # error_msg is used in finally block for metrics collection
             error_msg = str(e)
             raise
         finally:

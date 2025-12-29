@@ -99,4 +99,3 @@ class StreamingTokenMetrics(TypedDict, total=False):
     tokens_output: int | None
     cache_read_tokens: int | None
     cache_write_tokens: int | None
-    cost_usd: float | None

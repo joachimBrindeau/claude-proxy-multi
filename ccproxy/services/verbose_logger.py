@@ -1,14 +1,13 @@
 """Verbose logging service for API requests and responses.
 
 This module provides structured logging for debugging and monitoring
-API traffic, including Codex and standard Claude API requests.
+Claude API traffic.
 """
 
 import contextlib
-import json
-import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+import orjson
 import structlog
 
 from ccproxy.services.request_metadata import redact_sensitive_headers
@@ -64,9 +63,11 @@ class VerboseLogger:
                 # Truncate at 1024 chars for readability
                 body_preview = full_body[:1024]
                 # Try to parse as JSON for better formatting
-                with contextlib.suppress(json.JSONDecodeError):
-                    full_body = json.loads(full_body)
-            except Exception:
+                with contextlib.suppress(orjson.JSONDecodeError):
+                    full_body = orjson.loads(full_body)
+            except (UnicodeDecodeError, AttributeError):
+                # UnicodeDecodeError: Binary content that can't be decoded
+                # AttributeError: Body is None or not bytes
                 body_preview = f"<binary data of length {len(body)}>"
 
         logger.info(
@@ -116,7 +117,9 @@ class VerboseLogger:
             try:
                 # Truncate at 1024 chars for readability
                 body_preview = body.decode("utf-8", errors="replace")[:1024]
-            except Exception:
+            except (UnicodeDecodeError, AttributeError):
+                # UnicodeDecodeError: Binary content that can't be decoded
+                # AttributeError: Body is None or not bytes
                 body_preview = f"<binary data of length {len(body)}>"
 
         logger.info(
@@ -134,10 +137,12 @@ class VerboseLogger:
                 full_body_str = body.decode("utf-8", errors="replace")
                 # Try to parse as JSON for better formatting
                 try:
-                    full_body = json.loads(full_body_str)
-                except json.JSONDecodeError:
+                    full_body = orjson.loads(full_body_str)
+                except orjson.JSONDecodeError:
                     full_body = full_body_str
-            except Exception:
+            except (UnicodeDecodeError, AttributeError):
+                # UnicodeDecodeError: Binary content that can't be decoded
+                # AttributeError: Body is None or not bytes
                 full_body = f"<binary data of length {len(body)}>"
 
         # Use new request logging system
@@ -150,183 +155,6 @@ class VerboseLogger:
                 "status_code": status_code,
                 "headers": dict(headers),  # Don't redact in file
                 "body": full_body,
-            },
-            timestamp=timestamp,
-        )
-
-    async def log_codex_request(
-        self,
-        request_id: str,
-        method: str,
-        url: str,
-        headers: dict[str, str],
-        body_data: dict[str, Any] | None,
-        session_id: str,
-    ) -> None:
-        """Log outgoing Codex request preserving instructions field exactly.
-
-        Args:
-            request_id: Unique request identifier
-            method: HTTP method
-            url: Target URL
-            headers: Request headers
-            body_data: Parsed request body
-            session_id: Codex session ID
-        """
-        if not self.verbose_api:
-            return
-
-        # Log to console with redacted headers
-        logger.info(
-            "verbose_codex_request",
-            request_id=request_id,
-            method=method,
-            url=url,
-            headers=redact_sensitive_headers(headers),
-            session_id=session_id,
-            instructions_preview=(
-                body_data.get("instructions", "")[:100] + "..."
-                if body_data and body_data.get("instructions")
-                else None
-            ),
-        )
-
-        # Save complete request to file (without redaction)
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        await write_request_log(
-            request_id=request_id,
-            log_type="codex_request",
-            data={
-                "method": method,
-                "url": url,
-                "headers": dict(headers),
-                "body": body_data,
-                "session_id": session_id,
-            },
-            timestamp=timestamp,
-        )
-
-    async def log_codex_response(
-        self,
-        request_id: str,
-        status_code: int,
-        headers: dict[str, str],
-        body_data: dict[str, Any] | None,
-    ) -> None:
-        """Log complete non-streaming Codex response.
-
-        Args:
-            request_id: Unique request identifier
-            status_code: HTTP status code
-            headers: Response headers
-            body_data: Parsed response body
-        """
-        if not self.verbose_api:
-            return
-
-        # Log to console with redacted headers
-        logger.info(
-            "verbose_codex_response",
-            request_id=request_id,
-            status_code=status_code,
-            headers=redact_sensitive_headers(headers),
-            response_type="non_streaming",
-        )
-
-        # Save complete response to file
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        await write_request_log(
-            request_id=request_id,
-            log_type="codex_response",
-            data={
-                "status_code": status_code,
-                "headers": dict(headers),
-                "body": body_data,
-            },
-            timestamp=timestamp,
-        )
-
-    async def log_codex_response_headers(
-        self,
-        request_id: str,
-        status_code: int,
-        headers: dict[str, str],
-        stream_type: str,
-    ) -> None:
-        """Log streaming Codex response headers.
-
-        Args:
-            request_id: Unique request identifier
-            status_code: HTTP status code
-            headers: Response headers
-            stream_type: Type of stream (e.g., "codex_sse")
-        """
-        if not self.verbose_api:
-            return
-
-        # Log to console with redacted headers
-        logger.info(
-            "verbose_codex_response_headers",
-            request_id=request_id,
-            status_code=status_code,
-            headers=redact_sensitive_headers(headers),
-            stream_type=stream_type,
-        )
-
-        # Save response headers to file
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        await write_request_log(
-            request_id=request_id,
-            log_type="codex_response_headers",
-            data={
-                "status_code": status_code,
-                "headers": dict(headers),
-                "stream_type": stream_type,
-            },
-            timestamp=timestamp,
-        )
-
-    async def log_codex_streaming_complete(
-        self,
-        request_id: str,
-        chunks: list[bytes],
-    ) -> None:
-        """Log complete streaming data after stream finishes.
-
-        Args:
-            request_id: Unique request identifier
-            chunks: List of collected streaming chunks
-        """
-        if not self.verbose_api:
-            return
-
-        # Combine chunks and decode for analysis
-        complete_data = b"".join(chunks)
-        try:
-            decoded_data = complete_data.decode("utf-8", errors="replace")
-        except Exception:
-            decoded_data = f"<binary data of length {len(complete_data)}>"
-
-        # Log to console with preview
-        logger.info(
-            "verbose_codex_streaming_complete",
-            request_id=request_id,
-            total_bytes=len(complete_data),
-            chunk_count=len(chunks),
-            data_preview=decoded_data[:200] + "..."
-            if len(decoded_data) > 200
-            else decoded_data,
-        )
-
-        # Save complete streaming data to file
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        await write_request_log(
-            request_id=request_id,
-            log_type="codex_streaming_complete",
-            data={
-                "total_bytes": len(complete_data),
-                "chunk_count": len(chunks),
-                "complete_data": decoded_data,
             },
             timestamp=timestamp,
         )

@@ -100,33 +100,6 @@ def assert_sse_format_compliance(chunks: list[str]) -> None:
         )
 
 
-def assert_codex_response_format(data: dict[str, Any]) -> None:
-    """Assert that response follows OpenAI Codex API format."""
-    required_fields = ["id", "object", "created", "model", "choices", "usage"]
-    for field in required_fields:
-        assert field in data, f"Missing required field: {field}"
-
-    # Verify types
-    assert isinstance(data["id"], str)
-    assert isinstance(data["object"], str)
-    assert isinstance(data["created"], int)
-    assert isinstance(data["model"], str)
-    assert isinstance(data["choices"], list)
-    assert isinstance(data["usage"], dict)
-
-    # Verify choice structure
-    if data["choices"]:
-        choice = data["choices"][0]
-        assert "index" in choice
-        assert "message" in choice
-        assert "finish_reason" in choice
-
-        # Verify message structure
-        message = choice["message"]
-        assert message["role"] == "assistant"
-        assert "content" in message
-
-
 def assert_health_response_format(
     data: dict[str, Any], status_values: list[str]
 ) -> None:

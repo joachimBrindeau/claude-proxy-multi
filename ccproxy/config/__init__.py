@@ -1,11 +1,12 @@
 """Configuration module for Claude Proxy API Server."""
 
+from ccproxy.exceptions import ConfigValidationError
+
 from .auth import AuthSettings, CredentialStorageSettings, OAuthSettings
 from .docker_settings import DockerSettings
 from .reverse_proxy import ReverseProxySettings
 from .settings import Settings, get_settings
 from .validators import (
-    ConfigValidationError,
     validate_config_dict,
     validate_cors_origins,
     validate_host,

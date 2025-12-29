@@ -3,76 +3,78 @@
 from __future__ import annotations
 
 import asyncio
-import time
+import contextlib
 from unittest.mock import Mock, patch
 
+import pybreaker
 import pytest
 from prometheus_client import CollectorRegistry
 
 from ccproxy.config.observability import ObservabilitySettings
-from ccproxy.observability.pushgateway import CircuitBreaker, PushgatewayClient
+from ccproxy.observability.pushgateway import PushgatewayClient
 
 
-class TestCircuitBreaker:
-    """Test circuit breaker functionality."""
+class TestPyBreakerIntegration:
+    """Test pybreaker circuit breaker functionality with PushgatewayClient."""
 
     def test_circuit_breaker_initial_state(self) -> None:
         """Test circuit breaker starts in closed state."""
-        cb = CircuitBreaker(failure_threshold=3, recovery_timeout=2.0)
+        cb = pybreaker.CircuitBreaker(fail_max=3, reset_timeout=2.0)
 
-        assert cb.can_execute() is True
-        assert cb.state == "CLOSED"
-        assert cb.failure_count == 0
+        assert cb.current_state == pybreaker.STATE_CLOSED
+        assert cb.fail_counter == 0
 
     def test_circuit_breaker_opens_after_failures(self) -> None:
         """Test circuit breaker opens after failure threshold."""
-        cb = CircuitBreaker(failure_threshold=3, recovery_timeout=2.0)
+        cb = pybreaker.CircuitBreaker(fail_max=3, reset_timeout=2.0)
 
-        # Record failures below threshold
-        cb.record_failure()
-        cb.record_failure()
-        assert cb.state == "CLOSED"
-        assert cb.can_execute() is True
+        def failing_func() -> None:
+            raise ConnectionError("Connection refused")
 
-        # Third failure should open circuit
-        cb.record_failure()
-        assert cb.state == "OPEN"
-        assert cb.can_execute() is False
-        assert cb.failure_count == 3
+        # Record failures up to threshold
+        for _ in range(3):
+            with contextlib.suppress(ConnectionError, pybreaker.CircuitBreakerError):
+                cb.call(failing_func)
 
-    def test_circuit_breaker_recovery_after_timeout(self) -> None:
-        """Test circuit breaker recovers after timeout."""
-        cb = CircuitBreaker(failure_threshold=2, recovery_timeout=0.1)
+        # Circuit should be open now
+        assert cb.current_state == pybreaker.STATE_OPEN
 
-        # Open circuit
-        cb.record_failure()
-        cb.record_failure()
-        assert cb.state == "OPEN"
+    def test_circuit_breaker_blocks_when_open(self) -> None:
+        """Test circuit breaker blocks calls when open."""
+        cb = pybreaker.CircuitBreaker(fail_max=2, reset_timeout=60.0)
 
-        # Wait for recovery timeout
-        time.sleep(0.2)
+        def failing_func() -> None:
+            raise ConnectionError("Connection refused")
 
-        # Should be half-open now
-        assert cb.can_execute() is True
+        # Open the circuit
+        for _ in range(2):
+            with contextlib.suppress(ConnectionError, pybreaker.CircuitBreakerError):
+                cb.call(failing_func)
 
-        # Success should close it
-        cb.record_success()
-        assert cb.state == "CLOSED"
-        assert cb.failure_count == 0
+        assert cb.current_state == pybreaker.STATE_OPEN
+
+        # Next call should raise CircuitBreakerError
+        with pytest.raises(pybreaker.CircuitBreakerError):
+            cb.call(lambda: None)
 
     def test_circuit_breaker_success_resets_failures(self) -> None:
         """Test success resets failure count."""
-        cb = CircuitBreaker(failure_threshold=3, recovery_timeout=2.0)
+        cb = pybreaker.CircuitBreaker(fail_max=3, reset_timeout=2.0)
+
+        def failing_func() -> None:
+            raise ConnectionError("Connection refused")
 
         # Record some failures
-        cb.record_failure()
-        cb.record_failure()
-        assert cb.failure_count == 2
+        for _ in range(2):
+            with contextlib.suppress(ConnectionError):
+                cb.call(failing_func)
+
+        assert cb.fail_counter == 2
 
         # Success should reset
-        cb.record_success()
-        assert cb.failure_count == 0
-        assert cb.state == "CLOSED"
+        cb.call(lambda: "success")
+        assert cb.fail_counter == 0
+        assert cb.current_state == pybreaker.STATE_CLOSED
 
 
 class TestPushgatewayClient:
@@ -137,7 +139,7 @@ class TestPushgatewayClient:
             assert failures == 7
 
             # Circuit breaker should be open now
-            assert client._circuit_breaker.state == "OPEN"
+            assert client._circuit_breaker.current_state == pybreaker.STATE_OPEN
 
             # Next request should be blocked by circuit breaker
             success = client.push_metrics(mock_registry)
@@ -155,8 +157,8 @@ class TestPushgatewayClient:
             assert success is True
 
             # Circuit breaker should remain closed
-            assert client._circuit_breaker.state == "CLOSED"
-            assert client._circuit_breaker.failure_count == 0
+            assert client._circuit_breaker.current_state == pybreaker.STATE_CLOSED
+            assert client._circuit_breaker.fail_counter == 0
 
     def test_push_standard_handles_connection_errors(
         self, client: PushgatewayClient, mock_registry: CollectorRegistry
@@ -165,8 +167,9 @@ class TestPushgatewayClient:
         with patch("ccproxy.observability.pushgateway.push_to_gateway") as mock_push:
             mock_push.side_effect = ConnectionError("Connection refused")
 
-            success = client._push_standard(mock_registry, "push")
-            assert success is False
+            # _push_standard now raises exceptions for pybreaker to catch
+            with pytest.raises(ConnectionError):
+                client._push_standard(mock_registry, "push")
 
     def test_push_standard_handles_timeout_errors(
         self, client: PushgatewayClient, mock_registry: CollectorRegistry
@@ -175,15 +178,17 @@ class TestPushgatewayClient:
         with patch("ccproxy.observability.pushgateway.push_to_gateway") as mock_push:
             mock_push.side_effect = TimeoutError("Request timeout")
 
-            success = client._push_standard(mock_registry, "push")
-            assert success is False
+            # _push_standard now raises exceptions for pybreaker to catch
+            with pytest.raises(TimeoutError):
+                client._push_standard(mock_registry, "push")
 
     def test_push_standard_invalid_method(
         self, client: PushgatewayClient, mock_registry: CollectorRegistry
     ) -> None:
         """Test _push_standard handles invalid methods."""
-        success = client._push_standard(mock_registry, "invalid")
-        assert success is False
+        # Invalid method should raise ValueError
+        with pytest.raises(ValueError, match="Invalid pushgateway method"):
+            client._push_standard(mock_registry, "invalid")
 
     def test_delete_metrics_with_circuit_breaker(
         self, client: PushgatewayClient
@@ -200,7 +205,7 @@ class TestPushgatewayClient:
                 assert success is False
 
             # Circuit breaker should be open
-            assert client._circuit_breaker.state == "OPEN"
+            assert client._circuit_breaker.current_state == pybreaker.STATE_OPEN
 
     def test_delete_metrics_remote_write_not_supported(
         self, settings: ObservabilitySettings
@@ -314,7 +319,7 @@ class TestIntegration:
                     task._consecutive_failures += 1
 
             # Circuit breaker should be open
-            assert client._circuit_breaker.state == "OPEN"
+            assert client._circuit_breaker.current_state == pybreaker.STATE_OPEN
 
             # Task should have recorded failures
             assert task.consecutive_failures > 0

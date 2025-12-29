@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Literal
 
+import platformdirs
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -42,9 +42,7 @@ class ObservabilitySettings(BaseModel):
     # Storage Configuration
     duckdb_path: str = Field(
         default_factory=lambda: str(
-            Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-            / "ccproxy"
-            / "metrics.duckdb"
+            Path(platformdirs.user_data_dir("ccproxy")) / "metrics.duckdb"
         ),
         description="Path to DuckDB database file",
     )

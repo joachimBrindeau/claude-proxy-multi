@@ -257,7 +257,6 @@ class ClaudeStreamProcessor:
                     is_error=message.is_error,
                     duration_ms=message.duration_ms,
                     num_turns=message.num_turns,
-                    total_cost_usd=message.total_cost_usd,
                     usage_available=message.usage is not None,
                     mode=sdk_message_mode.value,
                     request_id=request_id,
@@ -282,7 +281,6 @@ class ClaudeStreamProcessor:
                             tokens_output=usage_model.output_tokens,
                             cache_read_tokens=usage_model.cache_read_input_tokens,
                             cache_write_tokens=usage_model.cache_creation_input_tokens,
-                            cost_usd=message.total_cost_usd,
                             session_id=message.session_id,
                             num_turns=message.num_turns,
                         )

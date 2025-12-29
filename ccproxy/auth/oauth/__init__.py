@@ -19,14 +19,15 @@ if TYPE_CHECKING:
     )
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     """Lazy import for routes to avoid circular dependencies."""
     if name in ("router", "register_oauth_flow", "get_oauth_flow_result"):
-        from ccproxy.auth.oauth.routes import (
+        from ccproxy.auth.oauth.routes import (  # noqa: F401
             get_oauth_flow_result,
             register_oauth_flow,
             router,
         )
+
         return locals()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

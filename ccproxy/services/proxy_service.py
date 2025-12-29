@@ -1,20 +1,20 @@
 """Proxy service for orchestrating Claude API requests with business logic."""
 
-import json
 import os
 import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+import httpx
+import orjson
 import structlog
-from fastapi import HTTPException, Request
+from fastapi import Request
 from fastapi.responses import StreamingResponse
-from starlette.responses import Response
 from typing_extensions import TypedDict
 
+from ccproxy.adapters.openai import OpenAIAdapter
 from ccproxy.config.settings import Settings
-from ccproxy.core.codex_transformers import CodexRequestTransformer
 from ccproxy.core.http import BaseProxyClient
 from ccproxy.core.http_transformers import (
     HTTPRequestTransformer,
@@ -27,7 +27,6 @@ from ccproxy.observability import (
     timed_operation,
 )
 from ccproxy.services.bypass_generator import BypassGenerator
-from ccproxy.services.codex_handler import CodexHandler
 from ccproxy.services.credentials.manager import CredentialsManager
 from ccproxy.services.request_metadata import (
     extract_message_type,
@@ -38,10 +37,6 @@ from ccproxy.services.streaming_handler import StreamingHandler
 from ccproxy.services.token_provider import TokenProvider
 from ccproxy.services.verbose_logger import VerboseLogger
 from ccproxy.testing import RealisticMockResponseGenerator
-
-
-if TYPE_CHECKING:
-    from ccproxy.observability.context import RequestContext
 
 
 class RequestData(TypedDict):
@@ -108,15 +103,12 @@ class ProxyService:
         # Create concrete transformers
         self.request_transformer = HTTPRequestTransformer()
         self.response_transformer = HTTPResponseTransformer()
-        self.codex_transformer = CodexRequestTransformer()
-
-        # Create OpenAI adapter for stream transformation
-        from ccproxy.adapters.openai.adapter import OpenAIAdapter
-
-        self.openai_adapter = OpenAIAdapter()
 
         # Create mock response generator for bypass mode
         self.mock_generator = RealisticMockResponseGenerator()
+
+        # Initialize OpenAI adapter for format conversion
+        self.openai_adapter = OpenAIAdapter()
 
         # Cache environment-based configuration
         self._proxy_url = self._init_proxy_url()
@@ -126,9 +118,7 @@ class ProxyService:
         verbose_streaming = (
             os.environ.get("CCPROXY_VERBOSE_STREAMING", "false").lower() == "true"
         )
-        verbose_api = (
-            os.environ.get("CCPROXY_VERBOSE_API", "false").lower() == "true"
-        )
+        verbose_api = os.environ.get("CCPROXY_VERBOSE_API", "false").lower() == "true"
         self.verbose_logger = VerboseLogger(
             verbose_api=verbose_api,
             verbose_streaming=verbose_streaming,
@@ -153,13 +143,6 @@ class ProxyService:
             proxy_url=self._proxy_url,
             ssl_context=self._ssl_context,
             proxy_mode=self.proxy_mode,
-        )
-
-        # Initialize Codex handler
-        self.codex = CodexHandler(
-            codex_transformer=self.codex_transformer,
-            verbose_logger=self.verbose_logger,
-            app_state=self.app_state,
         )
 
     def _init_proxy_url(self) -> str | None:
@@ -305,14 +288,14 @@ class ProxyService:
                     # Determine message type from request body for realistic response generation
                     message_type = extract_message_type(body)
 
+                    # Check if this is an OpenAI format request
+                    is_openai_format = self.response_transformer._is_openai_request(
+                        path
+                    )
+
                     # Check if this will be a streaming response
                     should_stream = streaming or is_streaming_request(
                         transformed_request["headers"]
-                    )
-
-                    # Determine response format based on original request path
-                    is_openai_format = self.response_transformer._is_openai_request(
-                        path
                     )
 
                     if should_stream:
@@ -405,10 +388,10 @@ class ProxyService:
                 # 5. Extract response metrics using direct JSON parsing
                 tokens_input = tokens_output = cache_read_tokens = (
                     cache_write_tokens
-                ) = cost_usd = None
+                ) = None
                 if transformed_response["body"]:
                     try:
-                        response_data = json.loads(
+                        response_data = orjson.loads(
                             transformed_response["body"].decode("utf-8")
                         )
                         usage = response_data.get("usage", {})
@@ -416,18 +399,7 @@ class ProxyService:
                         tokens_output = usage.get("output_tokens")
                         cache_read_tokens = usage.get("cache_read_input_tokens")
                         cache_write_tokens = usage.get("cache_creation_input_tokens")
-
-                        # Calculate cost including cache tokens if we have tokens and model
-                        from ccproxy.utils.cost_calculator import calculate_token_cost
-
-                        cost_usd = calculate_token_cost(
-                            tokens_input,
-                            tokens_output,
-                            model,
-                            cache_read_tokens,
-                            cache_write_tokens,
-                        )
-                    except (json.JSONDecodeError, UnicodeDecodeError):
+                    except (orjson.JSONDecodeError, UnicodeDecodeError):
                         pass  # Keep all values as None if parsing fails
 
                 # 6. Update context with response data
@@ -437,7 +409,6 @@ class ProxyService:
                     tokens_output=tokens_output,
                     cache_read_tokens=cache_read_tokens,
                     cache_write_tokens=cache_write_tokens,
-                    cost_usd=cost_usd,
                 )
 
                 return (
@@ -446,42 +417,16 @@ class ProxyService:
                     transformed_response["body"],
                 )
 
-            except Exception as e:
+            except (
+                httpx.HTTPError,
+                httpx.TimeoutException,
+                orjson.JSONDecodeError,
+                ValueError,
+                RuntimeError,
+            ) as e:
+                # HTTP transport errors, JSON parsing errors, or runtime issues
                 ctx.add_metadata(error=e)
                 raise
-
-    async def handle_codex_request(
-        self,
-        method: str,
-        path: str,
-        session_id: str,
-        access_token: str,
-        request: Request,
-        settings: Settings,
-    ) -> StreamingResponse | Response:
-        """Handle OpenAI Codex proxy request.
-
-        Delegates to CodexHandler for processing.
-
-        Args:
-            method: HTTP method
-            path: Request path (e.g., "/responses" or "/{session_id}/responses")
-            session_id: Resolved session ID
-            access_token: OpenAI access token
-            request: FastAPI request object
-            settings: Application settings
-
-        Returns:
-            StreamingResponse or regular Response
-        """
-        return await self.codex.handle(
-            method=method,
-            path=path,
-            session_id=session_id,
-            access_token=access_token,
-            request=request,
-            settings=settings,
-        )
 
     async def close(self) -> None:
         """Close any resources held by the proxy service."""

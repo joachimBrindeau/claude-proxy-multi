@@ -1,12 +1,12 @@
 """Settings configuration for Claude Proxy API Server."""
 
 import contextlib
-import json
 import os
 import tomllib
 from pathlib import Path
 from typing import Any
 
+import orjson
 import structlog
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,11 +16,9 @@ from ccproxy.core.validators import parse_comma_separated
 
 from .auth import AuthSettings
 from .claude import ClaudeSettings
-from .codex import CodexSettings
 from .cors import CORSSettings
 from .docker_settings import DockerSettings
 from .observability import ObservabilitySettings
-from .pricing import PricingSettings
 from .reverse_proxy import ReverseProxySettings
 from .scheduler import SchedulerSettings
 from .security import SecuritySettings
@@ -54,7 +52,7 @@ class Settings(BaseSettings):
     TOML configuration files are loaded in the following order:
     1. .ccproxy.toml in current directory
     2. ccproxy.toml in git repository root
-    3. config.toml in XDG_CONFIG_HOME/ccproxy/
+    3. config.toml in user config directory/ccproxy/ (platform-specific)
     """
 
     model_config = SettingsConfigDict(
@@ -87,12 +85,6 @@ class Settings(BaseSettings):
         description="Claude-specific configuration settings",
     )
 
-    # Codex-specific settings
-    codex: CodexSettings = Field(
-        default_factory=CodexSettings,
-        description="OpenAI Codex-specific configuration settings",
-    )
-
     # Proxy and authentication
     reverse_proxy: ReverseProxySettings = Field(
         default_factory=ReverseProxySettings,
@@ -120,12 +112,6 @@ class Settings(BaseSettings):
     scheduler: SchedulerSettings = Field(
         default_factory=SchedulerSettings,
         description="Task scheduler configuration settings",
-    )
-
-    # Pricing settings
-    pricing: PricingSettings = Field(
-        default_factory=PricingSettings,
-        description="Pricing and cost calculation configuration settings",
     )
 
     @field_validator("server", mode="before")
@@ -174,18 +160,6 @@ class Settings(BaseSettings):
             return v
         if isinstance(v, dict):
             return ClaudeSettings(**v)
-        return v
-
-    @field_validator("codex", mode="before")
-    @classmethod
-    def validate_codex(cls, v: Any) -> Any:
-        """Validate and convert Codex settings."""
-        if v is None:
-            return CodexSettings()
-        if isinstance(v, CodexSettings):
-            return v
-        if isinstance(v, dict):
-            return CodexSettings(**v)
         return v
 
     @field_validator("reverse_proxy", mode="before")
@@ -258,20 +232,6 @@ class Settings(BaseSettings):
         if isinstance(v, dict):
             return SchedulerSettings(**v)
         return v
-
-    @field_validator("pricing", mode="before")
-    @classmethod
-    def validate_pricing(cls, v: Any) -> Any:
-        """Validate and convert pricing settings."""
-        if v is None:
-            return PricingSettings()
-        if isinstance(v, PricingSettings):
-            return v
-        if isinstance(v, dict):
-            return PricingSettings(**v)
-        return v
-
-    # validate_pool_settings method removed - connection pooling functionality has been removed
 
     @property
     def server_url(self) -> str:
@@ -433,7 +393,8 @@ class ConfigurationManager:
                     config_path=config_path, **(cli_overrides or {})
                 )
                 self._config_path = config_path
-            except Exception as e:
+            except (OSError, ValueError, tomllib.TOMLDecodeError) as e:
+                # OS errors (file access), validation errors, or TOML parsing errors
                 raise ConfigurationError(f"Failed to load configuration: {e}") from e
 
         return self._settings
@@ -450,7 +411,7 @@ class ConfigurationManager:
         )
 
         # Determine format based on log level - Rich for DEBUG, JSON for production
-        format_type = "rich" if effective_level.upper() == "DEBUG" else "json"
+        "rich" if effective_level.upper() == "DEBUG" else "json"
 
         # setup_dual_logging(
         #     level=effective_level,
@@ -522,7 +483,11 @@ class ConfigurationManager:
         claude_settings.update(
             self._extract_config_section(
                 cli_args,
-                ["sdk_message_mode", "system_prompt_injection_mode", "builtin_permissions"],
+                [
+                    "sdk_message_mode",
+                    "system_prompt_injection_mode",
+                    "builtin_permissions",
+                ],
             )
         )
 
@@ -590,12 +555,12 @@ def get_settings(config_path: Path | str | None = None) -> Settings:
         cli_overrides = {}
         cli_overrides_json = os.environ.get("CCPROXY_CONFIG_OVERRIDES")
         if cli_overrides_json:
-            with contextlib.suppress(json.JSONDecodeError):
-                cli_overrides = json.loads(cli_overrides_json)
+            with contextlib.suppress(ValueError):
+                cli_overrides = orjson.loads(cli_overrides_json)
 
         settings = Settings.from_config(config_path=config_path, **cli_overrides)
         return settings
-    except Exception as e:
-        # If settings can't be loaded (e.g., missing API key),
-        # this will be handled by the caller
+    except (OSError, ValueError, tomllib.TOMLDecodeError) as e:
+        # OS errors (file access), validation errors, or TOML parsing errors
+        # If settings can't be loaded, this will be handled by the caller
         raise ValueError(f"Configuration error: {e}") from e

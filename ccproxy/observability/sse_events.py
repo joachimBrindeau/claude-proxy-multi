@@ -8,12 +8,12 @@ for real-time dashboard notifications when requests start, complete, or error.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
-import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import orjson
+import shortuuid
 import structlog
 
 
@@ -53,7 +53,7 @@ class SSEEventManager:
             JSON-formatted event strings for SSE
         """
         if connection_id is None:
-            connection_id = str(uuid.uuid4())
+            connection_id = shortuuid.uuid()
 
         # Create bounded queue for this connection
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(
@@ -169,14 +169,16 @@ class SSEEventManager:
                     except asyncio.QueueFull:
                         # Still full, connection is problematic
                         failed_connections.append(connection_id)
-                except Exception as e:
+                except (RuntimeError, ValueError) as e:
+                    # RuntimeError: queue closed; ValueError: invalid queue state
                     logger.error(
                         "sse_overflow_error",
                         connection_id=connection_id,
                         error=str(e),
                     )
                     failed_connections.append(connection_id)
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
+                # RuntimeError: queue closed; ValueError: invalid queue state
                 logger.error(
                     "sse_broadcast_error",
                     connection_id=connection_id,
@@ -208,7 +210,8 @@ class SSEEventManager:
             except asyncio.QueueFull:
                 # Queue is full, force cleanup
                 await self._cleanup_connection(connection_id)
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
+                # RuntimeError: queue closed; ValueError: invalid queue state
                 logger.error(
                     "sse_disconnect_error",
                     connection_id=connection_id,
@@ -227,7 +230,7 @@ class SSEEventManager:
     def _format_sse_event(self, event: dict[str, Any]) -> str:
         """Format event as SSE data string."""
         try:
-            json_data = json.dumps(event, default=self._json_serializer)
+            json_data = orjson.dumps(event, default=self._json_serializer).decode()
             return f"data: {json_data}\n\n"
         except (TypeError, ValueError) as e:
             logger.error("sse_format_error", error=str(e), event_type=event.get("type"))
@@ -237,7 +240,9 @@ class SSEEventManager:
                 "message": "Failed to format event",
                 "timestamp": time.time(),
             }
-            json_data = json.dumps(error_event, default=self._json_serializer)
+            json_data = orjson.dumps(
+                error_event, default=self._json_serializer
+            ).decode()
             return f"data: {json_data}\n\n"
 
     def _json_serializer(self, obj: Any) -> Any:
@@ -288,8 +293,8 @@ async def emit_sse_event(event_type: str, data: dict[str, Any]) -> None:
     try:
         manager = get_sse_manager()
         await manager.emit_event(event_type, data)
-    except Exception as e:
-        # Log error but don't fail the request
+    except (RuntimeError, ValueError, asyncio.CancelledError) as e:
+        # RuntimeError: queue issues; ValueError: state errors; CancelledError: async cancellation
         logger.debug("sse_emit_failed", event_type=event_type, error=str(e))
 
 

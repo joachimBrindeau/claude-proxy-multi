@@ -1,8 +1,10 @@
 """Claude SDK service orchestration for business logic."""
 
+import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
 
+import orjson
 import structlog
 from claude_code_sdk import ClaudeCodeOptions
 
@@ -162,7 +164,9 @@ class ClaudeSDKService:
                         session_error_count=session_client.metrics.error_count,
                         session_is_new=session_client.is_newly_created,
                     )
-            except Exception as e:
+            except (KeyError, AttributeError, asyncio.CancelledError) as e:
+                # KeyError/AttributeError: Session data access failures
+                # CancelledError: Async operation cancelled
                 logger.warning(
                     "failed_to_capture_session_metadata",
                     session_id=session_id,
@@ -380,11 +384,7 @@ class ClaudeSDKService:
                         if isinstance(block, sdk_models.ToolResultBlock):
                             response.content.append(block)
 
-        cost_usd = result_message.total_cost_usd
         usage = result_message.usage_model
-
-        # if cost_usd is not None and response.usage:
-        #     response.usage.cost_usd = cost_usd
 
         logger.debug(
             "claude_sdk_completion_completed",
@@ -393,7 +393,6 @@ class ClaudeSDKService:
             tokens_output=usage.output_tokens,
             cache_read_tokens=usage.cache_read_input_tokens,
             cache_write_tokens=usage.cache_creation_input_tokens,
-            cost_usd=cost_usd,
             request_id=request_id,
         )
 
@@ -403,7 +402,6 @@ class ClaudeSDKService:
             tokens_output=usage.output_tokens,
             cache_read_tokens=usage.cache_read_input_tokens,
             cache_write_tokens=usage.cache_creation_input_tokens,
-            cost_usd=cost_usd,
             session_id=result_message.session_id,
             num_turns=result_message.num_turns,
         )
@@ -467,7 +465,9 @@ class ClaudeSDKService:
                 )
                 if session_client:
                     session_client.active_stream_handle = stream_handle
-            except Exception as e:
+            except (KeyError, AttributeError, asyncio.CancelledError) as e:
+                # KeyError/AttributeError: Session data access failures
+                # CancelledError: Async operation cancelled
                 logger.warning(
                     "failed_to_store_stream_handle",
                     session_id=session_id,
@@ -659,15 +659,14 @@ class ClaudeSDKService:
         # timestamp is already provided from context, no need for fallback
 
         # Append streaming chunk as JSON to raw file
-        import json
-
         from ccproxy.utils.simple_request_logger import append_streaming_log
 
-        chunk_data = json.dumps(chunk, default=str) + "\n"
+        # orjson handles datetime/uuid natively; fallback for other types
+        chunk_data = orjson.dumps(chunk, default=str) + b"\n"
         await append_streaming_log(
             request_id=request_id,
             log_type="sdk_streaming",
-            data=chunk_data.encode("utf-8"),
+            data=chunk_data,
             timestamp=timestamp,
         )
 
@@ -680,7 +679,10 @@ class ClaudeSDKService:
         """
         try:
             return await self.sdk_client.validate_health()
-        except Exception as e:
+        except (TimeoutError, OSError, RuntimeError, asyncio.CancelledError) as e:
+            # OSError: Network/filesystem errors
+            # RuntimeError: SDK internal errors
+            # CancelledError/TimeoutError: Async operation issues
             logger.error(
                 "health_check_failed",
                 error=str(e),

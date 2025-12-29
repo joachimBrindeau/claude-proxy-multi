@@ -8,7 +8,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any, TypeVar
 
 import structlog
@@ -19,7 +19,7 @@ logger = structlog.get_logger(__name__)
 T = TypeVar("T")
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     """Types of messages that can be sent through the queue."""
 
     DATA = "data"
@@ -306,7 +306,7 @@ class MessageQueue:
         """Close the message queue and all listeners."""
         async with self._lock:
             # Send shutdown to all listeners
-            queue_msg = QueueMessage(type=MessageType.SHUTDOWN)
+            QueueMessage(type=MessageType.SHUTDOWN)
 
             for listener in self._listeners.values():
                 listener.close()

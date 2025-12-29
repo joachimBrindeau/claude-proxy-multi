@@ -1,5 +1,6 @@
 """FastAPI application factory for CCProxy API Server."""
 
+import asyncio
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any, TypedDict
@@ -18,7 +19,6 @@ from ccproxy.api.middleware.request_content_logging import (
 from ccproxy.api.middleware.request_id import RequestIDMiddleware
 from ccproxy.api.middleware.server_header import ServerHeaderMiddleware
 from ccproxy.api.routes.claude import router as claude_router
-from ccproxy.api.routes.codex import router as codex_router
 from ccproxy.api.routes.health import router as health_router
 from ccproxy.api.routes.mcp import setup_mcp
 from ccproxy.api.routes.metrics import (
@@ -45,12 +45,10 @@ from ccproxy.ui.accounts import mount_accounts_ui
 from ccproxy.utils.models_provider import get_models_list
 from ccproxy.utils.startup_helpers import (
     check_claude_cli_startup,
-    check_codex_cli_startup,
     check_version_updates_startup,
     flush_streaming_batches_shutdown,
     initialize_claude_detection_startup,
     initialize_claude_sdk_startup,
-    initialize_codex_detection_startup,
     initialize_log_storage_shutdown,
     initialize_log_storage_startup,
     initialize_permission_service_startup,
@@ -59,7 +57,6 @@ from ccproxy.utils.startup_helpers import (
     setup_scheduler_startup,
     setup_session_manager_shutdown,
     validate_claude_authentication_startup,
-    validate_codex_authentication_startup,
 )
 
 
@@ -90,11 +87,6 @@ LIFECYCLE_COMPONENTS: list[LifecycleComponent] = [
         "shutdown": None,  # One-time validation, no cleanup needed
     },
     {
-        "name": "Codex Authentication",
-        "startup": validate_codex_authentication_startup,
-        "shutdown": None,  # One-time validation, no cleanup needed
-    },
-    {
         "name": "Version Check",
         "startup": check_version_updates_startup,
         "shutdown": None,  # One-time check, no cleanup needed
@@ -105,18 +97,8 @@ LIFECYCLE_COMPONENTS: list[LifecycleComponent] = [
         "shutdown": None,  # Detection only, no cleanup needed
     },
     {
-        "name": "Codex CLI",
-        "startup": check_codex_cli_startup,
-        "shutdown": None,  # Detection only, no cleanup needed
-    },
-    {
         "name": "Claude Detection",
         "startup": initialize_claude_detection_startup,
-        "shutdown": None,  # No cleanup needed
-    },
-    {
-        "name": "Codex Detection",
-        "startup": initialize_codex_detection_startup,
         "shutdown": None,  # No cleanup needed
     },
     {
@@ -172,9 +154,9 @@ models_router = APIRouter(tags=["models"])
 
 @models_router.get("/v1/models", response_model=None)
 async def list_models() -> dict[str, Any]:
-    """List available models.
+    """List available Claude models.
 
-    Returns a combined list of Anthropic models and recent OpenAI models.
+    Returns a list of available Anthropic Claude models.
     This endpoint is shared between both SDK and proxy APIs.
     """
     return get_models_list()
@@ -215,7 +197,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             try:
                 logger.debug(f"starting_{component_name.lower().replace(' ', '_')}")
                 await component["startup"](app, settings)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
+                # OS errors, runtime errors, or validation errors during startup
                 logger.error(
                     f"{component_name.lower().replace(' ', '_')}_startup_failed",
                     error=str(e),
@@ -235,7 +218,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             try:
                 logger.debug(f"stopping_{component_name.lower().replace(' ', '_')}")
                 await shutdown_component["shutdown"](app)
-            except Exception as e:
+            except (OSError, RuntimeError, asyncio.CancelledError) as e:
+                # OS errors, runtime errors, or cancellation during shutdown
                 logger.error(
                     f"{component_name.lower().replace(' ', '_')}_shutdown_failed",
                     error=str(e),
@@ -253,7 +237,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     await component["shutdown"](app, settings)  # type: ignore
                 else:
                     await component["shutdown"](app)  # type: ignore
-            except Exception as e:
+            except (OSError, RuntimeError, asyncio.CancelledError) as e:
+                # OS errors, runtime errors, or cancellation during shutdown
                 logger.error(
                     f"{component_name.lower().replace(' ', '_')}_shutdown_failed",
                     error=str(e),
@@ -277,14 +262,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     import structlog
 
-    # Only configure if not already configured or if no file handler exists
-    # okay we have the first debug line but after uvicorn start they are not show root_logger = logging.getLogger()
-    # for h in root_logger.handlers:
-    #     print(h)
-    # has_file_handler = any(
-    #     isinstance(h, logging.FileHandler) for h in root_logger.handlers
-    # )
-
     if not structlog.is_configured():
         # Only setup logging if structlog is not configured at all
         # Always use console output, but respect file logging from settings
@@ -297,7 +274,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="CCProxy API Server",
-        description="High-performance API server providing Anthropic and OpenAI-compatible interfaces for Claude AI models",
+        description="High-performance Claude Code multi-account proxy server with Anthropic API compatibility",
         version=__version__,
         lifespan=lifespan,
     )
@@ -341,13 +318,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(oauth_router, prefix="/oauth", tags=["oauth"])
 
-    # Codex routes for OpenAI integration
-    app.include_router(codex_router, tags=["codex"])
-
-    # New /sdk/ routes for Claude SDK endpoints
+    # Claude SDK routes
     app.include_router(claude_router, prefix="/sdk", tags=["claude-sdk"])
 
-    # New /api/ routes for proxy endpoints (includes OpenAI-compatible /v1/chat/completions)
+    # Proxy API routes (Anthropic-compatible /v1/messages)
     app.include_router(proxy_router, prefix="/api", tags=["proxy-api"])
 
     # Shared models endpoints for both SDK and proxy APIs
@@ -391,7 +365,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Mount accounts management UI (HTMX)
     try:
         mount_accounts_ui(app)
-    except Exception as e:
+    except (OSError, ImportError, ValueError) as e:
+        # OS errors (file access), import errors, or validation errors during mount
         logger.warning(
             "accounts_ui_mount_failed",
             error=str(e),

@@ -6,28 +6,32 @@ This directory contains organized test fixtures that provide clear separation be
 
 ```
 tests/fixtures/
+├── auth/                 # Authentication fixtures
+│   ├── __init__.py       # Auth fixture exports
+│   └── example_usage.py  # Auth fixture examples
 ├── claude_sdk/           # Claude SDK service mocking
 │   ├── internal_mocks.py # AsyncMock for dependency injection
+│   ├── client_mocks.py   # Client mock implementations
 │   └── responses.py      # Standard response data
-├── proxy_service/        # Proxy service mocking  
+├── proxy_service/        # Proxy service mocking
 │   └── oauth_mocks.py    # OAuth endpoint HTTP mocks
-├── external_apis/        # External API HTTP mocking
-│   └── anthropic_api.py  # api.anthropic.com HTTP intercepts
-└── README.md            # This documentation
+├── credentials.json      # Test credentials
+├── responses.json        # Legacy response data
+└── README.md             # This documentation
 ```
 
 ## Mocking Strategies
 
 ### 1. Internal Service Mocking (Claude SDK)
 
-**Purpose**: Mock ClaudeSDKService for dependency injection testing  
-**Location**: `tests/fixtures/claude_sdk/internal_mocks.py`  
-**Technology**: AsyncMock from unittest.mock  
+**Purpose**: Mock ClaudeSDKService for dependency injection testing
+**Location**: `tests/fixtures/claude_sdk/internal_mocks.py`
+**Technology**: AsyncMock from unittest.mock
 **Use Case**: Testing API endpoints that depend on Claude SDK without HTTP calls
 
 **Fixtures**:
 - `mock_internal_claude_sdk_service` - Standard completion mocking
-- `mock_internal_claude_sdk_service_streaming` - Streaming response mocking  
+- `mock_internal_claude_sdk_service_streaming` - Streaming response mocking
 - `mock_internal_claude_sdk_service_unavailable` - Service unavailable simulation
 
 **Example Usage**:
@@ -38,38 +42,22 @@ def test_api_endpoint(client: TestClient, mock_internal_claude_sdk_service: Asyn
     assert response.status_code == 200
 ```
 
-### 2. External API Mocking (HTTP Interception)
+### 2. OAuth Service Mocking
 
-**Purpose**: Intercept HTTP calls to external APIs  
-**Location**: `tests/fixtures/external_apis/anthropic_api.py`  
-**Technology**: pytest-httpx (HTTPXMock)  
-**Use Case**: Testing ProxyService and components making direct HTTP calls
-
-**Fixtures**:
-- `mock_external_anthropic_api` - Standard API responses
-- `mock_external_anthropic_api_streaming` - SSE streaming responses
-- `mock_external_anthropic_api_error` - Error response simulation
-- `mock_external_anthropic_api_unavailable` - Service unavailable simulation
-
-**Example Usage**:
-```python
-def test_proxy_service(mock_external_anthropic_api: HTTPXMock):
-    # Test ProxyService with intercepted HTTP calls to api.anthropic.com
-    service = ProxyService()
-    response = await service.forward_request(request_data)
-    assert response.status_code == 200
-```
-
-### 3. OAuth Service Mocking
-
-**Purpose**: Mock OAuth token endpoints for authentication testing  
-**Location**: `tests/fixtures/proxy_service/oauth_mocks.py`  
-**Technology**: pytest-httpx (HTTPXMock)  
+**Purpose**: Mock OAuth token endpoints for authentication testing
+**Location**: `tests/fixtures/proxy_service/oauth_mocks.py`
+**Technology**: pytest-httpx (HTTPXMock)
 **Use Case**: Testing OAuth flows and credential management
 
 **Fixtures**:
 - `mock_external_oauth_endpoints` - Success token exchange/refresh
 - `mock_external_oauth_endpoints_error` - OAuth error responses
+
+### 3. Authentication Fixtures
+
+**Purpose**: Provide composable auth fixtures for testing different auth modes
+**Location**: `tests/fixtures/auth/`
+**Use Case**: Testing endpoints with various authentication configurations
 
 ## Usage
 
@@ -78,10 +66,6 @@ Use descriptive fixture names for clear intent:
 ```python
 def test_endpoint(mock_internal_claude_sdk_service: AsyncMock):
     # Testing with internal service dependency injection
-    pass
-
-def test_proxy(mock_external_anthropic_api: HTTPXMock):  
-    # Testing with external HTTP interception
     pass
 ```
 
@@ -100,7 +84,7 @@ from tests.fixtures.claude_sdk.responses import (
 ## Key Benefits
 
 1. **Clear Purpose**: Fixture names indicate mocking strategy and scope
-2. **Organized Structure**: Related fixtures grouped by service/strategy  
+2. **Organized Structure**: Related fixtures grouped by service/strategy
 3. **Maintainability**: Centralized response data and clear documentation
 4. **Type Safety**: Proper type hints and documentation for each fixture
 
@@ -112,11 +96,11 @@ Use when testing FastAPI endpoints that inject ClaudeSDKService:
 - Dependency injection scenarios
 - Service layer unit tests
 
-### External API Testing  
-Use when testing components that make HTTP calls:
-- ProxyService HTTP forwarding
+### OAuth Testing
+Use when testing components that need OAuth mocking:
 - OAuth authentication flows
-- Error handling for external API failures
+- Credential management
+- Token refresh scenarios
 
 ### Mixed Testing
 Some tests may need both strategies for comprehensive coverage:

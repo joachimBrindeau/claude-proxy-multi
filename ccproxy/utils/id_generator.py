@@ -1,12 +1,12 @@
 """Utility functions for generating consistent IDs across the application."""
 
-import uuid
+import shortuuid
 
 
 def generate_client_id() -> str:
     """Generate a consistent client ID for SDK connections.
 
     Returns:
-        str: First part of a UUID4 (8 characters)
+        str: Short URL-safe ID (22 characters)
     """
-    return str(uuid.uuid4()).split("-")[0]
+    return shortuuid.uuid()

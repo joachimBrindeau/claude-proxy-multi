@@ -7,30 +7,67 @@ import os
 from pathlib import Path
 from typing import Any
 
+import orjson
 from fastapi import FastAPI
 from structlog import get_logger
 
 from ccproxy.rotation.file_watcher import (
-    AccountsFileWatcher,
     init_file_watcher,
 )
 from ccproxy.rotation.middleware import RotationMiddleware
-from ccproxy.rotation.pool import RotationPool, init_rotation_pool
-from ccproxy.rotation.refresh import TokenRefreshScheduler, init_refresh_scheduler
+from ccproxy.rotation.pool import init_rotation_pool
+from ccproxy.rotation.refresh import init_refresh_scheduler
 
 
 logger = get_logger(__name__)
 
 
-def get_accounts_path() -> Path:
+class InvalidAccountsPathError(ValueError):
+    """Raised when CCPROXY_ACCOUNTS_PATH is invalid."""
+
+    pass
+
+
+def _validate_accounts_path(path_str: str) -> None:
+    """Validate that an accounts path is valid.
+
+    Args:
+        path_str: Path string to validate
+
+    Raises:
+        InvalidAccountsPathError: If path is not absolute or parent doesn't exist
+    """
+    if not path_str.startswith(("/", "~")):
+        raise InvalidAccountsPathError(
+            f"CCPROXY_ACCOUNTS_PATH must be an absolute path or start with ~, "
+            f"got: {path_str!r}"
+        )
+    expanded = Path(path_str).expanduser()
+    parent = expanded.parent
+    if not parent.exists():
+        raise InvalidAccountsPathError(f"Parent directory does not exist: {parent}")
+
+
+def get_accounts_path(*, validate: bool = False) -> Path:
     """Get accounts file path from environment or default.
+
+    Args:
+        validate: If True, validate that the path is absolute or starts with ~,
+                 and parent directory exists. Raises InvalidAccountsPathError on failure.
 
     Returns:
         Path to accounts.json
+
+    Raises:
+        InvalidAccountsPathError: If validate=True and path is invalid
     """
     env_path = os.environ.get("CCPROXY_ACCOUNTS_PATH")
+
     if env_path:
+        if validate:
+            _validate_accounts_path(env_path)
         return Path(env_path).expanduser()
+
     return Path("~/.claude/accounts.json").expanduser()
 
 
@@ -112,7 +149,10 @@ async def initialize_rotation_pool_startup(app: FastAPI, settings: Any) -> None:
         app.state.rotation_pool = None
         app.state.rotation_enabled = False
 
-    except Exception as e:
+    except (OSError, orjson.JSONDecodeError, ValueError) as e:
+        # OSError: File system errors (permissions, disk full)
+        # orjson.JSONDecodeError: Invalid JSON in accounts file
+        # ValueError: Invalid account data structure or validation errors
         logger.error(
             "rotation_pool_init_failed",
             error=str(e),
@@ -145,7 +185,9 @@ async def initialize_refresh_scheduler_startup(app: FastAPI, settings: Any) -> N
 
         logger.info("token_refresh_scheduler_initialized")
 
-    except Exception as e:
+    except (RuntimeError, ValueError) as e:
+        # RuntimeError: Scheduler failed to start (event loop issues)
+        # ValueError: Invalid scheduler configuration
         logger.error(
             "refresh_scheduler_init_failed",
             error=str(e),
@@ -218,7 +260,10 @@ async def initialize_file_watcher_startup(app: FastAPI, settings: Any) -> None:
                             accounts=pool.account_count,
                             available=pool.available_count,
                         )
-            except Exception as e:
+            except (OSError, orjson.JSONDecodeError, ValueError) as e:
+                # OSError: File read errors during reload
+                # orjson.JSONDecodeError: Invalid JSON in modified accounts file
+                # ValueError: Invalid account data after reload
                 logger.error("accounts_hot_reload_failed", error=str(e))
 
         watcher = init_file_watcher(accounts_path, on_reload)
@@ -231,7 +276,9 @@ async def initialize_file_watcher_startup(app: FastAPI, settings: Any) -> None:
             watching=str(accounts_path),
         )
 
-    except Exception as e:
+    except (OSError, ValueError) as e:
+        # OSError: File system errors when setting up watcher
+        # ValueError: Invalid path or configuration
         logger.error(
             "file_watcher_init_failed",
             error=str(e),
@@ -288,5 +335,8 @@ def setup_rotation_middleware(app: FastAPI) -> None:
 
     except FileNotFoundError:
         logger.warning("rotation_middleware_skipped", reason="no_accounts_file")
-    except Exception as e:
+    except (OSError, orjson.JSONDecodeError, ValueError) as e:
+        # OSError: File system errors reading accounts
+        # orjson.JSONDecodeError: Invalid JSON in accounts file
+        # ValueError: Invalid account data or middleware configuration
         logger.error("rotation_middleware_setup_failed", error=str(e))

@@ -1,18 +1,9 @@
 """Configuration for credentials and OAuth."""
 
 import os
+from typing import Any
 
 from pydantic import BaseModel, Field
-
-from ccproxy.auth.oauth.constants import (
-    OAUTH_AUTHORIZE_URL,
-    OAUTH_BETA_VERSION,
-    OAUTH_CLIENT_ID,
-    OAUTH_REDIRECT_URI,
-    OAUTH_SCOPES,
-    OAUTH_TOKEN_URL,
-    OAUTH_USER_AGENT,
-)
 
 
 def _get_default_storage_paths() -> list[str]:
@@ -32,64 +23,43 @@ def _get_default_storage_paths() -> list[str]:
     ]
 
 
-class OAuthConfig(BaseModel):
-    """OAuth configuration settings.
+def _get_oauth_settings() -> Any:
+    """Lazy import OAuthSettings to avoid circular imports."""
+    from ccproxy.config.auth import OAuthSettings
 
-    Uses shared constants from ccproxy.auth.oauth.constants to ensure
-    scope consistency across all OAuth implementations.
+    return OAuthSettings()
+
+
+class OAuthConfig(BaseModel):
+    """OAuth configuration for credentials management.
+
+    Note: For full OAuth settings, prefer importing OAuthSettings
+    directly from ccproxy.config.auth.
     """
 
-    base_url: str = Field(
-        default="https://console.anthropic.com",
-        description="Base URL for OAuth API endpoints",
-    )
-    beta_version: str = Field(
-        default=OAUTH_BETA_VERSION,
-        description="OAuth beta version header",
+    authorize_url: str = Field(
+        default="https://console.anthropic.com/oauth/authorize",
+        description="OAuth authorization URL",
     )
     token_url: str = Field(
-        default=OAUTH_TOKEN_URL,
-        description="OAuth token endpoint URL",
-    )
-    authorize_url: str = Field(
-        default=OAUTH_AUTHORIZE_URL,
-        description="OAuth authorization endpoint URL",
-    )
-    profile_url: str = Field(
-        default="https://api.anthropic.com/api/oauth/profile",
-        description="OAuth profile endpoint URL",
+        default="https://console.anthropic.com/v1/oauth/token",
+        description="OAuth token URL",
     )
     client_id: str = Field(
-        default=OAUTH_CLIENT_ID,
+        default="9d1c250a-e61b-44d9-88ed-5944d1962f5e",
         description="OAuth client ID",
     )
     redirect_uri: str = Field(
-        default=OAUTH_REDIRECT_URI,
-        description="OAuth redirect URI - uses Anthropic's code display page",
+        default="https://console.anthropic.com/oauth/native/callback",
+        description="OAuth redirect URI",
     )
     scopes: list[str] = Field(
-        default_factory=lambda: OAUTH_SCOPES.copy(),
-        description="OAuth scopes to request (from shared constants)",
-    )
-    request_timeout: int = Field(
-        default=30,
-        description="Timeout in seconds for OAuth requests",
-    )
-    user_agent: str = Field(
-        default=OAUTH_USER_AGENT,
-        description="User agent string for OAuth requests",
-    )
-    callback_timeout: int = Field(
-        default=300,
-        description="Timeout in seconds for OAuth callback",
-        ge=60,
-        le=600,
-    )
-    callback_port: int = Field(
-        default=54545,
-        description="Port for OAuth callback server",
-        ge=1024,
-        le=65535,
+        default_factory=lambda: [
+            "org:create_api_key",
+            "user:profile",
+            "user:inference",
+        ],
+        description="OAuth scopes to request",
     )
 
 

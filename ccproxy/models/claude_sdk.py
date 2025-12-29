@@ -253,7 +253,6 @@ class ResultMessage(BaseModel):
     )
     num_turns: int = Field(default=0, description="Number of conversation turns")
     session_id: str = Field(default="", description="Session ID for the result")
-    total_cost_usd: float | None = Field(None, description="Total cost in USD")
     usage: dict[str, Any] | None = Field(
         None, description="Usage information dictionary"
     )
@@ -426,7 +425,6 @@ def convert_sdk_result_message(
     is_error: bool = False,
     num_turns: int = 0,
     usage: dict[str, Any] | None = None,
-    total_cost_usd: float | None = None,
     result: str | None = None,
 ) -> ResultMessage:
     """Convert raw result message data to ResultMessage model."""
@@ -438,7 +436,6 @@ def convert_sdk_result_message(
         is_error=is_error,
         num_turns=num_turns,
         usage=usage,
-        total_cost_usd=total_cost_usd,
         result=result,
     )
 

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import aiofiles
 import httpx
+import orjson
 import structlog
 from packaging import version as pkg_version
 from pydantic import BaseModel
@@ -61,7 +61,15 @@ async def fetch_latest_github_version() -> str | None:
     except httpx.HTTPStatusError as e:
         logger.warning("github_version_http_error", status_code=e.response.status_code)
         return None
-    except Exception as e:
+    except (httpx.HTTPError, httpx.ConnectError) as e:
+        # Network or HTTP errors not covered by specific exceptions above
+        logger.warning(
+            "github_version_fetch_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        return None
+    except Exception as e:  # noqa: BLE001 - version check should never crash the application
         logger.warning(
             "github_version_fetch_failed",
             error=str(e),
@@ -101,7 +109,9 @@ def compare_versions(current: str, latest: str) -> bool:
             return latest_parsed > current_base
 
         return latest_parsed > current_parsed
-    except Exception as e:
+    except (ValueError, TypeError) as e:
+        # ValueError: Invalid version string format
+        # TypeError: Non-string input to version parser
         logger.error(
             "version_comparison_failed",
             current=current,
@@ -126,11 +136,14 @@ async def load_check_state(path: Path) -> VersionCheckState | None:
         return None
 
     try:
-        async with aiofiles.open(path) as f:
+        async with aiofiles.open(path, mode="rb") as f:
             content = await f.read()
-            data = json.loads(content)
+            data = orjson.loads(content)
             return VersionCheckState(**data)
-    except Exception as e:
+    except (OSError, orjson.JSONDecodeError, ValueError, KeyError) as e:
+        # OSError: File read errors (permissions, I/O)
+        # JSONDecodeError: Invalid JSON content
+        # ValueError/KeyError: Invalid data structure for Pydantic model
         logger.warning(
             "version_check_state_load_failed",
             path=str(path),
@@ -156,11 +169,12 @@ async def save_check_state(path: Path, state: VersionCheckState) -> None:
         state_dict = state.model_dump()
         state_dict["last_check_at"] = state.last_check_at.isoformat()
 
-        async with aiofiles.open(path, "w") as f:
-            await f.write(json.dumps(state_dict, indent=2))
+        async with aiofiles.open(path, "wb") as f:
+            await f.write(orjson.dumps(state_dict, option=orjson.OPT_INDENT_2))
 
         logger.debug("version_check_state_saved", path=str(path))
-    except Exception as e:
+    except OSError as e:
+        # OSError: File write errors (permissions, disk full, I/O)
         logger.warning(
             "version_check_state_save_failed",
             path=str(path),

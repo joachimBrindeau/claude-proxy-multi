@@ -1,13 +1,13 @@
 """Core type definitions for the proxy system."""
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ProxyMethod(str, Enum):
+class ProxyMethod(StrEnum):
     """HTTP methods supported by the proxy."""
 
     GET = "GET"
@@ -21,7 +21,7 @@ class ProxyMethod(str, Enum):
     TRACE = "TRACE"
 
 
-class ProxyProtocol(str, Enum):
+class ProxyProtocol(StrEnum):
     """Protocols supported by the proxy."""
 
     HTTP = "http"

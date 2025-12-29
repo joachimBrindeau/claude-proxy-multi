@@ -1,4 +1,4 @@
-.PHONY: help install dev-install clean test test-unit test-real-api test-watch test-fast test-file test-match test-coverage lint typecheck format check pre-commit ci build dashboard docker-build docker-run docs-install docs-build docs-serve docs-clean
+.PHONY: help install dev-install clean test test-unit test-real-api test-watch test-fast test-file test-match test-coverage lint typecheck format check pre-commit ci build dashboard docker-build docker-run
 
 $(eval VERSION_DOCKER := $(shell uv run python3 scripts/format_version.py docker))
 
@@ -37,12 +37,6 @@ help:
 	@echo ""
 	@echo "Dashboard (frontend):"
 	@echo "  dashboard         - Show dashboard commands (run make -C dashboard help)"
-	@echo ""
-	@echo "Documentation:"
-	@echo "  docs-install - Install documentation dependencies"
-	@echo "  docs-build   - Build documentation"
-	@echo "  docs-serve   - Serve documentation locally"
-	@echo "  docs-clean   - Clean documentation build files"
 
 # Installation targets
 install:
@@ -227,24 +221,6 @@ dev:
 
 prod:
 	uv run ccproxy serve
-
-# Documentation targets
-docs-install:
-	uv sync --group docs
-
-docs-build: docs-install
-	./scripts/build-docs.sh
-
-docs-serve: docs-install
-	./scripts/serve-docs.sh
-
-docs-clean:
-	rm -rf site/
-	rm -rf docs/.cache/
-
-docs-deploy: docs-build
-	@echo "Documentation built and ready for deployment"
-	@echo "Upload the 'site/' directory to your web server"
 
 # Quick development setup
 setup: dev-install

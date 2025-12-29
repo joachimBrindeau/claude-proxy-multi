@@ -1,13 +1,14 @@
 """Simple request logging utility for content logging across all service layers."""
 
 import asyncio
-import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import orjson
 import structlog
+from cachetools import TTLCache
 
 
 logger = structlog.get_logger(__name__)
@@ -15,7 +16,8 @@ logger = structlog.get_logger(__name__)
 # Global batching settings for streaming logs
 _STREAMING_BATCH_SIZE = 8192  # Batch chunks until we have 8KB
 _STREAMING_BATCH_TIMEOUT = 0.1  # Or flush after 100ms
-_streaming_batches: dict[str, dict[str, Any]] = {}  # request_id -> batch info
+# TTLCache with 60s TTL to auto-cleanup abandoned streaming batches
+_streaming_batches: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=10000, ttl=60)  # type: ignore[no-any-unimported]
 
 
 def should_log_requests() -> bool:
@@ -41,7 +43,8 @@ def get_request_log_dir() -> Path | None:
     try:
         path.mkdir(parents=True, exist_ok=True)
         return path
-    except Exception as e:
+    except OSError as e:
+        # OSError: Directory creation errors (permissions, invalid path)
         logger.error(
             "failed_to_create_request_log_dir",
             log_dir=log_dir,
@@ -87,8 +90,8 @@ async def write_request_log(
     try:
         # Write JSON data to file asynchronously
         def write_file() -> None:
-            with file_path.open("w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, default=str, ensure_ascii=False)
+            with file_path.open("wb") as f:
+                f.write(orjson.dumps(data, option=orjson.OPT_INDENT_2, default=str))
 
         # Run in thread pool to avoid blocking
         await asyncio.get_event_loop().run_in_executor(None, write_file)
@@ -100,7 +103,8 @@ async def write_request_log(
             file_path=str(file_path),
         )
 
-    except Exception as e:
+    except OSError as e:
+        # OSError: File write errors (permissions, disk full, I/O)
         logger.error(
             "failed_to_write_request_log",
             request_id=request_id,
@@ -152,7 +156,8 @@ async def write_streaming_log(
             data_size=len(data),
         )
 
-    except Exception as e:
+    except OSError as e:
+        # OSError: File write errors (permissions, disk full, I/O)
         logger.error(
             "failed_to_write_streaming_log",
             request_id=request_id,
@@ -267,7 +272,8 @@ async def _flush_streaming_batch(batch_key: str) -> None:
             chunk_count=batch["chunk_count"],
         )
 
-    except Exception as e:
+    except OSError as e:
+        # OSError: File append errors (permissions, disk full, I/O)
         logger.error(
             "failed_to_flush_streaming_batch",
             request_id=batch["request_id"],

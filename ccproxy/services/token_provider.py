@@ -55,7 +55,7 @@ class TokenProvider:
         # Check for rotation account first (set by RotationMiddleware)
         if request is not None:
             # First check for pre-captured token (avoids race with refresh scheduler)
-            rotation_token = getattr(request.state, "rotation_token", None)
+            rotation_token: str | None = getattr(request.state, "rotation_token", None)
             if rotation_token:
                 rotation_account = getattr(request.state, "rotation_account", None)
                 account_name = rotation_account.name if rotation_account else "unknown"
@@ -100,7 +100,9 @@ class TokenProvider:
                                 validation.credentials.claude_ai_oauth.expires_at
                             ),
                         )
-                except Exception as e:
+                except (ValueError, AttributeError) as e:
+                    # ValueError: Invalid credential data
+                    # AttributeError: Missing credential fields
                     logger.debug(
                         "credential_check_failed",
                         error=str(e),
@@ -117,7 +119,10 @@ class TokenProvider:
 
         except HTTPException:
             raise
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
+            # OSError: File system errors reading credentials
+            # ValueError: Invalid credential format
+            # RuntimeError: Token provider internal errors
             logger.error("oauth_token_retrieval_failed", error=str(e), exc_info=True)
             raise HTTPException(
                 status_code=401,

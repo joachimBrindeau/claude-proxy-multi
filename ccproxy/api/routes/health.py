@@ -12,11 +12,11 @@ TODO: health endpoint Content-Type header to only return application/health+json
 import asyncio
 import functools
 import shutil
-import time
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
+from cachetools import TTLCache
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
 from structlog import get_logger
@@ -31,18 +31,8 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-class ClaudeCliStatus(str, Enum):
+class ClaudeCliStatus(StrEnum):
     """Claude CLI status enumeration."""
-
-    AVAILABLE = "available"
-    NOT_INSTALLED = "not_installed"
-    BINARY_FOUND_BUT_ERRORS = "binary_found_but_errors"
-    TIMEOUT = "timeout"
-    ERROR = "error"
-
-
-class CodexCliStatus(str, Enum):
-    """Codex CLI status enumeration."""
 
     AVAILABLE = "available"
     NOT_INSTALLED = "not_installed"
@@ -62,22 +52,10 @@ class ClaudeCliInfo(BaseModel):
     return_code: str | None = None
 
 
-class CodexCliInfo(BaseModel):
-    """Codex CLI information with structured data."""
-
-    status: CodexCliStatus
-    version: str | None = None
-    binary_path: str | None = None
-    version_output: str | None = None
-    error: str | None = None
-    return_code: str | None = None
-
-
-# Cache for Claude CLI check results
-_claude_cli_cache: tuple[float, tuple[str, dict[str, Any]]] | None = None
-# Cache for Codex CLI check results
-_codex_cli_cache: tuple[float, tuple[str, dict[str, Any]]] | None = None
-_cache_ttl_seconds = 300  # Cache for 5 minutes
+# Cache for Claude CLI check results (TTLCache with automatic expiration)
+_claude_cli_cache: TTLCache[str, tuple[str, dict[str, Any]]] = TTLCache(  # type: ignore[no-any-unimported]
+    maxsize=1, ttl=300
+)
 
 
 async def _check_oauth2_credentials() -> tuple[str, dict[str, Any]]:
@@ -163,10 +141,11 @@ async def _check_oauth2_credentials() -> tuple[str, dict[str, Any]]:
             "auth_status": "expired",
             "error": "Claude credentials have expired",
         }
-    except Exception as e:
+    except (OSError, ValueError) as e:
+        # File system errors or malformed credential data
         return "fail", {
             "auth_status": "error",
-            "error": f"Unexpected error: {str(e)}",
+            "error": f"Credentials access error: {str(e)}",
         }
 
 
@@ -176,29 +155,21 @@ def _get_claude_cli_path() -> str | None:
     return shutil.which("claude")
 
 
-def _get_codex_cli_path() -> str | None:
-    """Get Codex CLI path with caching. Returns None if not found."""
-    return shutil.which("codex")
-
-
 async def check_claude_code() -> tuple[str, dict[str, Any]]:
     """Check Claude Code CLI installation and version by running 'claude --version'.
 
-    Results are cached for 5 minutes to avoid repeated subprocess calls.
+    Results are cached for 5 minutes using TTLCache with automatic expiration.
 
     Returns:
         Tuple of (status, details) where status is 'pass'/'fail'/'warn'
         Details include CLI version and binary path
     """
-    global _claude_cli_cache
+    cache_key = "cli"
 
-    # Check if we have a valid cached result
-    current_time = time.time()
-    if _claude_cli_cache is not None:
-        cache_time, cached_result = _claude_cli_cache
-        if current_time - cache_time < _cache_ttl_seconds:
-            logger.debug("claude_cli_check_cache_hit")
-            return cached_result
+    # Check if we have a valid cached result (TTLCache handles expiration automatically)
+    if cache_key in _claude_cli_cache:
+        logger.debug("claude_cli_check_cache_hit")
+        return _claude_cli_cache[cache_key]  # type: ignore[no-any-return]
 
     logger.debug("claude_cli_check_cache_miss")
 
@@ -216,8 +187,7 @@ async def check_claude_code() -> tuple[str, dict[str, Any]]:
                 "binary_path": None,
             },
         )
-        # Cache the result
-        _claude_cli_cache = (current_time, result)
+        _claude_cli_cache[cache_key] = result
         return result
 
     try:
@@ -260,8 +230,7 @@ async def check_claude_code() -> tuple[str, dict[str, Any]]:
                     "version_output": version_output,
                 },
             )
-            # Cache the result
-            _claude_cli_cache = (current_time, result)
+            _claude_cli_cache[cache_key] = result
             return result
         else:
             # Binary exists but --version failed
@@ -277,11 +246,11 @@ async def check_claude_code() -> tuple[str, dict[str, Any]]:
                     "return_code": str(process.returncode),
                 },
             )
-            # Cache the result
-            _claude_cli_cache = (current_time, result)
+            _claude_cli_cache[cache_key] = result
             return result
 
     except TimeoutError:
+        # Command execution timed out
         result = (
             "warn",
             {
@@ -292,22 +261,21 @@ async def check_claude_code() -> tuple[str, dict[str, Any]]:
                 "binary_path": claude_path,
             },
         )
-        # Cache the result
-        _claude_cli_cache = (current_time, result)
+        _claude_cli_cache[cache_key] = result
         return result
-    except Exception as e:
+    except (OSError, FileNotFoundError) as e:
+        # Subprocess execution failed - binary not executable or missing
         result = (
             "fail",
             {
                 "installation_status": "error",
                 "cli_status": "error",
-                "error": f"Unexpected error running 'claude --version': {str(e)}",
+                "error": f"Failed to execute claude command: {str(e)}",
                 "version": None,
                 "binary_path": claude_path,
             },
         )
-        # Cache the result
-        _claude_cli_cache = (current_time, result)
+        _claude_cli_cache[cache_key] = result
         return result
 
 
@@ -332,162 +300,6 @@ async def get_claude_cli_info() -> ClaudeCliInfo:
         status_value = ClaudeCliStatus.ERROR
 
     return ClaudeCliInfo(
-        status=status_value,
-        version=cli_details.get("version"),
-        binary_path=cli_details.get("binary_path"),
-        version_output=cli_details.get("version_output"),
-        error=cli_details.get("error"),
-        return_code=cli_details.get("return_code"),
-    )
-
-
-async def check_codex_cli() -> tuple[str, dict[str, Any]]:
-    """Check Codex CLI installation and version by running 'codex --version'.
-    Results are cached for 5 minutes to avoid repeated subprocess calls.
-    Returns:
-        Tuple of (status, details) where status is 'pass'/'fail'/'warn'
-        Details include CLI version and binary path
-    """
-    global _codex_cli_cache
-    # Check if we have a valid cached result
-    current_time = time.time()
-    if _codex_cli_cache is not None:
-        cache_time, cached_result = _codex_cli_cache
-        if current_time - cache_time < _cache_ttl_seconds:
-            logger.debug("codex_cli_check_cache_hit")
-            return cached_result
-
-    logger.debug("codex_cli_check_cache_miss")
-
-    # First check if codex binary exists in PATH (cached)
-    codex_path = _get_codex_cli_path()
-    if not codex_path:
-        result = (
-            "warn",
-            {
-                "installation_status": "not_found",
-                "cli_status": "not_installed",
-                "error": "Codex CLI binary not found in PATH",
-                "version": None,
-                "binary_path": None,
-            },
-        )
-        # Cache the result
-        _codex_cli_cache = (current_time, result)
-        return result
-
-    try:
-        # Run 'codex --version' to get actual version
-        process = await asyncio.create_subprocess_exec(
-            "codex",
-            "--version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        stdout, stderr = await process.communicate()
-
-        if process.returncode == 0:
-            version_output = stdout.decode().strip()
-            # Extract version from output (e.g., "codex 0.21.0" -> "0.21.0")
-            if version_output:
-                import re
-
-                # Try to find a version pattern (e.g., "0.21.0", "v1.0.0")
-                version_match = re.search(
-                    r"\b(?:v)?(\d+\.\d+(?:\.\d+)?)\b", version_output
-                )
-                if version_match:
-                    version = version_match.group(1)
-                else:
-                    # Fallback: take the last part if no version pattern found
-                    parts = version_output.split()
-                    version = parts[-1] if parts else "unknown"
-            else:
-                version = "unknown"
-
-            result = (
-                "pass",
-                {
-                    "installation_status": "found",
-                    "cli_status": "available",
-                    "version": version,
-                    "binary_path": codex_path,
-                    "version_output": version_output,
-                },
-            )
-            # Cache the result
-            _codex_cli_cache = (current_time, result)
-            return result
-        else:
-            # Binary exists but --version failed
-            error_output = stderr.decode().strip() if stderr else "Unknown error"
-            result = (
-                "warn",
-                {
-                    "installation_status": "found_with_issues",
-                    "cli_status": "binary_found_but_errors",
-                    "error": f"'codex --version' failed: {error_output}",
-                    "version": None,
-                    "binary_path": codex_path,
-                    "return_code": str(process.returncode),
-                },
-            )
-            # Cache the result
-            _codex_cli_cache = (current_time, result)
-            return result
-
-    except TimeoutError:
-        result = (
-            "warn",
-            {
-                "installation_status": "found_with_issues",
-                "cli_status": "timeout",
-                "error": "Timeout running 'codex --version'",
-                "version": None,
-                "binary_path": codex_path,
-            },
-        )
-        # Cache the result
-        _codex_cli_cache = (current_time, result)
-        return result
-
-    except Exception as e:
-        result = (
-            "fail",
-            {
-                "installation_status": "error",
-                "cli_status": "error",
-                "error": f"Unexpected error running 'codex --version': {str(e)}",
-                "version": None,
-                "binary_path": codex_path,
-            },
-        )
-        # Cache the result
-        _codex_cli_cache = (current_time, result)
-        return result
-
-
-async def get_codex_cli_info() -> CodexCliInfo:
-    """Get Codex CLI information as a structured Pydantic model.
-    Returns:
-        CodexCliInfo: Structured information about Codex CLI installation and status
-    """
-    cli_status, cli_details = await check_codex_cli()
-
-    # Map the status to our enum values
-    if cli_status == "pass":
-        status_value = CodexCliStatus.AVAILABLE
-    elif cli_details.get("cli_status") == "not_installed":
-        status_value = CodexCliStatus.NOT_INSTALLED
-    elif cli_details.get("cli_status") == "binary_found_but_errors":
-        status_value = CodexCliStatus.BINARY_FOUND_BUT_ERRORS
-    elif cli_details.get("cli_status") == "timeout":
-        status_value = CodexCliStatus.TIMEOUT
-    else:
-        status_value = CodexCliStatus.ERROR
-
-    return CodexCliInfo(
         status=status_value,
         version=cli_details.get("version"),
         binary_path=cli_details.get("binary_path"),
@@ -524,11 +336,12 @@ async def _check_claude_sdk() -> tuple[str, dict[str, Any]]:
             "version": None,
             "import_successful": False,
         }
-    except Exception as e:
+    except (ModuleNotFoundError, AttributeError) as e:
+        # Module found but version attribute missing or module structure issue
         return "fail", {
             "installation_status": "error",
             "sdk_status": "error",
-            "error": f"Unexpected error checking SDK: {str(e)}",
+            "error": f"SDK module error: {str(e)}",
             "version": None,
             "import_successful": False,
         }
@@ -576,17 +389,11 @@ async def readiness_probe(response: Response) -> dict[str, Any]:
     # Check OAuth credentials, CLI, and SDK separately
     oauth_status, oauth_details = await _check_oauth2_credentials()
     cli_status, cli_details = await check_claude_code()
-    codex_cli_status, codex_cli_details = await check_codex_cli()
     sdk_status, sdk_details = await _check_claude_sdk()
 
     # Service is ready if no check returns "fail"
     # "warn" statuses (missing credentials/CLI/SDK) don't prevent readiness
-    if (
-        oauth_status == "fail"
-        or cli_status == "fail"
-        or codex_cli_status == "fail"
-        or sdk_status == "fail"
-    ):
+    if oauth_status == "fail" or cli_status == "fail" or sdk_status == "fail":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         failed_components = []
 
@@ -594,8 +401,6 @@ async def readiness_probe(response: Response) -> dict[str, Any]:
             failed_components.append("oauth2_credentials")
         if cli_status == "fail":
             failed_components.append("claude_cli")
-        if codex_cli_status == "fail":
-            failed_components.append("codex_cli")
         if sdk_status == "fail":
             failed_components.append("claude_sdk")
 
@@ -614,12 +419,6 @@ async def readiness_probe(response: Response) -> dict[str, Any]:
                     {
                         "status": cli_status,
                         "output": cli_details.get("error", "Claude CLI error"),
-                    }
-                ],
-                "codex_cli": [
-                    {
-                        "status": codex_cli_status,
-                        "output": codex_cli_details.get("error", "Codex CLI error"),
                     }
                 ],
                 "claude_sdk": [
@@ -646,12 +445,6 @@ async def readiness_probe(response: Response) -> dict[str, Any]:
                 {
                     "status": cli_status,
                     "output": f"Claude CLI: {cli_details.get('cli_status', 'unknown')}",
-                }
-            ],
-            "codex_cli": [
-                {
-                    "status": codex_cli_status,
-                    "output": f"Codex CLI: {codex_cli_details.get('cli_status', 'unknown')}",
                 }
             ],
             "claude_sdk": [
@@ -683,25 +476,14 @@ async def detailed_health_check(response: Response) -> dict[str, Any]:
     # Perform all health checks
     oauth_status, oauth_details = await _check_oauth2_credentials()
     cli_status, cli_details = await check_claude_code()
-    codex_cli_status, codex_cli_details = await check_codex_cli()
     sdk_status, sdk_details = await _check_claude_sdk()
 
     # Determine overall status - prioritize failures, then warnings
     overall_status = "pass"
-    if (
-        oauth_status == "fail"
-        or cli_status == "fail"
-        or codex_cli_status == "fail"
-        or sdk_status == "fail"
-    ):
+    if oauth_status == "fail" or cli_status == "fail" or sdk_status == "fail":
         overall_status = "fail"
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    elif (
-        oauth_status == "warn"
-        or cli_status == "warn"
-        or codex_cli_status == "warn"
-        or sdk_status == "warn"
-    ):
+    elif oauth_status == "warn" or cli_status == "warn" or sdk_status == "warn":
         overall_status = "warn"
         response.status_code = status.HTTP_200_OK
 
@@ -711,7 +493,7 @@ async def detailed_health_check(response: Response) -> dict[str, Any]:
         "status": overall_status,
         "version": __version__,
         "serviceId": "claude-code-proxy",
-        "description": "CCProxy API Server",
+        "description": "CCProxy API Server - Claude Code Multi-Account Proxy",
         "time": current_time,
         "checks": {
             "oauth2_credentials": [
@@ -732,16 +514,6 @@ async def detailed_health_check(response: Response) -> dict[str, Any]:
                     "time": current_time,
                     "output": f"Claude CLI: {cli_details.get('cli_status', 'unknown')}",
                     **cli_details,
-                }
-            ],
-            "codex_cli": [
-                {
-                    "componentId": "codex-cli",
-                    "componentType": "external_dependency",
-                    "status": codex_cli_status,
-                    "time": current_time,
-                    "output": f"Codex CLI: {codex_cli_details.get('cli_status', 'unknown')}",
-                    **codex_cli_details,
                 }
             ],
             "claude_sdk": [

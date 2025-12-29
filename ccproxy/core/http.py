@@ -7,6 +7,17 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from ccproxy.exceptions import HTTPConnectionError, HTTPError, HTTPTimeoutError
+
+
+__all__ = [
+    "HTTPClient",
+    "HTTPXClient",
+    "HTTPConnectionError",
+    "HTTPError",
+    "HTTPTimeoutError",
+]
+
 
 logger = structlog.get_logger(__name__)
 
@@ -89,44 +100,6 @@ class BaseProxyClient:
     async def close(self) -> None:
         """Close any resources held by the proxy client."""
         await self.http_client.close()
-
-
-class HTTPError(Exception):
-    """Base exception for HTTP client errors."""
-
-    def __init__(self, message: str, status_code: int | None = None) -> None:
-        """Initialize HTTP error.
-
-        Args:
-            message: Error message
-            status_code: HTTP status code (optional)
-        """
-        super().__init__(message)
-        self.status_code = status_code
-
-
-class HTTPTimeoutError(HTTPError):
-    """Exception raised when HTTP request times out."""
-
-    def __init__(self, message: str = "Request timed out") -> None:
-        """Initialize timeout error.
-
-        Args:
-            message: Error message
-        """
-        super().__init__(message, status_code=408)
-
-
-class HTTPConnectionError(HTTPError):
-    """Exception raised when HTTP connection fails."""
-
-    def __init__(self, message: str = "Connection failed") -> None:
-        """Initialize connection error.
-
-        Args:
-            message: Error message
-        """
-        super().__init__(message, status_code=503)
 
 
 class HTTPXClient(HTTPClient):
@@ -229,7 +202,8 @@ class HTTPXClient(HTTPClient):
                 f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
                 status_code=e.response.status_code,
             ) from e
-        except Exception as e:
+        except httpx.HTTPError as e:
+            # Catch any remaining httpx errors (network issues, protocol errors, etc.)
             raise HTTPError(f"HTTP request failed: {e}") from e
 
     async def stream(

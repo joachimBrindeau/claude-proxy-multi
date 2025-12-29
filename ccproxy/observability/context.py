@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import asyncio
 import time
-import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+import shortuuid
 import structlog
 
 
@@ -112,7 +112,7 @@ async def request_context(
             # Context automatically logs success with timing
     """
     if request_id is None:
-        request_id = str(uuid.uuid4())
+        request_id = shortuuid.uuid()
 
     # Create logger with bound context
     request_logger = logger.bind(request_id=request_id, **initial_context)
@@ -169,7 +169,7 @@ async def request_context(
             **ctx.metadata,
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: logs any error before re-raising
         # Log error with timing
         duration_ms = ctx.duration_ms
         error_type = type(e).__name__
@@ -220,7 +220,7 @@ async def timed_operation(
             # Automatically logs operation timing
     """
     start_time = time.perf_counter()
-    operation_id = str(uuid.uuid4())
+    operation_id = shortuuid.uuid()
 
     # Create operation logger
     op_logger = logger.bind(
@@ -262,7 +262,7 @@ async def timed_operation(
                 },
             )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: logs any error before re-raising
         # Log operation error
         duration_ms = (time.perf_counter() - start_time) * 1000
         error_type = type(e).__name__
@@ -419,8 +419,8 @@ async def _emit_request_start_event(
 
         await emit_sse_event("request_start", sse_data)
 
-    except Exception as e:
-        # Log error but don't fail the request
+    except (RuntimeError, ValueError, asyncio.CancelledError) as e:
+        # RuntimeError: queue issues; ValueError: state errors; CancelledError: async cancellation
         logger.debug(
             "sse_emit_failed",
             event_type="request_start",
@@ -453,8 +453,8 @@ async def _emit_request_error_event(
 
         await emit_sse_event("request_error", sse_data)
 
-    except Exception as e:
-        # Log error but don't fail the request
+    except (RuntimeError, ValueError, asyncio.CancelledError) as e:
+        # RuntimeError: queue issues; ValueError: state errors; CancelledError: async cancellation
         logger.debug(
             "sse_emit_failed",
             event_type="request_error",

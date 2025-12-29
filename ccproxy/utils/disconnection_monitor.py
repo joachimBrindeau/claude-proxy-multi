@@ -32,7 +32,9 @@ async def monitor_disconnection(
                 )
                 try:
                     await claude_service.sdk_client.interrupt_session(session_id)
-                except Exception as e:
+                except (RuntimeError, AttributeError) as e:
+                    # RuntimeError: Event loop or async context issues
+                    # AttributeError: SDK client not properly initialized
                     logger.error(
                         "failed_to_interrupt_session",
                         session_id=session_id,
@@ -73,7 +75,9 @@ async def monitor_stuck_stream(
         try:
             await claude_service.sdk_client.interrupt_session(session_id)
             logger.info("stuck_session_interrupted_successfully", session_id=session_id)
-        except Exception as e:
+        except (RuntimeError, AttributeError) as e:
+            # RuntimeError: Event loop or async context issues
+            # AttributeError: SDK client not properly initialized
             logger.error(
                 "failed_to_interrupt_stuck_session", session_id=session_id, error=str(e)
             )

@@ -5,10 +5,10 @@ import structlog
 from ccproxy.config.settings import Settings
 
 from .core import Scheduler
+from .errors import SchedulerError, SchedulerShutdownError, TaskRegistrationError
 from .registry import register_task
 from .tasks import (
     PoolStatsTask,
-    PricingCacheUpdateTask,
     PushgatewayTask,
     StatsPrintingTask,
     VersionUpdateCheckTask,
@@ -35,12 +35,10 @@ async def setup_scheduler_tasks(scheduler: Scheduler, settings: Settings) -> Non
     # Log network features status
     logger.info(
         "network_features_status",
-        pricing_updates_enabled=scheduler_config.pricing_update_enabled,
         version_check_enabled=scheduler_config.version_check_enabled,
         message=(
             "Network features disabled by default for privacy"
-            if not scheduler_config.pricing_update_enabled
-            and not scheduler_config.version_check_enabled
+            if not scheduler_config.version_check_enabled
             else "Some network features are enabled"
         ),
     )
@@ -59,7 +57,8 @@ async def setup_scheduler_tasks(scheduler: Scheduler, settings: Settings) -> Non
                 "pushgateway_task_added",
                 interval_seconds=scheduler_config.pushgateway_interval_seconds,
             )
-        except Exception as e:
+        except (SchedulerError, TaskRegistrationError) as e:
+            # Task registration or scheduler state errors during task addition
             logger.error(
                 "pushgateway_task_add_failed",
                 error=str(e),
@@ -79,34 +78,10 @@ async def setup_scheduler_tasks(scheduler: Scheduler, settings: Settings) -> Non
                 "stats_printing_task_added",
                 interval_seconds=scheduler_config.stats_printing_interval_seconds,
             )
-        except Exception as e:
+        except (SchedulerError, TaskRegistrationError) as e:
+            # Task registration or scheduler state errors during task addition
             logger.error(
                 "stats_printing_task_add_failed",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-
-    # Add pricing cache update task if enabled
-    if scheduler_config.pricing_update_enabled:
-        try:
-            # Convert hours to seconds
-            interval_seconds = scheduler_config.pricing_update_interval_hours * 3600
-
-            await scheduler.add_task(
-                task_name="pricing_cache_update",
-                task_type="pricing_cache_update",
-                interval_seconds=interval_seconds,
-                enabled=True,
-                force_refresh_on_startup=scheduler_config.pricing_force_refresh_on_startup,
-            )
-            logger.debug(
-                "pricing_update_task_added",
-                interval_hours=scheduler_config.pricing_update_interval_hours,
-                force_refresh_on_startup=scheduler_config.pricing_force_refresh_on_startup,
-            )
-        except Exception as e:
-            logger.error(
-                "pricing_update_task_add_failed",
                 error=str(e),
                 error_type=type(e).__name__,
             )
@@ -129,7 +104,8 @@ async def setup_scheduler_tasks(scheduler: Scheduler, settings: Settings) -> Non
                 interval_hours=scheduler_config.version_check_interval_hours,
                 version_check_cache_ttl_hours=scheduler_config.version_check_cache_ttl_hours,
             )
-        except Exception as e:
+        except (SchedulerError, TaskRegistrationError) as e:
+            # Task registration or scheduler state errors during task addition
             logger.error(
                 "version_check_task_add_failed",
                 error=str(e),
@@ -157,8 +133,6 @@ def _register_default_tasks(settings: Settings) -> None:
         register_task("stats_printing", StatsPrintingTask)
 
     # Always register core tasks (not metrics-related)
-    if not registry.is_registered("pricing_cache_update"):
-        register_task("pricing_cache_update", PricingCacheUpdateTask)
     if not registry.is_registered("version_update_check"):
         register_task("version_update_check", VersionUpdateCheckTask)
     if not registry.is_registered("pool_stats"):
@@ -210,7 +184,8 @@ async def start_scheduler(settings: Settings) -> Scheduler | None:
 
         return scheduler
 
-    except Exception as e:
+    except SchedulerError as e:
+        # Scheduler initialization or task setup failed
         logger.error(
             "scheduler_start_failed",
             error=str(e),
@@ -231,7 +206,8 @@ async def stop_scheduler(scheduler: Scheduler | None) -> None:
 
     try:
         await scheduler.stop()
-    except Exception as e:
+    except SchedulerShutdownError as e:
+        # Graceful shutdown failed or timed out
         logger.error(
             "scheduler_stop_failed",
             error=str(e),

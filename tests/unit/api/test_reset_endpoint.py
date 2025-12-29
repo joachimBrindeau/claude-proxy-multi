@@ -57,8 +57,6 @@ async def storage_with_data(
             "tokens_output": 25 + i,
             "cache_read_tokens": 0,
             "cache_write_tokens": 0,
-            "cost_usd": 0.001 * (i + 1),
-            "cost_sdk_usd": 0.0,
         }
         for i in range(5)
     ]
@@ -124,9 +122,11 @@ class TestResetEndpoint:
     ) -> None:
         """Test reset endpoint with storage that doesn't support reset."""
 
-        # Create mock storage without reset_data method
+        # Create mock storage without reset_data method but with required methods
         class MockStorageWithoutReset:
-            pass
+            async def store_request(self, data: dict[str, Any]) -> None:
+                """Allow access logging to work."""
+                pass
 
         client = fastapi_client_factory.create_client_with_storage(
             MockStorageWithoutReset()
@@ -199,8 +199,6 @@ class TestResetEndpoint:
             "tokens_output": 5,
             "cache_read_tokens": 0,
             "cache_write_tokens": 0,
-            "cost_usd": 0.0005,
-            "cost_sdk_usd": 0.0,
         }
 
         success = await storage_with_data.store_request(new_log)
@@ -266,7 +264,6 @@ class TestResetEndpointWithFiltering:
 
         data: dict[str, Any] = analytics_response.json()
         assert data["summary"]["total_requests"] == 0
-        assert data["summary"]["total_cost_usd"] == 0
         assert data["summary"]["total_tokens_input"] == 0
         assert data["summary"]["total_tokens_output"] == 0
         assert data["service_type_breakdown"] == {}

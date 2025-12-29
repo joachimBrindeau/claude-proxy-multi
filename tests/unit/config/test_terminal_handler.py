@@ -112,9 +112,9 @@ class TestTerminalPermissionHandler:
         sample_request: PermissionRequest,
     ) -> None:
         """Test error handling during permission."""
-        # Mock the app instance to raise an exception
+        # Mock the app instance to raise a runtime error (the type caught by the handler)
         mock_app = Mock()
-        mock_app.run_async = AsyncMock(side_effect=Exception("Test error"))
+        mock_app.run_async = AsyncMock(side_effect=RuntimeError("Test error"))
         mock_app_class.return_value = mock_app
 
         # Handle permission - should return False on error

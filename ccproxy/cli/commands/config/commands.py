@@ -1,10 +1,10 @@
 """Main config commands for CCProxy API."""
 
-import json
 import secrets
 from pathlib import Path
 from typing import Any
 
+import orjson
 import typer
 from click import get_current_context
 from pydantic import BaseModel
@@ -12,7 +12,7 @@ from pydantic.fields import FieldInfo
 
 from ccproxy._version import __version__
 from ccproxy.cli.helpers import get_rich_toolkit
-from ccproxy.config.settings import Settings, get_settings
+from ccproxy.config.settings import ConfigurationError, Settings, get_settings
 
 
 def _create_config_table(title: str, rows: list[tuple[str, str, str]]) -> Any:
@@ -129,8 +129,6 @@ def _group_config_rows(
             group_name = "Observability Configuration"
         elif setting.startswith("scheduler"):
             group_name = "Scheduler Configuration"
-        elif setting.startswith("pricing"):
-            group_name = "Pricing Configuration"
         else:
             group_name = "General Configuration"
 
@@ -218,7 +216,11 @@ def config_list() -> None:
             Panel(info_text, title="Configuration Sources", border_style="green")
         )
 
-    except Exception as e:
+    except ConfigurationError as e:
+        # Configuration loading or parsing errors
+        toolkit.print(f"Error loading configuration: {e}", tag="error")
+        raise typer.Exit(1) from e
+    except Exception as e:  # noqa: BLE001 - CLI catch-all for user-friendly errors
         toolkit.print(f"Error loading configuration: {e}", tag="error")
         raise typer.Exit(1) from e
 
@@ -235,7 +237,7 @@ def config_init(
         None,
         "--output-dir",
         "-o",
-        help="Output directory for example config files (default: XDG_CONFIG_HOME/ccproxy)",
+        help="Output directory for example config files (default: user config directory/ccproxy)",
     ),
     force: bool = typer.Option(
         False,
@@ -300,7 +302,8 @@ def config_init(
         toolkit.print(f"  export CONFIG_FILE={output_file}", tag="command")
         toolkit.print("  ccproxy api", tag="command")
 
-    except Exception as e:
+    except (OSError, PermissionError) as e:
+        # File system errors when creating configuration files
         toolkit.print(f"Error creating configuration file: {e}", tag="error")
         raise typer.Exit(1) from e
 
@@ -436,7 +439,8 @@ def generate_token(
                     config_data = Settings.load_config_file(config_file)
                     existing_token = config_data.get("auth_token")
                     console.print("[dim]Found existing configuration file[/dim]")
-                except Exception as e:
+                except (OSError, orjson.JSONDecodeError, ConfigurationError) as e:
+                    # File read errors, JSON parsing errors, or config validation errors
                     console.print(
                         f"[yellow]Warning: Could not read existing config file: {e}[/yellow]"
                     )
@@ -473,7 +477,8 @@ def generate_token(
             console.print(f"[cyan]export CONFIG_FILE={config_file}[/cyan]")
             console.print("[cyan]ccproxy api[/cyan]")
 
-    except Exception as e:
+    except (OSError, PermissionError) as e:
+        # File system errors when generating or saving token
         toolkit.print(f"Error generating token: {e}", tag="error")
         raise typer.Exit(1) from e
 
@@ -634,9 +639,12 @@ def _write_json_config_with_comments(
 
     serializable_data = convert_for_json(config_data)
 
-    with config_file.open("w", encoding="utf-8") as f:
-        json.dump(serializable_data, f, indent=2, sort_keys=True)
-        f.write("\n")
+    with config_file.open("wb") as f:
+        f.write(
+            orjson.dumps(
+                serializable_data, option=orjson.OPT_INDENT_2 | orjson.OPT_SORT_KEYS
+            )
+        )
 
 
 def _write_config_file(
@@ -726,7 +734,7 @@ def _write_toml_config(config_file: Path, config_data: dict[str, Any]) -> None:
                             f.write(f"{key} = []\n")
                     elif isinstance(value, dict):
                         if value:  # Only write non-empty dicts
-                            f.write(f"{key} = {json.dumps(value)}\n")
+                            f.write(f"{key} = {orjson.dumps(value).decode()}\n")
                         else:
                             f.write(f"{key} = {{}}\n")
                     elif value is None:
@@ -758,9 +766,10 @@ def _write_toml_config(config_file: Path, config_data: dict[str, Any]) -> None:
                     elif isinstance(value, int | float):
                         f.write(f"{key} = {value}\n")
                     elif isinstance(value, list | dict):
-                        f.write(f"{key} = {json.dumps(value)}\n")
+                        f.write(f"{key} = {orjson.dumps(value).decode()}\n")
                     elif value is None:
                         f.write(f"# {key} = null\n")
 
-    except Exception as e:
+    except (OSError, PermissionError, orjson.JSONEncodeError) as e:
+        # File system errors or JSON encoding errors when writing TOML config
         raise ValueError(f"Failed to write TOML configuration: {e}") from e

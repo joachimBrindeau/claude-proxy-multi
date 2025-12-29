@@ -62,7 +62,6 @@ def mock_sdk_client_streaming() -> AsyncMock:
             is_error=False,
             num_turns=1,
             session_id="test_session",
-            total_cost_usd=0.001,
             usage={"input_tokens": 10, "output_tokens": 5},
         )
 

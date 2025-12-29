@@ -64,7 +64,11 @@ def config_schema(
         toolkit.print("To use with taplo CLI:", tag="info")
         toolkit.print("  taplo check your-config.toml", tag="command")
 
-    except Exception as e:
+    except (OSError, PermissionError) as e:
+        # File system errors when generating schema files
+        toolkit.print(f"Error generating schema: {e}", tag="error")
+        raise typer.Exit(1) from e
+    except Exception as e:  # noqa: BLE001 - CLI catch-all for user-friendly errors
         toolkit.print(f"Error generating schema: {e}", tag="error")
         raise typer.Exit(1) from e
 
@@ -110,10 +114,12 @@ def config_validate(
                 "Install check-jsonschema: pip install check-jsonschema", tag="error"
             )
             raise typer.Exit(1) from e
-        except Exception as e:
+        except (ValueError, KeyError) as e:
+            # Schema validation errors (value or key issues in the config)
             toolkit.print(f"Validation error: {e}", tag="error")
             raise typer.Exit(1) from e
 
-    except Exception as e:
+    except (OSError, PermissionError) as e:
+        # File system errors when reading configuration file
         toolkit.print(f"Error validating configuration: {e}", tag="error")
         raise typer.Exit(1) from e

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import structlog
@@ -17,11 +17,16 @@ from ccproxy.utils.id_generator import generate_client_id
 
 with patched_typing():
     from claude_code_sdk import ClaudeSDKClient as ImportedClaudeSDKClient
+    from claude_code_sdk import (
+        CLIConnectionError,
+        CLINotFoundError,
+        ProcessError,
+    )
 
 logger = structlog.get_logger(__name__)
 
 
-class SessionStatus(str, Enum):
+class SessionStatus(StrEnum):
     """Session lifecycle status."""
 
     ACTIVE = "active"
@@ -129,7 +134,13 @@ class SessionClient:
 
                 return True
 
-            except Exception as e:
+            except (
+                CLIConnectionError,
+                CLINotFoundError,
+                ProcessError,
+                OSError,
+            ) as e:
+                # SDK connection/process errors: CLI issues, process failures, network errors
                 self.status = SessionStatus.ERROR
                 self.last_error = e
                 self.metrics.error_count += 1
@@ -169,7 +180,13 @@ class SessionClient:
         """Internal async connection method for background task."""
         try:
             return await self.connect()
-        except Exception as e:
+        except (
+            CLIConnectionError,
+            CLINotFoundError,
+            ProcessError,
+            OSError,
+        ) as e:
+            # SDK connection/process errors in background task
             logger.error(
                 "session_background_connection_failed",
                 session_id=self.session_id,
@@ -191,7 +208,13 @@ class SessionClient:
                 try:
                     await self.claude_client.disconnect()
                     logger.debug("session_disconnected", session_id=self.session_id)
-                except Exception as e:
+                except (
+                    CLIConnectionError,
+                    ProcessError,
+                    OSError,
+                    asyncio.CancelledError,
+                ) as e:
+                    # Disconnect errors: connection issues, process errors, or cancellation
                     logger.warning(
                         "session_disconnect_error",
                         session_id=self.session_id,
@@ -256,7 +279,8 @@ class SessionClient:
                         )
                         # Clear the handle reference
                         self.active_stream_handle = None
-                except Exception as e:
+                except (TimeoutError, asyncio.CancelledError, OSError) as e:
+                    # Stream handle interrupt errors: cancellation, timeout, or I/O errors
                     logger.warning(
                         "session_stream_handle_interrupt_error",
                         session_id=self.session_id,
@@ -299,7 +323,13 @@ class SessionClient:
             # Force disconnect if interrupt hangs
             await self._force_disconnect()
 
-        except Exception as e:
+        except (
+            CLIConnectionError,
+            ProcessError,
+            OSError,
+            asyncio.CancelledError,
+        ) as e:
+            # SDK interrupt errors: connection issues, process errors, or cancellation
             logger.warning(
                 "session_interrupt_error",
                 session_id=self.session_id,
@@ -314,7 +344,13 @@ class SessionClient:
                     session_id=self.session_id,
                 )
                 await self._force_disconnect()
-            except Exception as disconnect_error:
+            except (
+                CLIConnectionError,
+                ProcessError,
+                OSError,
+                asyncio.CancelledError,
+            ) as disconnect_error:
+                # Force disconnect also failed
                 logger.error(
                     "session_force_disconnect_failed",
                     session_id=self.session_id,
@@ -373,7 +409,14 @@ class SessionClient:
                     self.claude_client.disconnect(),
                     timeout=3.0,  # 3 second timeout for disconnect
                 )
-        except Exception as e:
+        except (
+            TimeoutError,
+            CLIConnectionError,
+            ProcessError,
+            OSError,
+            asyncio.CancelledError,
+        ) as e:
+            # Force disconnect errors: connection issues, process errors, or timeout
             logger.warning(
                 "session_force_disconnect_error",
                 session_id=self.session_id,
@@ -435,7 +478,8 @@ class SessionClient:
                         handle_id=self.active_stream_handle.handle_id,
                         message="Stream drain timed out after 30 seconds",
                     )
-            except Exception as e:
+            except (TimeoutError, asyncio.CancelledError, OSError) as e:
+                # Stream drain errors: cancellation, timeout, or I/O errors
                 logger.error(
                     "session_stream_drain_error_via_handle",
                     session_id=self.session_id,

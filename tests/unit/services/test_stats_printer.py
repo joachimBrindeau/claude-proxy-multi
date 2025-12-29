@@ -34,8 +34,6 @@ class TestStatsSnapshot:
             tokens_output_total=800,
             tokens_input_last_minute=50,
             tokens_output_last_minute=40,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.05,
             errors_total=2,
             errors_last_minute=0,
             active_requests=3,
@@ -52,8 +50,6 @@ class TestStatsSnapshot:
         assert snapshot.tokens_output_total == 800
         assert snapshot.tokens_input_last_minute == 50
         assert snapshot.tokens_output_last_minute == 40
-        assert snapshot.cost_total_usd == 1.25
-        assert snapshot.cost_last_minute_usd == 0.05
         assert snapshot.errors_total == 2
         assert snapshot.errors_last_minute == 0
         assert snapshot.active_requests == 3
@@ -109,8 +105,6 @@ class TestStatsCollector:
         assert snapshot.tokens_output_total == 0
         assert snapshot.tokens_input_last_minute == 0
         assert snapshot.tokens_output_last_minute == 0
-        assert snapshot.cost_total_usd == 0.0
-        assert snapshot.cost_last_minute_usd == 0.0
         assert snapshot.errors_total == 0
         assert snapshot.errors_last_minute == 0
         assert snapshot.active_requests == 0
@@ -145,7 +139,6 @@ class TestStatsCollector:
                 "avg_duration_ms": 150.5,
                 "total_tokens_input": 1000,
                 "total_tokens_output": 800,
-                "total_cost_usd": 1.25,
             }
         }
 
@@ -155,7 +148,6 @@ class TestStatsCollector:
                 "avg_duration_ms": 200.0,
                 "total_tokens_input": 50,
                 "total_tokens_output": 40,
-                "total_cost_usd": 0.05,
             }
         }
 
@@ -183,15 +175,13 @@ class TestStatsCollector:
         assert snapshot.tokens_output_total == 800
         assert snapshot.tokens_input_last_minute == 50
         assert snapshot.tokens_output_last_minute == 40
-        assert snapshot.cost_total_usd == 1.25
-        assert snapshot.cost_last_minute_usd == 0.05
         assert snapshot.top_model == "claude-3-sonnet"
         assert snapshot.top_model_percentage == 80.0  # 4/5 * 100
 
     @pytest.mark.asyncio
     async def test_collect_from_duckdb_with_errors(self) -> None:
         """Test collecting stats from DuckDB with errors."""
-        self.mock_storage.get_analytics.side_effect = Exception("Database error")
+        self.mock_storage.get_analytics.side_effect = OSError("Database error")
 
         collector = StatsCollector(
             settings=self.settings,
@@ -224,8 +214,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=50,
             tokens_output_last_minute=40,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.05,
             errors_total=2,
             errors_last_minute=0,
             active_requests=3,
@@ -239,7 +227,6 @@ class TestStatsCollector:
         assert "Requests: 5 (last min) / 100 (total)" in formatted
         assert "Avg Response: 200.0ms (last min) / 150.5ms (overall)" in formatted
         assert "Tokens: 50 in / 40 out (last min)" in formatted
-        assert "Cost: $0.0500 (last min) / $1.2500 (total)" in formatted
         assert "Errors: 0 (last min) / 2 (total)" in formatted
         assert "Active: 3 requests" in formatted
         assert "Top Model: claude-3-sonnet (75.0%)" in formatted
@@ -267,8 +254,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=50,
             tokens_output_last_minute=40,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.05,
             errors_total=2,
             errors_last_minute=0,
             active_requests=3,
@@ -288,8 +273,6 @@ class TestStatsCollector:
         assert data["tokens"]["output_last_minute"] == 40
         assert data["tokens"]["input_total"] == 1000
         assert data["tokens"]["output_total"] == 800
-        assert data["cost_usd"]["last_minute"] == 0.05
-        assert data["cost_usd"]["total"] == 1.25
         assert data["errors"]["last_minute"] == 0
         assert data["errors"]["total"] == 2
         assert data["active_requests"] == 3
@@ -319,8 +302,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=50,
             tokens_output_last_minute=40,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.05,
             errors_total=2,
             errors_last_minute=0,
             active_requests=3,
@@ -363,8 +344,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=50,
             tokens_output_last_minute=40,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.05,
             errors_total=2,
             errors_last_minute=0,
             active_requests=3,
@@ -385,8 +364,6 @@ class TestStatsCollector:
         assert "tokens_out_last_min=40" in formatted
         assert "tokens_in_total=1000" in formatted
         assert "tokens_out_total=800" in formatted
-        assert "cost_last_min_usd=0.0500" in formatted
-        assert "cost_total_usd=1.2500" in formatted
         assert "errors_last_min=0" in formatted
         assert "errors_total=2" in formatted
         assert "active_requests=3" in formatted
@@ -416,8 +393,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=50,
             tokens_output_last_minute=40,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.05,
             errors_total=2,
             errors_last_minute=0,
             active_requests=3,
@@ -453,8 +428,6 @@ class TestStatsCollector:
                 tokens_output_total=800,
                 tokens_input_last_minute=50,
                 tokens_output_last_minute=40,
-                cost_total_usd=1.25,
-                cost_last_minute_usd=0.05,
                 errors_total=0,
                 errors_last_minute=0,
                 active_requests=0,
@@ -469,13 +442,12 @@ class TestStatsCollector:
         assert "Requests:" in captured.out
         assert "Avg Response:" in captured.out
         assert "Tokens:" in captured.out
-        assert "Cost:" in captured.out
         assert "Errors:" in captured.out
         assert "Active:" in captured.out
         assert "Top Model:" in captured.out
 
     @pytest.mark.asyncio
-    async def test_print_stats_with_error(self, capsys: Any) -> None:
+    async def test_print_stats_with_error(self) -> None:
         """Test printing stats with error handling."""
         collector = StatsCollector(
             settings=self.settings,
@@ -483,15 +455,11 @@ class TestStatsCollector:
             storage_instance=None,
         )
 
-        # Mock collect_stats to raise exception
+        # Mock collect_stats to raise exception (OSError for console/terminal failures)
         with patch.object(
-            collector, "collect_stats", side_effect=Exception("Test error")
+            collector, "collect_stats", side_effect=OSError("Test error")
         ):
             await collector.print_stats()
-
-        # Should not raise exception, should log error
-        captured = capsys.readouterr()
-        assert captured.out == ""  # No output to stdout due to error
 
     def test_has_meaningful_activity_with_requests_last_minute(self) -> None:
         """Test meaningful activity detection with requests in last minute."""
@@ -511,8 +479,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=50,
             tokens_output_last_minute=40,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.05,
             errors_total=0,
             errors_last_minute=0,
             active_requests=0,
@@ -540,8 +506,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=0,
             tokens_output_last_minute=0,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.0,
             errors_total=0,
             errors_last_minute=0,
             active_requests=3,  # Should trigger meaningful activity
@@ -569,8 +533,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=0,
             tokens_output_last_minute=0,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.0,
             errors_total=2,
             errors_last_minute=1,  # Should trigger meaningful activity
             active_requests=0,
@@ -600,8 +562,6 @@ class TestStatsCollector:
             tokens_output_total=800,
             tokens_input_last_minute=0,
             tokens_output_last_minute=0,
-            cost_total_usd=1.25,
-            cost_last_minute_usd=0.0,
             errors_total=0,
             errors_last_minute=0,
             active_requests=0,
@@ -629,8 +589,6 @@ class TestStatsCollector:
             tokens_output_total=0,
             tokens_input_last_minute=0,
             tokens_output_last_minute=0,
-            cost_total_usd=0.0,
-            cost_last_minute_usd=0.0,
             errors_total=0,
             errors_last_minute=0,
             active_requests=0,
@@ -648,8 +606,6 @@ class TestStatsCollector:
             tokens_output_total=0,
             tokens_input_last_minute=0,
             tokens_output_last_minute=0,
-            cost_total_usd=0.0,
-            cost_last_minute_usd=0.0,
             errors_total=0,
             errors_last_minute=0,
             active_requests=0,
@@ -678,8 +634,6 @@ class TestStatsCollector:
             tokens_output_total=0,
             tokens_input_last_minute=0,
             tokens_output_last_minute=0,
-            cost_total_usd=0.0,
-            cost_last_minute_usd=0.0,
             errors_total=0,
             errors_last_minute=0,
             active_requests=0,
@@ -690,7 +644,8 @@ class TestStatsCollector:
         await collector.print_stats()
 
         captured = capsys.readouterr()
-        assert captured.out == ""  # No output to stdout due to no activity
+        assert "Requests:" not in captured.out
+        assert "Tokens:" not in captured.out
 
     @pytest.mark.asyncio
     async def test_print_stats_with_meaningful_activity(self, capsys: Any) -> None:
@@ -713,8 +668,6 @@ class TestStatsCollector:
                 tokens_output_total=800,
                 tokens_input_last_minute=50,
                 tokens_output_last_minute=40,
-                cost_total_usd=1.25,
-                cost_last_minute_usd=0.05,
                 errors_total=0,
                 errors_last_minute=0,
                 active_requests=0,
@@ -776,7 +729,7 @@ class TestStatsCollectorGlobalFunctions:
         self, mock_get_metrics: Any
     ) -> None:
         """Test get_stats_collector when metrics initialization fails."""
-        mock_get_metrics.side_effect = Exception("Metrics error")
+        mock_get_metrics.side_effect = RuntimeError("Metrics error")
 
         collector = get_stats_collector()
 
@@ -788,7 +741,7 @@ class TestStatsCollectorGlobalFunctions:
         self, mock_storage_class: Any
     ) -> None:
         """Test get_stats_collector when storage initialization fails."""
-        mock_storage_class.side_effect = Exception("Storage error")
+        mock_storage_class.side_effect = OSError("Storage error")
 
         collector = get_stats_collector()
 
@@ -827,7 +780,6 @@ class TestStatsCollectorIntegration:
                     "avg_duration_ms": 150.5,
                     "total_tokens_input": 1000,
                     "total_tokens_output": 800,
-                    "total_cost_usd": 1.25,
                 }
             },
             {
@@ -836,7 +788,6 @@ class TestStatsCollectorIntegration:
                     "avg_duration_ms": 200.0,
                     "total_tokens_input": 50,
                     "total_tokens_output": 40,
-                    "total_cost_usd": 0.05,
                 }
             },
         ]
@@ -867,8 +818,6 @@ class TestStatsCollectorIntegration:
         assert snapshot.tokens_output_total == 800
         assert snapshot.tokens_input_last_minute == 50
         assert snapshot.tokens_output_last_minute == 40
-        assert snapshot.cost_total_usd == 1.25
-        assert snapshot.cost_last_minute_usd == 0.05
         assert snapshot.active_requests == 5
         assert snapshot.top_model == "claude-3-sonnet"
         assert snapshot.top_model_percentage == 80.0

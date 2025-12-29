@@ -6,12 +6,12 @@ for converting between OpenAI and Anthropic API formats.
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from collections.abc import AsyncIterator
 from typing import Any, Literal, cast
 
+import orjson
 import structlog
 from pydantic import ValidationError
 
@@ -422,10 +422,7 @@ class OpenAIAdapter(APIAdapter):
                     session_id = result_data.get("session_id", "")
                     stop_reason = result_data.get("stop_reason", "")
                     usage = result_data.get("usage", {})
-                    cost_usd = result_data.get("total_cost_usd")
                     formatted_text = f"[{source} result {session_id}]: stop_reason={stop_reason}, usage={usage}"
-                    if cost_usd is not None:
-                        formatted_text += f", cost_usd={cost_usd}"
                     content += formatted_text
                 elif block.get("type") == "thinking":
                     # Handle thinking blocks - we can include them with a marker
@@ -519,7 +516,8 @@ class OpenAIAdapter(APIAdapter):
             # Process the stream - now yields dict objects directly
             async for chunk in processor.process_stream(stream):
                 yield chunk  # type: ignore[misc]  # chunk is guaranteed to be dict when output_format="dict"
-        except Exception as e:
+        except (orjson.JSONDecodeError, ValidationError) as e:
+            # JSON parsing or validation errors during stream processing
             logger.error(
                 "streaming_conversion_failed",
                 error=str(e),
@@ -873,10 +871,10 @@ class OpenAIAdapter(APIAdapter):
         arguments_str = func.get("arguments", "{}")
         try:
             if isinstance(arguments_str, str):
-                input_dict = json.loads(arguments_str)
+                input_dict = orjson.loads(arguments_str)
             else:
                 input_dict = arguments_str  # Already a dict
-        except json.JSONDecodeError:
+        except ValueError:
             logger.warning(
                 "tool_arguments_parse_failed",
                 arguments=arguments_str[:200] + "..."

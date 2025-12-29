@@ -6,14 +6,17 @@ import asyncio
 import time
 import uuid
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from ccproxy.claude_sdk.message_queue import QueueListener
-from ccproxy.claude_sdk.session_client import SessionClient
 from ccproxy.claude_sdk.stream_worker import StreamWorker, WorkerStatus
 from ccproxy.config.claude import SessionPoolSettings
+
+
+if TYPE_CHECKING:
+    from ccproxy.claude_sdk.session_client import SessionClient
 
 
 logger = structlog.get_logger(__name__)
@@ -227,7 +230,11 @@ class StreamHandle:
                             )
                             try:
                                 await self._worker.stop(timeout=self._interrupt_timeout)
-                            except Exception as worker_error:
+                            except (
+                                TimeoutError,
+                                asyncio.CancelledError,
+                            ) as worker_error:
+                                # Worker stop errors: task cancellation or timeout
                                 logger.warning(
                                     "stream_handle_worker_stop_error",
                                     handle_id=self.handle_id,
@@ -251,7 +258,8 @@ class StreamHandle:
                                 handle_id=self.handle_id,
                                 message="SDK interrupt scheduled with timeout control",
                             )
-                        except Exception as e:
+                        except RuntimeError as e:
+                            # RuntimeError: no running event loop or task creation failed
                             logger.error(
                                 "stream_handle_interrupt_schedule_error",
                                 handle_id=self.handle_id,
@@ -302,7 +310,8 @@ class StreamHandle:
                 )
                 try:
                     await self._worker.stop(timeout=self._interrupt_timeout)
-                except Exception as worker_error:
+                except (TimeoutError, asyncio.CancelledError) as worker_error:
+                    # Worker stop errors: task cancellation or timeout
                     logger.warning(
                         "stream_handle_worker_stop_error",
                         handle_id=self.handle_id,
@@ -326,7 +335,8 @@ class StreamHandle:
                 )
                 try:
                     await self._worker.stop(timeout=self._interrupt_timeout)
-                except Exception as worker_error:
+                except (TimeoutError, asyncio.CancelledError) as worker_error:
+                    # Worker stop errors: task cancellation or timeout
                     logger.warning(
                         "stream_handle_fallback_worker_stop_error",
                         handle_id=self.handle_id,
@@ -334,7 +344,8 @@ class StreamHandle:
                         message="Fallback worker stop also failed",
                     )
 
-        except Exception as e:
+        except (asyncio.CancelledError, OSError) as e:
+            # SDK interrupt errors: task cancellation or I/O errors
             logger.error(
                 "stream_handle_interrupt_failed",
                 handle_id=self.handle_id,
@@ -352,7 +363,8 @@ class StreamHandle:
                 )
                 try:
                     await self._worker.stop(timeout=self._interrupt_timeout)
-                except Exception as worker_error:
+                except (TimeoutError, asyncio.CancelledError) as worker_error:
+                    # Worker stop errors: task cancellation or timeout
                     logger.warning(
                         "stream_handle_fallback_worker_stop_error",
                         handle_id=self.handle_id,
@@ -395,7 +407,8 @@ class StreamHandle:
             )
             return True
 
-        except Exception as e:
+        except (TimeoutError, asyncio.CancelledError, OSError) as e:
+            # Interrupt errors: task cancellation, timeout, or I/O errors
             logger.error(
                 "stream_handle_interrupt_error",
                 handle_id=self.handle_id,

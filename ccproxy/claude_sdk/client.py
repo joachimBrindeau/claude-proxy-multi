@@ -114,7 +114,15 @@ class ClaudeSDKClient:
         except StreamTimeoutError:
             # Re-raise StreamTimeoutError for service layer to handle
             raise
-        except Exception as e:
+        except (
+            OSError,
+            asyncio.CancelledError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+        ) as e:
+            # Catch remaining async/system errors: I/O errors, task cancellation, runtime errors
+            # ValueError/TypeError: unexpected data format or type errors
             logger.error(
                 "claude_sdk_unexpected_error",
                 error=str(e),
@@ -375,7 +383,13 @@ class ClaudeSDKClient:
                 # Critical: Always disconnect non-session clients to prevent reuse
                 try:
                     await client.disconnect()
-                except Exception as e:
+                except (
+                    CLIConnectionError,
+                    ProcessError,
+                    OSError,
+                    asyncio.CancelledError,
+                ) as e:
+                    # Disconnect errors: connection issues, process errors, or cancellation
                     logger.warning(
                         "claude_sdk_disconnect_failed",
                         error=str(e),
@@ -481,7 +495,14 @@ class ClaudeSDKClient:
 
             except StreamTimeoutError:
                 raise  # Let service layer handle
-            except Exception as e:
+            except (
+                ClaudeSDKError,
+                CLIConnectionError,
+                CLINotFoundError,
+                ProcessError,
+                OSError,
+            ) as e:
+                # Session pool query errors: SDK errors, connection issues, process failures
                 logger.error(
                     "claude_sdk_session_pool_query_error",
                     error=str(e),
@@ -551,7 +572,8 @@ class ClaudeSDKClient:
                 if session_id and self._session_manager:
                     try:
                         await self._session_manager.interrupt_session(session_id)
-                    except Exception as e:
+                    except (TimeoutError, asyncio.CancelledError, OSError) as e:
+                        # Interrupt errors: task cancellation, timeout, or I/O errors
                         logger.error(
                             "failed_to_interrupt_stuck_session",
                             session_id=session_id,
@@ -620,7 +642,8 @@ class ClaudeSDKClient:
                                 request_id=request_id,
                                 session_id=session_id,
                             )
-                    except Exception as e:
+                    except (ValueError, TypeError, KeyError) as e:
+                        # Pydantic model validation/conversion errors
                         logger.warning(
                             "claude_sdk_message_conversion_failed",
                             message_type=type(sdk_msg).__name__,
@@ -681,7 +704,8 @@ class ClaudeSDKClient:
                     request_id=request_id,
                     drained_messages=message_count,
                 )
-            except Exception as e:
+            except (TimeoutError, asyncio.CancelledError, OSError) as e:
+                # Stream drain errors: task cancellation, timeout, or I/O errors
                 logger.error(
                     "claude_sdk_stream_drain_error",
                     session_id=session_id,
@@ -718,7 +742,6 @@ class ClaudeSDKClient:
             "session_id",
             "stop_reason",
             "usage",
-            "total_cost_usd",
         ]:
             if hasattr(message, attr):
                 message_dict[attr] = getattr(message, attr)
@@ -743,7 +766,8 @@ class ClaudeSDKClient:
                 "health_check_completed", component="claude_sdk", healthy=is_healthy
             )
             return is_healthy
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
+            # Health check errors: import failures, runtime issues, or I/O errors
             logger.error(
                 "health_check_failed",
                 component="claude_sdk",

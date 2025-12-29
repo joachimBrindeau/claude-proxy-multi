@@ -9,7 +9,7 @@ import webbrowser
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -18,8 +18,10 @@ from structlog import get_logger
 from ccproxy.auth.exceptions import OAuthCallbackError, OAuthLoginError
 from ccproxy.auth.models import ClaudeCredentials, OAuthToken, UserProfile
 from ccproxy.auth.oauth.models import OAuthTokenRequest, OAuthTokenResponse
-from ccproxy.config.auth import OAuthSettings
-from ccproxy.services.credentials.config import OAuthConfig
+
+
+if TYPE_CHECKING:
+    from ccproxy.config.auth import OAuthSettings
 
 
 logger = get_logger(__name__)
@@ -67,13 +69,18 @@ def _log_http_error_compact(operation: str, response: httpx.Response) -> None:
 class OAuthClient:
     """OAuth client for handling Anthropic OAuth flows."""
 
-    def __init__(self, config: OAuthConfig | None = None):
+    def __init__(self, config: "OAuthSettings | None" = None):
         """Initialize OAuth client.
 
         Args:
             config: OAuth configuration, uses default if not provided
         """
-        self.config = config or OAuthConfig()
+        # Lazy import to avoid circular dependency
+        if config is None:
+            from ccproxy.config.auth import OAuthSettings
+
+            config = OAuthSettings()
+        self.config = config
 
     def generate_pkce_pair(self) -> tuple[str, str]:
         """Generate PKCE code verifier and challenge pair.
@@ -232,7 +239,8 @@ class OAuthClient:
                 scopes=token_response.scope.split() if token_response.scope else [],
                 subscriptionType="pro",  # Default value
             )
-        except Exception as e:
+        except httpx.HTTPError as e:
+            # HTTP transport errors (connection, timeout, protocol issues)
             raise OAuthTokenRefreshError(f"Token refresh failed: {e}") from e
 
     async def fetch_user_profile(self, access_token: str) -> UserProfile | None:
@@ -471,9 +479,8 @@ class OAuthClient:
                     f"Token exchange failed: {response.status_code} - {error_detail}"
                 )
 
-        except Exception as e:
-            if isinstance(e, OAuthLoginError | OAuthCallbackError):
-                raise
+        except (httpx.HTTPError, httpx.TimeoutException) as e:
+            # HTTP transport errors during OAuth login flow
             raise OAuthLoginError(f"OAuth login failed: {e}") from e
 
         finally:

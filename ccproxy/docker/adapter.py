@@ -3,6 +3,7 @@
 import asyncio
 import os
 import shlex
+import subprocess
 from pathlib import Path
 from typing import cast
 
@@ -50,7 +51,8 @@ class DockerAdapter:
                 or "dial unix" in stderr_text.lower()
                 or "connect: permission denied" in stderr_text.lower()
             )
-        except Exception:
+        except (OSError, FileNotFoundError):
+            # Failed to run docker command
             return False
 
     async def is_available(self) -> bool:
@@ -81,7 +83,8 @@ class DockerAdapter:
             logger.warning("docker_executable_not_found")
             return False
 
-        except Exception as e:
+        except OSError as e:
+            # OS-level errors (permissions, subprocess issues)
             logger.warning("docker_availability_check_error", error=str(e))
             return False
 
@@ -92,22 +95,25 @@ class DockerAdapter:
         try:
             result = await run_command(docker_cmd, middleware)
             return result
-        except Exception as e:
-            # Check if this might be a permission error
+        except (subprocess.SubprocessError, OSError) as e:
+            # Subprocess/OS errors - check if Docker socket permission issue
             error_text = str(e).lower()
-            if any(
-                phrase in error_text
-                for phrase in [
-                    "permission denied",
-                    "dial unix",
-                    "connect: permission denied",
-                ]
-            ):
+            if self._is_docker_permission_error(error_text):
                 logger.info("docker_permission_denied_using_sudo")
                 sudo_cmd = ["sudo"] + docker_cmd
                 return await run_command(sudo_cmd, middleware)
             # Re-raise if not a permission error
             raise
+
+    @staticmethod
+    def _is_docker_permission_error(error_text: str) -> bool:
+        """Check if error indicates Docker socket permission issue."""
+        permission_indicators = (
+            "permission denied",
+            "dial unix",
+            "connect: permission denied",
+        )
+        return any(indicator in error_text for indicator in permission_indicators)
 
     async def run_container(
         self,
@@ -175,7 +181,8 @@ class DockerAdapter:
             logger.error("docker_executable_not_found", error=str(e))
             raise error from e
 
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
+            # Subprocess execution or OS-level errors during container run
             error = create_docker_error(
                 f"Failed to run Docker container: {e}",
                 cmd_str,
@@ -298,7 +305,8 @@ class DockerAdapter:
                     or "dial unix" in e.stderr.lower()
                     or "connect: permission denied" in e.stderr.lower()
                 )
-            except Exception:
+            except (OSError, FileNotFoundError):
+                # Failed to run docker command
                 needs_sudo = False
 
             if needs_sudo:
@@ -320,7 +328,8 @@ class DockerAdapter:
             logger.error("docker_execvp_os_error", error=str(e))
             raise error from e
 
-        except Exception as e:
+        except subprocess.SubprocessError as e:
+            # Subprocess-related errors during exec
             error = create_docker_error(
                 f"Unexpected error executing Docker container: {e}",
                 cmd_str,
@@ -415,7 +424,8 @@ class DockerAdapter:
             logger.error("docker_build_executable_not_found", error=str(e))
             raise error from e
 
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
+            # Subprocess execution or OS-level errors during image build
             error = create_docker_error(
                 f"Unexpected error building Docker image: {e}",
                 cmd_str,
@@ -441,7 +451,7 @@ class DockerAdapter:
 
         # Build the Docker command to check image existence
         docker_cmd = ["docker", "inspect", image_full_name]
-        cmd_str = " ".join(shlex.quote(arg) for arg in docker_cmd)
+        " ".join(shlex.quote(arg) for arg in docker_cmd)
 
         try:
             # Run Docker inspect command
@@ -486,7 +496,7 @@ class DockerAdapter:
                             "docker_image_does_not_exist", image=image_full_name
                         )
                         return False
-                except Exception:
+                except (subprocess.CalledProcessError, OSError, FileNotFoundError):
                     # Image doesn't exist even with sudo
                     logger.debug("Docker image does not exist: %s", image_full_name)
                     return False
@@ -499,7 +509,8 @@ class DockerAdapter:
             logger.warning("docker_image_check_executable_not_found")
             return False
 
-        except Exception as e:
+        except OSError as e:
+            # OS-level errors during image existence check
             logger.warning("docker_image_check_unexpected_error", error=str(e))
             return False
 
@@ -546,7 +557,8 @@ class DockerAdapter:
             logger.error("docker_pull_executable_not_found", error=str(e))
             raise error from e
 
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
+            # Subprocess execution or OS-level errors during image pull
             error = create_docker_error(
                 f"Unexpected error pulling Docker image: {e}",
                 cmd_str,

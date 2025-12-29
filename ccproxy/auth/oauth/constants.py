@@ -55,7 +55,7 @@ OAUTH_USER_AGENT = "Claude-Code/1.0.43"
 # Scopes (optimized for console redirect URI)
 # NOTE: org:create_api_key intentionally excluded - only works with localhost
 OAUTH_SCOPES = [
-    "user:profile",           # User profile information
-    "user:inference",         # API inference access
+    "user:profile",  # User profile information
+    "user:inference",  # API inference access
     "user:sessions:claude_code",  # Required for Claude Code client
 ]

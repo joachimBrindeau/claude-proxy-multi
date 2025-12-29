@@ -547,8 +547,8 @@ class TestHTTPRequestTransformer:
         self, mock_adapter_class: Any, request_transformer: HTTPRequestTransformer
     ) -> None:
         """Test OpenAI to Anthropic transformation failure handling."""
-        # Setup mock adapter to raise exception
-        mock_adapter_class.side_effect = Exception("Transformation failed")
+        # Setup mock adapter to raise ValueError (what adapt_request() raises on invalid input)
+        mock_adapter_class.side_effect = ValueError("Transformation failed")
 
         original_body = json.dumps(
             {"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}

@@ -14,8 +14,12 @@ import structlog
 from fastapi import FastAPI
 
 from ccproxy.auth.credentials_adapter import CredentialsAuthManager
-from ccproxy.auth.exceptions import CredentialsNotFoundError
-from ccproxy.auth.openai.credentials import OpenAITokenManager
+from ccproxy.auth.exceptions import (
+    CredentialsError,
+    CredentialsNotFoundError,
+    CredentialsStorageError,
+)
+from ccproxy.exceptions import ClaudeSDKError, PermissionRequestError
 from ccproxy.observability import get_metrics
 
 # Note: get_claude_cli_info is imported locally to avoid circular imports
@@ -24,7 +28,6 @@ from ccproxy.scheduler.errors import SchedulerError
 from ccproxy.scheduler.manager import start_scheduler, stop_scheduler
 from ccproxy.services.claude_detection_service import ClaudeDetectionService
 from ccproxy.services.claude_sdk_service import ClaudeSDKService
-from ccproxy.services.codex_detection_service import CodexDetectionService
 from ccproxy.services.credentials.manager import CredentialsManager
 
 
@@ -88,70 +91,19 @@ async def validate_claude_authentication_startup(
             message="No Claude authentication credentials found. Please run 'ccproxy auth login' to authenticate.",
             searched_paths=settings.auth.storage.storage_paths,
         )
-    except Exception as e:
+    # Catch credential-related errors (storage issues, validation failures, etc.)
+    except (CredentialsError, CredentialsStorageError, ValueError, OSError) as e:
         logger.error(
             "claude_token_validation_error",
             error=str(e),
             message="Failed to validate Claude authentication token. The server will continue without Claude authentication.",
             exc_info=True,
         )
-
-
-async def validate_codex_authentication_startup(
-    app: FastAPI, settings: Settings
-) -> None:
-    """Validate Codex (OpenAI) authentication credentials at startup.
-
-    Args:
-        app: FastAPI application instance
-        settings: Application settings
-    """
-    # Skip codex authentication validation if codex is disabled
-    if not settings.codex.enabled:
-        logger.debug("codex_token_validation_skipped", reason="codex_disabled")
-        return
-
-    try:
-        token_manager = OpenAITokenManager()
-        credentials = await token_manager.load_credentials()
-
-        if not credentials:
-            logger.warning(
-                "codex_token_not_found",
-                message="No Codex authentication credentials found. Please run 'ccproxy auth login-openai' to authenticate.",
-                location=token_manager.get_storage_location(),
-            )
-            return
-
-        if not credentials.active:
-            logger.warning(
-                "codex_token_inactive",
-                message="Codex authentication credentials are inactive. Please run 'ccproxy auth login-openai' to refresh.",
-                location=token_manager.get_storage_location(),
-            )
-            return
-
-        if credentials.is_expired():
-            logger.warning(
-                "codex_token_expired",
-                message="Codex authentication token has expired. Please run 'ccproxy auth login-openai' to refresh.",
-                location=token_manager.get_storage_location(),
-                expires_at=credentials.expires_at.isoformat(),
-            )
-        else:
-            hours_until_expiry = int(credentials.expires_in_seconds() / 3600)
-            logger.debug(
-                "codex_token_valid",
-                expires_in_hours=hours_until_expiry,
-                account_id=credentials.account_id,
-                location=token_manager.get_storage_location(),
-            )
-
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
         logger.error(
-            "codex_token_validation_error",
+            "claude_token_validation_error",
             error=str(e),
-            message="Failed to validate Codex authentication token. The server will continue without Codex authentication.",
+            message="Failed to validate Claude authentication token. The server will continue without Claude authentication.",
             exc_info=True,
         )
 
@@ -192,7 +144,8 @@ async def check_version_updates_startup(app: FastAPI, settings: Settings) -> Non
         else:
             logger.debug("version_check_startup_failed")
 
-    except Exception as e:
+    # Catch import errors, scheduler errors, and network/runtime issues during version check
+    except (ImportError, SchedulerError, RuntimeError, OSError, ValueError) as e:
         logger.debug(
             "version_check_startup_error",
             error=str(e),
@@ -227,46 +180,18 @@ async def check_claude_cli_startup(app: FastAPI, settings: Settings) -> None:
                 binary_path=claude_info.binary_path,
                 message=f"Claude CLI status: {claude_info.status}",
             )
-    except Exception as e:
+    # Catch import errors, subprocess failures, and file system errors during CLI check
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
         logger.error(
             "claude_cli_check_failed",
             error=str(e),
             message="Failed to check Claude CLI status during startup",
         )
-
-
-async def check_codex_cli_startup(app: FastAPI, settings: Settings) -> None:
-    """Check Codex CLI availability at startup.
-
-    Args:
-        app: FastAPI application instance
-        settings: Application settings
-    """
-    try:
-        from ccproxy.api.routes.health import get_codex_cli_info
-
-        codex_info = await get_codex_cli_info()
-
-        if codex_info.status == "available":
-            logger.info(
-                "codex_cli_available",
-                status=codex_info.status,
-                version=codex_info.version,
-                binary_path=codex_info.binary_path,
-            )
-        else:
-            logger.warning(
-                "codex_cli_unavailable",
-                status=codex_info.status,
-                error=codex_info.error,
-                binary_path=codex_info.binary_path,
-                message=f"Codex CLI status: {codex_info.status}",
-            )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
         logger.error(
-            "codex_cli_check_failed",
+            "claude_cli_check_failed",
             error=str(e),
-            message="Failed to check Codex CLI status during startup",
+            message="Failed to check Claude CLI status during startup",
         )
 
 
@@ -293,7 +218,11 @@ async def initialize_log_storage_startup(app: FastAPI, settings: Settings) -> No
                 path=str(settings.observability.duckdb_path),
                 collection_enabled=settings.observability.logs_collection_enabled,
             )
-        except Exception as e:
+        # Catch database/storage initialization errors (file access, connection, validation)
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.error("log_storage_initialization_failed", error=str(e))
+            # Continue without log storage (graceful degradation)
+        except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
             logger.error("log_storage_initialization_failed", error=str(e))
             # Continue without log storage (graceful degradation)
 
@@ -308,7 +237,10 @@ async def initialize_log_storage_shutdown(app: FastAPI) -> None:
         try:
             await app.state.log_storage.close()
             logger.debug("log_storage_closed")
-        except Exception as e:
+        # Catch database close errors (connection issues, file system errors)
+        except (OSError, RuntimeError) as e:
+            logger.error("log_storage_close_failed", error=str(e))
+        except Exception as e:  # noqa: BLE001 - shutdown code needs catch-all for graceful cleanup
             logger.error("log_storage_close_failed", error=str(e))
 
 
@@ -340,7 +272,8 @@ async def setup_scheduler_startup(app: FastAPI, settings: Settings) -> None:
                     pool_manager=app.state.session_manager,
                 )
                 logger.debug("session_pool_stats_task_added", interval_seconds=60)
-            except Exception as e:
+            # Catch scheduler task registration errors
+            except SchedulerError as e:
                 logger.error(
                     "session_pool_stats_task_add_failed",
                     error=str(e),
@@ -375,7 +308,10 @@ async def setup_session_manager_shutdown(app: FastAPI) -> None:
         try:
             await app.state.session_manager.shutdown()
             logger.debug("claude_sdk_session_manager_shutdown")
-        except Exception as e:
+        # Catch SDK session shutdown errors (connection cleanup, process termination)
+        except (ClaudeSDKError, RuntimeError, OSError) as e:
+            logger.error("claude_sdk_session_manager_shutdown_failed", error=str(e))
+        except Exception as e:  # noqa: BLE001 - shutdown code needs catch-all for graceful cleanup
             logger.error("claude_sdk_session_manager_shutdown_failed", error=str(e))
 
 
@@ -397,61 +333,19 @@ async def initialize_claude_detection_startup(app: FastAPI, settings: Settings) 
             version=claude_data.claude_version,
             cached_at=claude_data.cached_at.isoformat(),
         )
-    except Exception as e:
+    # Catch detection errors (subprocess failures, parsing errors, file access)
+    except (OSError, RuntimeError, ValueError) as e:
         logger.error("claude_detection_startup_failed", error=str(e))
         # Continue startup with fallback - detection service will provide fallback data
         detection_service = ClaudeDetectionService(settings)
         app.state.claude_detection_data = detection_service._get_fallback_data()
         app.state.claude_detection_service = detection_service
-
-
-async def initialize_codex_detection_startup(app: FastAPI, settings: Settings) -> None:
-    """Initialize Codex detection service.
-
-    Args:
-        app: FastAPI application instance
-        settings: Application settings
-    """
-    # Skip codex detection if codex is disabled
-    if not settings.codex.enabled:
-        logger.debug("codex_detection_skipped", reason="codex_disabled")
-        detection_service = CodexDetectionService(settings)
-        app.state.codex_detection_data = detection_service._get_fallback_data()
-        app.state.codex_detection_service = detection_service
-        return
-
-    # Check if Codex CLI is available before attempting header detection
-    from ccproxy.api.routes.health import get_codex_cli_info
-
-    codex_info = await get_codex_cli_info()
-    if codex_info.status != "available":
-        logger.debug(
-            "codex_detection_skipped",
-            reason="codex_cli_not_available",
-            status=codex_info.status,
-        )
-        detection_service = CodexDetectionService(settings)
-        app.state.codex_detection_data = detection_service._get_fallback_data()
-        app.state.codex_detection_service = detection_service
-        return
-
-    try:
-        logger.debug("initializing_codex_detection")
-        detection_service = CodexDetectionService(settings)
-        codex_data = await detection_service.initialize_detection()
-        app.state.codex_detection_data = codex_data
-        app.state.codex_detection_service = detection_service
-        logger.debug(
-            "codex_detection_completed",
-            version=codex_data.codex_version,
-            cached_at=codex_data.cached_at.isoformat(),
-        )
-    except Exception as e:
-        logger.error("codex_detection_startup_failed", error=str(e))
+    except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
+        logger.error("claude_detection_startup_failed", error=str(e))
         # Continue startup with fallback - detection service will provide fallback data
-        detection_service = CodexDetectionService(settings)
-        app.state.codex_detection_data = detection_service._get_fallback_data()
-        app.state.codex_detection_service = detection_service
+        detection_service = ClaudeDetectionService(settings)
+        app.state.claude_detection_data = detection_service._get_fallback_data()
+        app.state.claude_detection_service = detection_service
 
 
 async def initialize_claude_sdk_startup(app: FastAPI, settings: Settings) -> None:
@@ -498,7 +392,11 @@ async def initialize_claude_sdk_startup(app: FastAPI, settings: Settings) -> Non
             session_manager  # Store session_manager for shutdown
         )
         logger.debug("claude_sdk_service_initialized")
-    except Exception as e:
+    # Catch SDK initialization errors (import, auth, session pool, config)
+    except (ImportError, ClaudeSDKError, CredentialsError, RuntimeError, OSError) as e:
+        logger.error("claude_sdk_service_initialization_failed", error=str(e))
+        # Continue startup even if ClaudeSDKService fails (graceful degradation)
+    except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
         logger.error("claude_sdk_service_initialization_failed", error=str(e))
         # Continue startup even if ClaudeSDKService fails (graceful degradation)
 
@@ -520,18 +418,6 @@ async def initialize_permission_service_startup(
 
             # Only connect terminal handler if not using external handler
             if settings.server.use_terminal_permission_handler:
-                # terminal_handler = TerminalPermissionHandler()
-
-                # TODO: Terminal handler should subscribe to events from the service
-                # instead of trying to set a handler directly
-                # The service uses an event-based architecture, not direct handlers
-
-                # logger.info(
-                #     "permission_handler_configured",
-                #     handler_type="terminal",
-                #     message="Connected terminal handler to permission service",
-                # )
-                # app.state.terminal_handler = terminal_handler
                 pass
             else:
                 logger.debug(
@@ -556,7 +442,8 @@ async def initialize_permission_service_startup(
                 terminal_handler_enabled=settings.server.use_terminal_permission_handler,
                 builtin_permissions_enabled=True,
             )
-        except Exception as e:
+        # Catch permission service init errors (import, async start, config)
+        except (ImportError, PermissionRequestError, RuntimeError, OSError) as e:
             logger.error("permission_service_initialization_failed", error=str(e))
             # Continue without permission service (API will work but without prompts)
     else:
@@ -582,7 +469,8 @@ async def setup_permission_service_shutdown(app: FastAPI, settings: Settings) ->
         try:
             await app.state.permission_service.stop()
             logger.debug("permission_service_stopped")
-        except Exception as e:
+        # Catch permission service shutdown errors (async cleanup, connection close)
+        except (PermissionRequestError, RuntimeError, OSError) as e:
             logger.error("permission_service_stop_failed", error=str(e))
 
 
@@ -597,5 +485,8 @@ async def flush_streaming_batches_shutdown(app: FastAPI) -> None:
 
         await flush_all_streaming_batches()
         logger.debug("streaming_batches_flushed")
-    except Exception as e:
+    # Catch streaming batch flush errors (import, I/O, async cleanup)
+    except (ImportError, OSError, RuntimeError) as e:
+        logger.error("streaming_batches_flush_failed", error=str(e))
+    except Exception as e:  # noqa: BLE001 - shutdown code needs catch-all for graceful cleanup
         logger.error("streaming_batches_flush_failed", error=str(e))

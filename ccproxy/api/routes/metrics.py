@@ -1,9 +1,12 @@
 """Metrics endpoints for CCProxy API Server."""
 
+import asyncio
 import time
 from datetime import datetime as dt
 from typing import Any, cast
 
+import orjson
+import sqlalchemy.exc
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from sqlmodel import Session, col, desc, func, select
@@ -24,7 +27,6 @@ class AnalyticsSummary(TypedDict):
     total_successful_requests: int
     total_error_requests: int
     avg_duration_ms: float
-    total_cost_usd: float
     total_tokens_input: int
     total_tokens_output: int
     total_cache_read_tokens: int
@@ -61,7 +63,6 @@ class ServiceBreakdown(TypedDict):
     success_rate: float
     error_rate: float
     avg_duration_ms: float
-    total_cost_usd: float
     total_tokens_input: int
     total_tokens_output: int
     total_cache_read_tokens: int
@@ -138,7 +139,8 @@ async def get_metrics_dashboard() -> HTMLResponse:
                 "Content-Type": "text/html; charset=utf-8",
             },
         )
-    except Exception as e:
+    except OSError as e:
+        # File I/O errors when reading dashboard HTML
         raise HTTPException(
             status_code=500, detail=f"Failed to serve dashboard: {str(e)}"
         ) from e
@@ -217,7 +219,8 @@ async def get_prometheus_metrics(metrics: ObservabilityMetricsDep) -> Response:
 
     except HTTPException:
         raise
-    except Exception as e:
+    except RuntimeError as e:
+        # Runtime errors from prometheus_client registry operations
         raise HTTPException(
             status_code=500, detail=f"Failed to generate Prometheus metrics: {str(e)}"
         ) from e
@@ -296,7 +299,8 @@ async def query_logs(
                         "timestamp": time.time(),
                     }
 
-            except Exception as e:
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                # Database query errors from SQLModel/SQLAlchemy
                 import structlog
 
                 logger = structlog.get_logger(__name__)
@@ -312,7 +316,8 @@ async def query_logs(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except (sqlalchemy.exc.SQLAlchemyError, OSError) as e:
+        # Database or storage I/O errors
         raise HTTPException(
             status_code=500, detail=f"Query execution failed: {str(e)}"
         ) from e
@@ -359,9 +364,6 @@ async def get_logs_analytics(
         if hasattr(storage, "_engine") and storage._engine:
             try:
                 with Session(storage._engine) as session:
-                    # Build base query
-                    statement = select(AccessLog)
-
                     # Add filters - convert Unix timestamps to datetime
                     start_dt = dt.fromtimestamp(start_time) if start_time else None
                     end_dt = dt.fromtimestamp(end_time) if end_time else None
@@ -412,12 +414,6 @@ async def get_logs_analytics(
 
                     avg_duration = session.exec(
                         select(func.avg(AccessLog.duration_ms))
-                        .select_from(AccessLog)
-                        .where(*filter_conditions)
-                    ).first()
-
-                    total_cost = session.exec(
-                        select(func.sum(AccessLog.cost_usd))
                         .select_from(AccessLog)
                         .where(*filter_conditions)
                     ).first()
@@ -505,12 +501,6 @@ async def get_logs_analytics(
                                 .where(*service_conditions)
                             ).first()
 
-                            service_total_cost = session.exec(
-                                select(func.sum(AccessLog.cost_usd))
-                                .select_from(AccessLog)
-                                .where(*service_conditions)
-                            ).first()
-
                             service_total_tokens_input = session.exec(
                                 select(func.sum(AccessLog.tokens_input))
                                 .select_from(AccessLog)
@@ -569,7 +559,6 @@ async def get_logs_analytics(
                                 if service_count
                                 else 0,
                                 "avg_duration_ms": service_avg_duration or 0,
-                                "total_cost_usd": service_total_cost or 0,
                                 "total_tokens_input": service_total_tokens_input or 0,
                                 "total_tokens_output": service_total_tokens_output or 0,
                                 "total_cache_read_tokens": service_cache_read_tokens
@@ -588,7 +577,6 @@ async def get_logs_analytics(
                             "total_successful_requests": total_successful_requests or 0,
                             "total_error_requests": total_error_requests or 0,
                             "avg_duration_ms": avg_duration or 0,
-                            "total_cost_usd": total_cost or 0,
                             "total_tokens_input": total_tokens_input or 0,
                             "total_tokens_output": total_tokens_output or 0,
                             "total_cache_read_tokens": total_cache_read_tokens or 0,
@@ -639,7 +627,8 @@ async def get_logs_analytics(
 
                     return cast(AnalyticsResult, analytics)
 
-            except Exception as e:
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                # Database query errors from SQLModel/SQLAlchemy
                 import structlog
 
                 logger = structlog.get_logger(__name__)
@@ -655,7 +644,8 @@ async def get_logs_analytics(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except (sqlalchemy.exc.SQLAlchemyError, OSError) as e:
+        # Database or storage I/O errors
         raise HTTPException(
             status_code=500, detail=f"Analytics generation failed: {str(e)}"
         ) from e
@@ -689,8 +679,6 @@ async def stream_logs(
     instead of polling. Events are emitted in real-time when requests
     start, complete, or error. Supports filtering similar to analytics and entries endpoints.
     """
-    import asyncio
-    import uuid
     from collections.abc import AsyncIterator
 
     # Get request ID from request state
@@ -775,13 +763,15 @@ async def stream_logs(
 
     async def event_stream() -> AsyncIterator[str]:
         """Generate Server-Sent Events for real-time metrics."""
+        import shortuuid
+
         from ccproxy.observability.sse_events import get_sse_manager
 
         # Get SSE manager
         sse_manager = get_sse_manager()
 
         # Create unique connection ID
-        connection_id = str(uuid.uuid4())
+        connection_id = shortuuid.uuid()
 
         try:
             # Use SSE manager for event-driven streaming
@@ -791,11 +781,9 @@ async def stream_logs(
                 # Parse event data to check for filtering
                 if event_data.startswith("data: "):
                     try:
-                        import json
-
                         json_str = event_data[6:].strip()
                         if json_str:
-                            event_obj = json.loads(json_str)
+                            event_obj = orjson.loads(json_str)
 
                             # Apply filters for data events (not connection/system events)
                             if (
@@ -805,7 +793,7 @@ async def stream_logs(
                             ) and not should_include_event(event_obj):
                                 continue  # Skip this event
 
-                    except (json.JSONDecodeError, KeyError):
+                    except (orjson.JSONDecodeError, KeyError):
                         # If we can't parse, pass through (system events)
                         pass
 
@@ -814,16 +802,18 @@ async def stream_logs(
         except asyncio.CancelledError:
             # Connection was cancelled, cleanup handled by SSE manager
             pass
-        except Exception as e:
-            # Send error event
-            import json
+        except (OSError, ConnectionError) as e:
+            # Network/connection errors during SSE streaming
+            import structlog
 
+            logger = structlog.get_logger(__name__)
+            logger.warning("sse_stream_error", error=str(e))
             error_event = {
                 "type": "error",
                 "message": str(e),
                 "timestamp": time.time(),
             }
-            yield f"data: {json.dumps(error_event)}\n\n"
+            yield f"data: {orjson.dumps(error_event).decode()}\n\n"
 
     return StreamingResponse(
         event_stream(),
@@ -847,7 +837,7 @@ async def get_logs_entries(
     offset: int = Query(0, ge=0, description="Number of entries to skip"),
     order_by: str = Query(
         "timestamp",
-        description="Column to order by (timestamp, duration_ms, cost_usd, model, service_type, status_code)",
+        description="Column to order by (timestamp, duration_ms, model, service_type, status_code)",
     ),
     order_desc: bool = Query(False, description="Order in descending order"),
     service_type: str | None = Query(
@@ -951,7 +941,8 @@ async def get_logs_entries(
                         "backend": "sqlmodel",
                     }
 
-            except Exception as e:
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                # Database query errors from SQLModel/SQLAlchemy
                 import structlog
 
                 logger = structlog.get_logger(__name__)
@@ -967,7 +958,8 @@ async def get_logs_entries(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except (sqlalchemy.exc.SQLAlchemyError, OSError) as e:
+        # Database or storage I/O errors
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve database entries: {str(e)}"
         ) from e
@@ -1023,7 +1015,8 @@ async def reset_logs_data(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except (sqlalchemy.exc.SQLAlchemyError, OSError) as e:
+        # Database or storage I/O errors during reset
         raise HTTPException(
             status_code=500, detail=f"Reset operation failed: {str(e)}"
         ) from e

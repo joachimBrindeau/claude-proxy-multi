@@ -17,16 +17,22 @@ Example:
     ...     print(f"Tokens remaining: {capacity.tokens_remaining_percent:.1f}%")
 """
 
-import asyncio
 import contextlib
 import os
 import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict
 
 import httpx
 from structlog import get_logger
+from tenacity import (
+    AsyncRetrying,
+    RetryError,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_fixed,
+)
 
 
 logger = get_logger(__name__)
@@ -39,14 +45,28 @@ logger = get_logger(__name__)
 # - CCPROXY_CAPACITY_CHECK_MODEL: Model to use for minimal requests
 #   Default: claude-sonnet-4-20250514
 DEFAULT_PROXY_URL = os.getenv(
-    "CCPROXY_CAPACITY_CHECK_URL",
-    "http://localhost:8000/api/v1/messages"
+    "CCPROXY_CAPACITY_CHECK_URL", "http://localhost:8000/api/v1/messages"
 )
 
 DEFAULT_CAPACITY_CHECK_MODEL = os.getenv(
-    "CCPROXY_CAPACITY_CHECK_MODEL",
-    "claude-sonnet-4-20250514"
+    "CCPROXY_CAPACITY_CHECK_MODEL", "claude-sonnet-4-20250514"
 )
+
+
+class CapacityInfoDict(TypedDict):
+    """Typed dictionary for CapacityInfo.to_dict() return value."""
+
+    tokens_limit: int | None
+    tokens_remaining: int | None
+    tokens_remaining_percent: float | None
+    tokens_reset: str | None
+    requests_limit: int | None
+    requests_remaining: int | None
+    requests_remaining_percent: float | None
+    requests_reset: str | None
+    is_rate_limited: bool
+    error: str | None
+    checked_at: str | None
 
 
 @dataclass
@@ -91,21 +111,21 @@ class CapacityInfo:
         req_pct = self.requests_remaining_percent
         return bool(req_pct is not None and req_pct < 5)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> CapacityInfoDict:
         """Convert to dictionary for JSON serialization."""
-        return {
-            "tokens_limit": self.tokens_limit,
-            "tokens_remaining": self.tokens_remaining,
-            "tokens_remaining_percent": self.tokens_remaining_percent,
-            "tokens_reset": self.tokens_reset,
-            "requests_limit": self.requests_limit,
-            "requests_remaining": self.requests_remaining,
-            "requests_remaining_percent": self.requests_remaining_percent,
-            "requests_reset": self.requests_reset,
-            "is_rate_limited": self.is_rate_limited,
-            "error": self.error,
-            "checked_at": self.checked_at.isoformat() if self.checked_at else None,
-        }
+        return CapacityInfoDict(
+            tokens_limit=self.tokens_limit,
+            tokens_remaining=self.tokens_remaining,
+            tokens_remaining_percent=self.tokens_remaining_percent,
+            tokens_reset=self.tokens_reset,
+            requests_limit=self.requests_limit,
+            requests_remaining=self.requests_remaining,
+            requests_remaining_percent=self.requests_remaining_percent,
+            requests_reset=self.requests_reset,
+            is_rate_limited=self.is_rate_limited,
+            error=self.error,
+            checked_at=self.checked_at.isoformat() if self.checked_at else None,
+        )
 
 
 # --- Shared Helper Functions ---
@@ -253,8 +273,21 @@ def _make_error_info(error: str) -> CapacityInfo:
 # --- Public API ---
 
 
-# Transient errors that should be retried
+# Transient errors that should be retried (503 Service Unavailable, 529 Overloaded)
 TRANSIENT_STATUS_CODES = frozenset({503, 529})
+
+
+class _TransientCapacityError(Exception):
+    """Internal: Transient error during capacity check that should be retried.
+
+    This is an internal implementation detail for retry logic.
+    Not exported in __all__.
+    """
+
+    def __init__(self, status_code: int, info: CapacityInfo):
+        self.status_code = status_code
+        self.info = info
+        super().__init__(f"Transient error: {status_code}")
 
 
 async def check_capacity_async(
@@ -285,46 +318,78 @@ async def check_capacity_async(
         CapacityInfo with rate limit information or error
     """
     headers, body = _build_capacity_request(account_name, model)
-    last_info: CapacityInfo | None = None
 
-    for attempt in range(max_retries + 1):
-        try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(proxy_url, headers=headers, json=body)
-                info = _process_capacity_response(response, account_name, proxy_url)
+    def should_retry(exception: BaseException) -> bool:
+        """Determine if an exception should trigger a retry."""
+        return isinstance(
+            exception,
+            httpx.TimeoutException | httpx.RequestError | _TransientCapacityError,
+        )
 
-                # Retry on transient errors
-                if response.status_code in TRANSIENT_STATUS_CODES and attempt < max_retries:
-                    last_info = info
-                    wait_time = 1.0 * (attempt + 1)  # 1s, 2s backoff
-                    logger.info(
-                        "capacity_check_retry",
-                        account=account_name,
-                        status=response.status_code,
-                        attempt=attempt + 1,
-                        wait_seconds=wait_time,
-                    )
-                    await asyncio.sleep(wait_time)
-                    continue
+    def before_sleep_log(retry_state: Any) -> None:
+        """Log retry attempts before sleeping."""
+        exc = retry_state.outcome.exception() if retry_state.outcome else None
+        if isinstance(exc, _TransientCapacityError):
+            logger.info(
+                "capacity_check_retry",
+                account=account_name,
+                status=exc.status_code,
+                attempt=retry_state.attempt_number,
+                wait_seconds=retry_state.next_action.sleep
+                if retry_state.next_action
+                else 0,
+            )
+        else:
+            logger.info(
+                "capacity_check_retry",
+                account=account_name,
+                attempt=retry_state.attempt_number,
+                wait_seconds=retry_state.next_action.sleep
+                if retry_state.next_action
+                else 0,
+                error=str(exc) if exc else None,
+            )
 
-                return info
+    try:
+        async for attempt in AsyncRetrying(
+            wait=wait_fixed(1),
+            stop=stop_after_attempt(max_retries + 1),
+            retry=retry_if_exception(should_retry),
+            before_sleep=before_sleep_log,
+            reraise=True,
+        ):
+            with attempt:
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.post(proxy_url, headers=headers, json=body)
+                    info = _process_capacity_response(response, account_name, proxy_url)
 
-        except httpx.TimeoutException:
-            if attempt < max_retries:
-                await asyncio.sleep(1.0 * (attempt + 1))
-                continue
-            return _make_error_info("Request timed out")
-        except httpx.RequestError as e:
-            if attempt < max_retries:
-                await asyncio.sleep(1.0 * (attempt + 1))
-                continue
-            return _make_error_info(f"Request failed: {e}")
-        except Exception as e:
-            logger.exception("capacity_check_unexpected_error", account=account_name)
-            return _make_error_info(f"Unexpected error: {e}")
+                    # Raise exception for transient errors to trigger retry
+                    if response.status_code in TRANSIENT_STATUS_CODES:
+                        raise _TransientCapacityError(response.status_code, info)
 
-    # All retries exhausted - return last error info
-    return last_info or _make_error_info("All retry attempts exhausted")
+                    return info
+
+    except httpx.TimeoutException:
+        return _make_error_info("Request timed out")
+    except httpx.RequestError as e:
+        return _make_error_info(f"Request failed: {e}")
+    except _TransientCapacityError as e:
+        # All retries exhausted, return the last error info
+        return e.info
+    except RetryError as e:
+        # Extract the last exception and convert to error info
+        if e.last_attempt.exception():
+            exc = e.last_attempt.exception()
+            if isinstance(exc, _TransientCapacityError):
+                return exc.info
+            return _make_error_info(str(exc))
+        return _make_error_info("All retry attempts exhausted")
+    except (httpx.HTTPStatusError, httpx.InvalidURL, ValueError, TypeError) as e:
+        # httpx.HTTPStatusError: Non-retryable HTTP errors
+        # httpx.InvalidURL: Malformed proxy URL
+        # ValueError/TypeError: Unexpected response format or parsing errors
+        logger.exception("capacity_check_unexpected_error", account=account_name)
+        return _make_error_info(f"Unexpected error: {e}")
 
 
 def check_capacity_sync(
@@ -371,6 +436,9 @@ def check_capacity_sync(
         return _make_error_info("Request timed out")
     except httpx.RequestError as e:
         return _make_error_info(f"Request failed: {e}")
-    except Exception as e:
+    except (httpx.HTTPStatusError, httpx.InvalidURL, ValueError, TypeError) as e:
+        # httpx.HTTPStatusError: Non-retryable HTTP errors
+        # httpx.InvalidURL: Malformed proxy URL
+        # ValueError/TypeError: Unexpected response format or parsing errors
         logger.exception("capacity_check_unexpected_error", account=account_name)
         return _make_error_info(f"Unexpected error: {e}")

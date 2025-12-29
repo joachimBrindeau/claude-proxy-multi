@@ -2,7 +2,7 @@
 
 import os
 import shutil
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +44,7 @@ def _create_default_claude_code_options(
         )
 
 
-class SDKMessageMode(str, Enum):
+class SDKMessageMode(StrEnum):
     """Modes for handling SDK messages from Claude SDK.
 
     - forward: Forward SDK content blocks directly with original types and metadata
@@ -57,7 +57,7 @@ class SDKMessageMode(str, Enum):
     FORMATTED = "formatted"
 
 
-class SystemPromptInjectionMode(str, Enum):
+class SystemPromptInjectionMode(StrEnum):
     """Modes for system prompt injection.
 
     - minimal: Only inject Claude Code identification prompt

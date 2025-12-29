@@ -226,36 +226,3 @@ class RealisticMockResponseGenerator:
                 )
 
         return openai_chunks
-
-    def calculate_realistic_cost(
-        self,
-        input_tokens: int,
-        output_tokens: int,
-        model: str,
-        cache_read_tokens: int,
-        cache_write_tokens: int,
-    ) -> float:
-        """Calculate realistic cost based on current Claude pricing."""
-
-        # Simplified pricing (should use actual cost calculator)
-        if "sonnet" in model.lower():
-            input_cost_per_token = 0.000003  # $3 per million tokens
-            output_cost_per_token = 0.000015  # $15 per million tokens
-        elif "haiku" in model.lower():
-            input_cost_per_token = 0.00000025  # $0.25 per million tokens
-            output_cost_per_token = 0.00000125  # $1.25 per million tokens
-        else:
-            input_cost_per_token = 0.000003
-            output_cost_per_token = 0.000015
-
-        base_cost = (
-            input_tokens * input_cost_per_token + output_tokens * output_cost_per_token
-        )
-
-        # Cache costs (typically lower)
-        cache_cost = (
-            cache_read_tokens * input_cost_per_token * 0.1  # 10% of input cost
-            + cache_write_tokens * input_cost_per_token * 0.5  # 50% of input cost
-        )
-
-        return round(base_cost + cache_cost, 6)

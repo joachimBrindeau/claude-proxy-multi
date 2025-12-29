@@ -165,18 +165,6 @@ class PrometheusMetrics:
             registry=self.registry,
         )
 
-        # Cost metrics
-        self.cost_counter = Counter(
-            f"{self.namespace}_cost_usd_total",
-            "Total cost in USD",
-            labelnames=[
-                "model",
-                "cost_type",
-                "service_type",
-            ],  # cost_type: input, output, cache, total
-            registry=self.registry,
-        )
-
         # Error metrics
         self.error_counter = Counter(
             f"{self.namespace}_errors_total",
@@ -297,7 +285,8 @@ class PrometheusMetrics:
                     settings.observability.pushgateway_url,
                     settings.observability.pushgateway_job,
                 )
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError) as e:
+            # ImportError: missing deps; AttributeError: config issues; ValueError: invalid settings
             logger.warning("pushgateway_init_failed: error=%s", str(e))
             self._pushgateway_client = None
 
@@ -379,31 +368,6 @@ class PrometheusMetrics:
             model=model or "unknown",
             service_type=service_type or "unknown",
         ).inc(token_count)
-
-    def record_cost(
-        self,
-        cost_usd: float,
-        model: str | None = None,
-        cost_type: str = "total",
-        service_type: str | None = None,
-    ) -> None:
-        """
-        Record cost.
-
-        Args:
-            cost_usd: Cost in USD
-            model: Model name
-            cost_type: Type of cost (input, output, cache, total)
-            service_type: Service type (claude_sdk_service, proxy_service)
-        """
-        if not self._enabled or cost_usd <= 0:
-            return
-
-        self.cost_counter.labels(
-            model=model or "unknown",
-            cost_type=cost_type,
-            service_type=service_type or "unknown",
-        ).inc(cost_usd)
 
     def record_error(
         self,
@@ -677,9 +641,9 @@ def reset_metrics() -> None:
             collectors = list(REGISTRY._collector_to_names.keys())
             for collector in collectors:
                 REGISTRY.unregister(collector)
-        except Exception:
-            # If clearing the registry fails, just continue
-            # This is mainly for testing and shouldn't break functionality
+        except (KeyError, ValueError, AttributeError):
+            # KeyError: collector not found; ValueError: invalid state; AttributeError: registry issues
+            # If clearing the registry fails, just continue (mainly for testing)
             pass
 
     # Also reset pushgateway client

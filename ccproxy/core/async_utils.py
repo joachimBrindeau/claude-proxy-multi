@@ -1,11 +1,14 @@
 """Async utilities for the CCProxy API."""
 
 import asyncio
-import re
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
+from functools import wraps
 from pathlib import Path
 from typing import Any, TypeVar
+
+from cachetools import TTLCache
+from packaging.version import InvalidVersion, Version
 
 
 T = TypeVar("T")
@@ -45,7 +48,10 @@ def get_package_dir() -> Path:
             package_dir = Path(spec.origin).parent.parent.resolve()
         else:
             package_dir = Path(__file__).parent.parent.parent.resolve()
-    except Exception:
+    except (ModuleNotFoundError, ImportError, AttributeError):
+        # ModuleNotFoundError: Package not found
+        # ImportError: Import system error
+        # AttributeError: spec.origin access failed
         package_dir = Path(__file__).parent.parent.parent.resolve()
 
     return package_dir
@@ -99,8 +105,10 @@ async def safe_await(awaitable: Awaitable[T], timeout: float | None = None) -> T
             return await asyncio.wait_for(awaitable, timeout=timeout)
         return await awaitable
     except TimeoutError:
+        # Timeout from asyncio.wait_for
         return None
-    except Exception:
+    except asyncio.CancelledError:
+        # Task was cancelled
         return None
 
 
@@ -171,7 +179,9 @@ async def wait_for_condition(
                 result = await result
             if result:
                 return True
-        except Exception:
+        except (ValueError, TypeError, RuntimeError, asyncio.CancelledError):
+            # Condition check failed - continue waiting
+            # Catches: condition evaluation errors and cancelled coroutines
             pass
 
         if asyncio.get_event_loop().time() - start_time > timeout:
@@ -180,7 +190,8 @@ async def wait_for_condition(
         await asyncio.sleep(interval)
 
 
-_cache: dict[str, tuple[float, Any]] = {}
+# Global cache instance with default settings (100 items, 5 minute TTL)
+_default_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=300)
 
 
 async def async_cache_result(
@@ -190,77 +201,149 @@ async def async_cache_result(
     *args: Any,
     **kwargs: Any,
 ) -> T:
-    """Cache the result of an async function call.
+    """Cache the result of an async function call using cachetools.TTLCache.
+
+    This function maintains backward compatibility with the original API while
+    using cachetools for the underlying cache implementation.
 
     Args:
         func: The async function to cache
         cache_key: Unique key for caching
-        cache_duration: Cache duration in seconds
+        cache_duration: Cache duration in seconds (Note: uses global cache TTL)
         *args: Positional arguments to pass to the function
         **kwargs: Keyword arguments to pass to the function
 
     Returns:
         The cached or computed result
+
+    Note:
+        For optimal performance with varying TTLs, consider using the
+        @cached_async decorator directly with a custom TTLCache instance.
     """
-    import time
-
-    current_time = time.time()
-
-    # Check if we have a valid cached result
-    if cache_key in _cache:
-        cached_time, cached_result = _cache[cache_key]
-        if current_time - cached_time < cache_duration:
-            return cached_result  # type: ignore[no-any-return]
+    # Check if we have a cached result
+    if cache_key in _default_cache:
+        return _default_cache[cache_key]  # type: ignore[no-any-return]
 
     # Compute and cache the result
     result = await func(*args, **kwargs)
-    _cache[cache_key] = (current_time, result)
+    _default_cache[cache_key] = result
 
     return result
 
 
+def cached_async(
+    maxsize: int = 100, ttl: float = 300.0
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
+    """Decorator to cache async function results using cachetools.TTLCache.
+
+    This provides a cleaner alternative to async_cache_result for new code.
+
+    Args:
+        maxsize: Maximum number of items in the cache
+        ttl: Time-to-live for cached items in seconds
+
+    Returns:
+        Decorator function
+
+    Example:
+        @cached_async(maxsize=50, ttl=600)
+        async def expensive_operation(param: str) -> dict:
+            # ... expensive async operation
+            return result
+    """
+    cache: TTLCache[tuple[Any, ...], Any] = TTLCache(maxsize=maxsize, ttl=ttl)
+
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
+            # Create a cache key from args and kwargs
+            # Note: This assumes all arguments are hashable
+            cache_key = (args, tuple(sorted(kwargs.items())))
+
+            if cache_key in cache:
+                return cache[cache_key]  # type: ignore[no-any-return]
+
+            result = await func(*args, **kwargs)
+            cache[cache_key] = result
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 def parse_version(version_string: str) -> tuple[int, int, int, str]:
     """
-    Parse version string into components.
+    Parse version string into components using packaging.version.
 
     Handles various formats:
     - 1.2.3
     - 1.2.3-dev
     - 1.2.3.dev59+g1624e1e.d19800101
     - 0.1.dev59+g1624e1e.d19800101
+
+    Args:
+        version_string: Version string to parse
+
+    Returns:
+        Tuple of (major, minor, patch, suffix)
     """
-    # Clean up setuptools-scm dev versions
-    clean_version = re.sub(r"\.dev\d+\+.*", "", version_string)
+    try:
+        v = Version(version_string)
 
-    # Handle dev versions without patch number
-    if ".dev" in version_string:
-        base_version = version_string.split(".dev")[0]
-        parts = base_version.split(".")
-        if len(parts) == 2:
-            # 0.1.dev59 -> 0.1.0-dev
-            major, minor = int(parts[0]), int(parts[1])
-            patch = 0
+        # Extract major, minor, patch from base_version or release tuple
+        release = v.release
+        major = release[0] if len(release) > 0 else 0
+        minor = release[1] if len(release) > 1 else 0
+        patch = release[2] if len(release) > 2 else 0
+
+        # Determine suffix based on version properties
+        if v.is_devrelease:
             suffix = "dev"
+        elif v.is_prerelease:
+            # Handle alpha, beta, rc versions
+            if v.pre:
+                suffix = f"{v.pre[0]}{v.pre[1]}"
+            else:
+                suffix = ""
         else:
-            # 1.2.3.dev59 -> 1.2.3-dev
-            major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
-            suffix = "dev"
-    else:
-        # Regular version
-        parts = clean_version.split(".")
-        if len(parts) < 3:
-            parts.extend(["0"] * (3 - len(parts)))
+            suffix = ""
 
-        major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
-        suffix = ""
+        return major, minor, patch, suffix
 
-    return major, minor, patch, suffix
+    except InvalidVersion:
+        # Fallback for non-PEP440 versions: simple regex parsing
+        import re
+
+        match = re.match(
+            r"^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:[-.]?(dev|alpha|beta|rc).*)?",
+            version_string,
+        )
+        if match:
+            major = int(match.group(1) or 0)
+            minor = int(match.group(2) or 0)
+            patch = int(match.group(3) or 0)
+            suffix = match.group(4) or ""
+            return major, minor, patch, suffix
+
+        # Last resort: return zeros
+        return 0, 0, 0, ""
 
 
 def format_version(version: str, level: str) -> str:
-    major, minor, patch, suffix = parse_version(version)
+    """Format version according to specified level.
 
-    """Format version according to specified level."""
+    Args:
+        version: Version string to format
+        level: Format level (major, minor, patch, full, docker, npm, python)
+
+    Returns:
+        Formatted version string
+
+    Raises:
+        ValueError: If level is unknown
+    """
+    major, minor, patch, suffix = parse_version(version)
     base_version = f"{major}.{minor}.{patch}"
 
     if level == "major":
@@ -296,17 +379,9 @@ def get_claude_docker_home_dir() -> str:
     Returns:
         Path to Claude Docker home directory
     """
-    import os
-    from pathlib import Path
+    import platformdirs
 
-    # Use XDG_DATA_HOME if available, otherwise default to ~/.local/share
-    xdg_data_home = os.environ.get("XDG_DATA_HOME")
-    if xdg_data_home:
-        base_dir = Path(xdg_data_home)
-    else:
-        base_dir = Path.home() / ".local" / "share"
-
-    claude_dir = base_dir / "claude"
+    claude_dir = Path(platformdirs.user_data_dir("claude"))
     claude_dir.mkdir(parents=True, exist_ok=True)
 
     return str(claude_dir)
@@ -418,9 +493,10 @@ def validate_config_with_schema(
         tomllib.TOMLDecodeError: If TOML file has invalid syntax
         ValueError: For other validation errors
     """
-    import json
     import subprocess
     import tempfile
+
+    import orjson
 
     # Import tomllib for Python 3.11+ or fallback to tomli
     try:
@@ -428,7 +504,7 @@ def validate_config_with_schema(
     except ImportError:
         import tomli as tomllib  # type: ignore[no-redef]
 
-    config_path = Path()
+    config_path = Path(config_path)
 
     if not config_path.exists():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
@@ -443,22 +519,21 @@ def validate_config_with_schema(
 
         # Get or generate schema
         if schema_path:
-            with schema_path.open("r", encoding="utf-8") as f:
-                schema = json.load(f)
+            schema = orjson.loads(schema_path.read_bytes())
         else:
             schema = generate_json_schema()
 
         # Create temporary files for validation
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, encoding="utf-8"
+            mode="wb", suffix=".json", delete=False
         ) as schema_file:
-            json.dump(schema, schema_file, indent=2)
+            schema_file.write(orjson.dumps(schema, option=orjson.OPT_INDENT_2))
             temp_schema_path = schema_file.name
 
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, encoding="utf-8"
+            mode="wb", suffix=".json", delete=False
         ) as json_file:
-            json.dump(toml_data, json_file, indent=2)
+            json_file.write(orjson.dumps(toml_data, option=orjson.OPT_INDENT_2))
             temp_json_path = json_file.name
 
         try:
@@ -484,16 +559,15 @@ def validate_config_with_schema(
                 "check-jsonschema command not found. "
                 "Install with: pip install check-jsonschema"
             ) from e
-        except Exception as e:
-            # Clean up temporary files in case of error
+        except (subprocess.SubprocessError, OSError) as e:
+            # Clean up temporary files in case of subprocess or file system errors
             Path(temp_schema_path).unlink(missing_ok=True)
             Path(temp_json_path).unlink(missing_ok=True)
             raise ValueError(f"Validation error: {e}") from e
 
     elif suffix == ".json":
         # Parse JSON to validate it's well-formed - let JSON parse errors bubble up
-        with config_path.open("r", encoding="utf-8") as f:
-            json.load(f)
+        orjson.loads(config_path.read_bytes())
 
         # Get or generate schema
         if schema_path:
@@ -502,9 +576,9 @@ def validate_config_with_schema(
         else:
             schema = generate_json_schema()
             with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False, encoding="utf-8"
+                mode="wb", suffix=".json", delete=False
             ) as schema_file:
-                json.dump(schema, schema_file, indent=2)
+                schema_file.write(orjson.dumps(schema, option=orjson.OPT_INDENT_2))
                 temp_schema_path = schema_file.name
                 cleanup_schema = True
 
@@ -533,7 +607,8 @@ def validate_config_with_schema(
                 "check-jsonschema command not found. "
                 "Install with: pip install check-jsonschema"
             ) from e
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
+            # Subprocess or file system errors during validation
             if cleanup_schema:
                 Path(temp_schema_path).unlink(missing_ok=True)
             raise ValueError(f"Validation error: {e}") from e
@@ -544,7 +619,6 @@ def validate_config_with_schema(
         )
 
 
-# TODO: Remove this function or update this function
 def generate_json_schema() -> dict[str, Any]:
     """Generate JSON Schema from Settings model.
 
@@ -593,36 +667,9 @@ def save_schema_file(schema: dict[str, Any], output_path: Path) -> None:
     Raises:
         OSError: If unable to write file
     """
-    import json
+    import orjson
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(schema, f, indent=2, ensure_ascii=False)
-
-
-def validate_toml_with_schema(
-    config_path: Path, schema_path: Path | None = None
-) -> bool:
-    """Validate a TOML config file against JSON Schema.
-
-    Args:
-        config_path: Path to TOML configuration file
-        schema_path: Optional path to schema file. If None, generates schema from Settings
-
-    Returns:
-        True if validation passes, False otherwise
-
-    Raises:
-        ImportError: If check-jsonschema is not available
-        FileNotFoundError: If config file doesn't exist
-        ValueError: If unable to parse or validate file
-    """
-    # This is a thin wrapper around validate_config_with_schema for TOML files
-    config_path = Path(config_path)
-
-    if config_path.suffix.lower() != ".toml":
-        raise ValueError(f"Expected TOML file, got: {config_path.suffix}")
-
-    return validate_config_with_schema(config_path)
+    output_path.write_bytes(orjson.dumps(schema, option=orjson.OPT_INDENT_2))

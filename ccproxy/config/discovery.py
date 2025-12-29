@@ -9,7 +9,7 @@ def find_toml_config_file() -> Path | None:
     Searches in the following order:
     1. .ccproxy.toml in current directory
     2. ccproxy.toml in git repository root (if in a git repo)
-    3. config.toml in XDG_CONFIG_HOME/ccproxy/
+    3. config.toml in user config directory/ccproxy/ (platform-specific)
     """
     # Check current directory first
     candidates = [
@@ -63,7 +63,7 @@ def get_ccproxy_config_dir() -> Path:
     """Get the ccproxy configuration directory.
 
     Returns:
-        Path to the ccproxy configuration directory within XDG_CONFIG_HOME.
+        Path to the ccproxy configuration directory within user config directory.
     """
     return get_xdg_config_home() / "ccproxy"
 
@@ -72,7 +72,7 @@ def get_claude_cli_config_dir() -> Path:
     """Get the Claude CLI configuration directory.
 
     Returns:
-        Path to the Claude CLI configuration directory within XDG_CONFIG_HOME.
+        Path to the Claude CLI configuration directory within user config directory.
     """
     return get_xdg_config_home() / "claude"
 
@@ -81,7 +81,7 @@ def get_claude_docker_home_dir() -> Path:
     """Get the Claude Docker home directory.
 
     Returns:
-        Path to the Claude Docker home directory within XDG_DATA_HOME.
+        Path to the Claude Docker home directory within ccproxy config directory.
     """
     return get_ccproxy_config_dir() / "home"
 
@@ -90,6 +90,6 @@ def get_ccproxy_cache_dir() -> Path:
     """Get the ccproxy cache directory.
 
     Returns:
-        Path to the ccproxy cache directory within XDG_CACHE_HOME.
+        Path to the ccproxy cache directory within user cache directory.
     """
     return get_xdg_cache_home() / "ccproxy"

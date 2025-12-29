@@ -301,7 +301,7 @@ class TestConfigValidate:
         """Test validation with general error."""
         with patch(
             "ccproxy.cli.commands.config.schema_commands.validate_config_with_schema",
-            side_effect=Exception("Validation error"),
+            side_effect=ValueError("Validation error"),
         ):
             result = cli_runner.invoke(app, ["validate", str(sample_toml_config)])
             assert result.exit_code == 1

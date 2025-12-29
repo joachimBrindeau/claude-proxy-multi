@@ -1,7 +1,6 @@
 """Shared models provider for CCProxy API Server.
 
-This module provides a centralized source for all available models,
-combining Claude and OpenAI models in a consistent format.
+This module provides a centralized source for all available Claude models.
 """
 
 from __future__ import annotations
@@ -12,7 +11,7 @@ from ccproxy.utils.model_mapping import get_supported_claude_models
 
 
 def get_anthropic_models() -> list[dict[str, Any]]:
-    """Get list of Anthropic models with metadata.
+    """Get list of Anthropic Claude models with metadata.
 
     Returns:
         List of Anthropic model entries with type, id, display_name, and created_at fields
@@ -61,83 +60,16 @@ def get_anthropic_models() -> list[dict[str, Any]]:
     return models
 
 
-def get_openai_models() -> list[dict[str, Any]]:
-    """Get list of recent OpenAI models with metadata.
-
-    Returns:
-        List of OpenAI model entries with id, object, created, and owned_by fields
-    """
-    return [
-        {
-            "id": "gpt-4o",
-            "object": "model",
-            "created": 1715367049,
-            "owned_by": "openai",
-        },
-        {
-            "id": "gpt-4o-mini",
-            "object": "model",
-            "created": 1721172741,
-            "owned_by": "openai",
-        },
-        {
-            "id": "gpt-4-turbo",
-            "object": "model",
-            "created": 1712361441,
-            "owned_by": "openai",
-        },
-        {
-            "id": "gpt-4-turbo-preview",
-            "object": "model",
-            "created": 1706037777,
-            "owned_by": "openai",
-        },
-        {
-            "id": "o1",
-            "object": "model",
-            "created": 1734375816,
-            "owned_by": "openai",
-        },
-        {
-            "id": "o1-mini",
-            "object": "model",
-            "created": 1725649008,
-            "owned_by": "openai",
-        },
-        {
-            "id": "o1-preview",
-            "object": "model",
-            "created": 1725648897,
-            "owned_by": "openai",
-        },
-        {
-            "id": "o3",
-            "object": "model",
-            "created": 1744225308,
-            "owned_by": "openai",
-        },
-        {
-            "id": "o3-mini",
-            "object": "model",
-            "created": 1737146383,
-            "owned_by": "openai",
-        },
-    ]
-
-
 def get_models_list() -> dict[str, Any]:
-    """Get combined list of available Claude and OpenAI models.
+    """Get list of available Claude models.
 
     Returns:
-        Dictionary with combined list of models in mixed format compatible with both
-        Anthropic and OpenAI API specifications
+        Dictionary with list of Claude models in Anthropic API format
     """
     anthropic_models = get_anthropic_models()
-    openai_models = get_openai_models()
 
-    # Return combined response in mixed format
     return {
-        "data": anthropic_models + openai_models,
+        "data": anthropic_models,
         "has_more": False,
         "object": "list",
     }
@@ -145,6 +77,5 @@ def get_models_list() -> dict[str, Any]:
 
 __all__ = [
     "get_anthropic_models",
-    "get_openai_models",
     "get_models_list",
 ]

@@ -15,9 +15,7 @@ class PortSpecParts(TypedDict):
     container_port: str
 
 
-def _parse_ipv6_port_spec(
-    port_part: str, port_spec: str
-) -> PortSpecParts:
+def _parse_ipv6_port_spec(port_part: str, port_spec: str) -> PortSpecParts:
     """Parse IPv6 port specification format like [::1]:8080:80.
 
     Args:
@@ -61,9 +59,7 @@ def _parse_ipv6_port_spec(
     )
 
 
-def _validate_port_numbers(
-    host_port: str, container_port: str, port_spec: str
-) -> None:
+def _validate_port_numbers(host_port: str, container_port: str, port_spec: str) -> None:
     """Validate port numbers are valid integers in range 1-65535.
 
     Args:
@@ -77,9 +73,7 @@ def _validate_port_numbers(
     try:
         host_port_num = int(host_port)
         container_port_num = int(container_port)
-        if not (1 <= host_port_num <= 65535) or not (
-            1 <= container_port_num <= 65535
-        ):
+        if not (1 <= host_port_num <= 65535) or not (1 <= container_port_num <= 65535):
             raise ValueError("Port numbers must be between 1 and 65535")
     except ValueError as e:
         raise create_docker_error(

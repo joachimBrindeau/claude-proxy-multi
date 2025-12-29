@@ -1,11 +1,18 @@
+# CCProxy - Claude Code Proxy with Multi-Account Rotation
+# Builds from source - full codebase at development/expand/core/claude-proxy-multi
+# Deployed via symlink at deployment/services/ccproxy
+
 services:
-  claude-code-proxy:
+  ccproxy:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ccproxy:local
+    container_name: ccproxy
     hostname: ccproxy
+    restart: unless-stopped
     ports:
-      - "8100:8000"
+      - '8000'
     environment:
       - SERVER__HOST=0.0.0.0
       - SERVER__PORT=8000
@@ -18,20 +25,29 @@ services:
       - CCPROXY_HOT_RELOAD=true
     volumes:
       # Mount ~/.claude for accounts.json and credentials
-      # Note: Use absolute path because snap-based Docker uses different $HOME
-      - ${CLAUDE_HOME:-/home/joachim/.claude}:/config
-    # env_file:
-    #   - .env
-    restart: unless-stopped
+      - /home/joachim/.claude:/config
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 5s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - 'traefik.http.routers.ccproxy-http.rule=Host(`claude.llm.klarc.eu`)'
+      - traefik.http.routers.ccproxy-http.entrypoints=http
+      - traefik.http.routers.ccproxy-http.middlewares=redirect-to-https
+      - 'traefik.http.routers.ccproxy.rule=Host(`claude.llm.klarc.eu`)'
+      - traefik.http.routers.ccproxy.entrypoints=https
+      - traefik.http.routers.ccproxy.tls=true
+      - traefik.http.routers.ccproxy.tls.certresolver=letsencrypt
+      - traefik.http.services.ccproxy.loadbalancer.server.port=8000
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
     networks:
-      - global
+      - coolify
 
 networks:
-  global:
+  coolify:
     external: true

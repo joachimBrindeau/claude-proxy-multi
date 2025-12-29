@@ -1,12 +1,13 @@
 """API routes for permission request handling via SSE and REST."""
 
 import asyncio
-import json
 from collections.abc import AsyncGenerator
 
+import orjson
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
+from starlette import status
 from structlog import get_logger
 
 from ccproxy.api.dependencies import SettingsDep
@@ -60,7 +61,9 @@ async def event_generator(
     try:
         yield {
             "event": "ping",
-            "data": json.dumps({"message": "Connected to permission stream"}),
+            "data": orjson.dumps(
+                {"message": "Connected to permission stream"}
+            ).decode(),
         }
 
         # Send all pending permission requests to the newly connected client
@@ -79,7 +82,7 @@ async def event_generator(
             )
             yield {
                 "event": EventType.PERMISSION_REQUEST.value,
-                "data": json.dumps(event.model_dump(mode="json")),
+                "data": orjson.dumps(event.model_dump(mode="json")).decode(),
             }
 
         while not await request.is_disconnected():
@@ -88,13 +91,13 @@ async def event_generator(
 
                 yield {
                     "event": event_data.get("type", "message"),
-                    "data": json.dumps(event_data),
+                    "data": orjson.dumps(event_data).decode(),
                 }
 
             except TimeoutError:
                 yield {
                     "event": "ping",
-                    "data": json.dumps({"message": "keepalive"}),
+                    "data": orjson.dumps({"message": "keepalive"}).decode(),
                 }
 
     except asyncio.CancelledError:
@@ -150,7 +153,7 @@ async def get_permission(
             raise PermissionNotFoundError(permission_id)
     except PermissionNotFoundError as e:
         raise HTTPException(
-            status_code=404, detail="Permission request not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Permission request not found"
         ) from e
 
     return PermissionRequestInfo(
@@ -184,13 +187,15 @@ async def respond_to_permission(
         HTTPException: If request not found or already resolved
     """
     service = get_permission_service()
-    status = await service.get_status(permission_id)
-    if status is None:
-        raise HTTPException(status_code=404, detail="Permission request not found")
+    permission_status = await service.get_status(permission_id)
+    if permission_status is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Permission request not found"
+        )
 
-    if status != PermissionStatus.PENDING:
+    if permission_status != PermissionStatus.PENDING:
         try:
-            raise PermissionAlreadyResolvedError(permission_id, status.value)
+            raise PermissionAlreadyResolvedError(permission_id, permission_status.value)
         except PermissionAlreadyResolvedError as e:
             raise HTTPException(
                 status_code=e.status_code,
@@ -201,7 +206,8 @@ async def respond_to_permission(
 
     if not success:
         raise HTTPException(
-            status_code=409, detail="Failed to resolve permission request"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Failed to resolve permission request",
         )
 
     logger.info(

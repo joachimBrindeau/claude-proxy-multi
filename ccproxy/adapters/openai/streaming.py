@@ -6,11 +6,11 @@ streaming responses.
 
 from __future__ import annotations
 
-import json
 import time
 from collections.abc import AsyncIterator
 from typing import Any, Literal
 
+import orjson
 import structlog
 
 from .models import (
@@ -34,7 +34,7 @@ class OpenAISSEFormatter:
         Returns:
             Formatted SSE string
         """
-        json_data = json.dumps(data, separators=(",", ":"))
+        json_data = orjson.dumps(data).decode()
         return f"data: {json_data}\n\n"
 
     @staticmethod
@@ -327,11 +327,11 @@ class OpenAIStreamProcessor:
             if self.output_format == "sse":
                 yield self.formatter.format_done()
 
-        except Exception as e:
-            # Send error chunk
+        except orjson.JSONDecodeError as e:
+            # JSON parsing errors during stream processing
             if self.output_format == "sse":
                 yield self.formatter.format_error_chunk(
-                    self.message_id, self.model, self.created, "error", str(e)
+                    self.message_id, self.model, self.created, "json_error", str(e)
                 )
                 yield self.formatter.format_done()
             else:
@@ -400,7 +400,7 @@ class OpenAIStreamProcessor:
                                     "type": "function",
                                     "function": {
                                         "name": tool_name,
-                                        "arguments": json.dumps(tool_input),
+                                        "arguments": orjson.dumps(tool_input).decode(),
                                     },
                                 }
                             ]
@@ -430,10 +430,7 @@ class OpenAIStreamProcessor:
                 session_id = result_data.get("session_id", "")
                 stop_reason = result_data.get("stop_reason", "")
                 usage = result_data.get("usage", {})
-                cost_usd = result_data.get("total_cost_usd")
                 formatted_text = f"[{source} result {session_id}]: stop_reason={stop_reason}, usage={usage}"
-                if cost_usd is not None:
-                    formatted_text += f", cost_usd={cost_usd}"
                 yield self._format_chunk_output(delta={"content": formatted_text})
 
             elif block.get("type") == "tool_use":
@@ -507,7 +504,9 @@ class OpenAIStreamProcessor:
                                     "type": "function",
                                     "function": {
                                         "name": tool_call["name"],
-                                        "arguments": json.dumps(tool_call["arguments"])
+                                        "arguments": orjson.dumps(
+                                            tool_call["arguments"]
+                                        ).decode()
                                         if isinstance(tool_call["arguments"], dict)
                                         else tool_call["arguments"],
                                     },

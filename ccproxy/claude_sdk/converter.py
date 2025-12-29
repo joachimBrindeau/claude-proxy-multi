@@ -1,10 +1,10 @@
 """Message format converter for Claude SDK interactions."""
 
 import html
-import json
 from collections.abc import Callable
 from typing import Any
 
+import orjson
 import structlog
 
 from ccproxy.config.claude import SDKMessageMode
@@ -42,10 +42,12 @@ class MessageConverter:
 
         if pretty_format:
             # Pretty format with indentation and proper spacing
-            return json.dumps(data, indent=2, separators=(", ", ": "))
+            result: str = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode()
+            return result
         else:
             # Compact format without indentation or spacing
-            return json.dumps(data, separators=(",", ":"))
+            compact: str = orjson.dumps(data).decode()
+            return compact
 
     @staticmethod
     def _create_xml_formatted_text(
@@ -221,10 +223,6 @@ class MessageConverter:
 
         # Build usage information
         usage_info = usage.model_dump(mode="json")
-
-        # Add cost information if available
-        if result_message.total_cost_usd is not None:
-            usage_info["cost_usd"] = result_message.total_cost_usd
 
         # Convert content blocks to Anthropic format, preserving thinking blocks
         content_blocks = []

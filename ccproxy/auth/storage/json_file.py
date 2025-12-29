@@ -1,9 +1,10 @@
 """JSON file storage implementation for token storage."""
 
 import contextlib
-import json
 from pathlib import Path
 
+import orjson
+import pydantic
 from structlog import get_logger
 
 from ccproxy.auth.exceptions import (
@@ -46,19 +47,26 @@ class JsonFileTokenStorage(TokenStorage):
             logger.debug(
                 "credentials_load_start", source="file", path=str(self.file_path)
             )
-            with self.file_path.open() as f:
-                data = json.load(f)
+            with self.file_path.open("rb") as f:
+                data = orjson.loads(f.read())
 
             credentials = ClaudeCredentials.model_validate(data)
             logger.debug("credentials_load_completed", source="file")
 
             return credentials
 
-        except json.JSONDecodeError as e:
+        except (orjson.JSONDecodeError, ValueError) as e:
+            # JSON parsing errors or invalid data format
             raise CredentialsInvalidError(
                 f"Failed to parse credentials file {self.file_path}: {e}"
             ) from e
-        except Exception as e:
+        except pydantic.ValidationError as e:
+            # Pydantic validation errors when parsing credential data
+            raise CredentialsInvalidError(
+                f"Invalid credential data in {self.file_path}: {e}"
+            ) from e
+        except (OSError, PermissionError) as e:
+            # File system errors: file not readable, permission denied, etc.
             raise CredentialsStorageError(
                 f"Error loading credentials from {self.file_path}: {e}"
             ) from e
@@ -87,8 +95,8 @@ class JsonFileTokenStorage(TokenStorage):
             temp_path = self.file_path.with_suffix(".tmp")
 
             try:
-                with temp_path.open("w") as f:
-                    json.dump(data, f, indent=2)
+                with temp_path.open("wb") as f:
+                    f.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
                 # Set appropriate file permissions (read/write for owner only)
                 temp_path.chmod(0o600)
@@ -102,15 +110,14 @@ class JsonFileTokenStorage(TokenStorage):
                     path=str(self.file_path),
                 )
                 return True
-            except Exception as e:
-                raise
             finally:
                 # Clean up temp file if it exists
                 if temp_path.exists():
-                    with contextlib.suppress(Exception):
+                    with contextlib.suppress(OSError):
                         temp_path.unlink()
 
-        except Exception as e:
+        except (OSError, PermissionError) as e:
+            # File system errors: write failed, permission denied, disk full, etc.
             raise CredentialsStorageError(f"Error saving credentials: {e}") from e
 
     async def exists(self) -> bool:
@@ -142,7 +149,8 @@ class JsonFileTokenStorage(TokenStorage):
                     path=str(self.file_path),
                 )
                 deleted = True
-        except Exception as e:
+        except (OSError, PermissionError) as e:
+            # File system errors: delete failed, permission denied, etc.
             if not deleted:  # Only raise if we failed to delete from both
                 raise CredentialsStorageError(f"Error deleting credentials: {e}") from e
             logger.debug("credentials_delete_partial", source="file", error=str(e))

@@ -4,8 +4,7 @@ This module provides stateless helper functions for extracting and transforming
 request metadata. All functions are pure with no side effects.
 """
 
-import json
-
+import orjson
 import structlog
 
 
@@ -28,11 +27,11 @@ def extract_metadata(body: bytes | None) -> tuple[str | None, bool]:
         return None, False
 
     try:
-        body_data = json.loads(body.decode("utf-8"))
+        body_data = orjson.loads(body)
         model = body_data.get("model")
         streaming = body_data.get("stream", False)
         return model, streaming
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError):
         return None, False
 
 
@@ -49,7 +48,7 @@ def extract_message_type(body: bytes | None) -> str:
         return "short"
 
     try:
-        body_data = json.loads(body.decode("utf-8"))
+        body_data = orjson.loads(body)
         # Check if tools are present - indicates tool use
         if body_data.get("tools"):
             return "tool_use"
@@ -64,7 +63,7 @@ def extract_message_type(body: bytes | None) -> str:
                 return "short"
             else:
                 return "medium"
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError):
         pass
 
     return "short"

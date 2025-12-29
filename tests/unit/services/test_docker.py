@@ -89,7 +89,10 @@ class TestDockerAdapter:
             # Verify that execvp was called with Docker command
             mock_execvp.assert_called_once()
             args = mock_execvp.call_args[0]
-            assert args[0] == "docker"  # First argument should be "docker"
+            # First argument may be "docker" or "sudo" depending on permissions
+            assert args[0] in ("docker", "sudo"), (
+                f"Expected 'docker' or 'sudo', got {args[0]}"
+            )
             assert "test-image:latest" in args[1]  # Image should be in command
 
     async def test_build_image_success(

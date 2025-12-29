@@ -5,8 +5,9 @@ Uses watchdog for efficient file system event monitoring.
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Callable, Coroutine
 from pathlib import Path
+from typing import Any, cast
 
 from structlog import get_logger
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -15,8 +16,10 @@ from watchdog.observers import Observer
 
 logger = get_logger(__name__)
 
-# Type for callback - can be sync or async
-OnChangeCallback = Callable[[], None] | Callable[[], Coroutine[None, None, None]]
+# Type aliases for callbacks
+SyncCallback = Callable[[], None]
+AsyncCallback = Callable[[], Coroutine[Any, Any, None]]
+OnChangeCallback = SyncCallback | AsyncCallback
 
 
 class AccountsFileHandler(FileSystemEventHandler):
@@ -60,7 +63,20 @@ class AccountsFileHandler(FileSystemEventHandler):
         if event.is_directory:
             return
 
-        event_path = Path(event.src_path)
+        raw_path = event.src_path
+        if isinstance(raw_path, bytes):
+            try:
+                src_path = raw_path.decode("utf-8")
+            except UnicodeDecodeError:
+                # Fall back to surrogateescape for non-UTF-8 paths
+                src_path = raw_path.decode("utf-8", errors="surrogateescape")
+                logger.warning(
+                    "non_utf8_path_detected",
+                    raw_path=repr(raw_path),
+                )
+        else:
+            src_path = raw_path
+        event_path = Path(src_path)
         if event_path.name != self._accounts_path.name:
             return
 
@@ -81,14 +97,16 @@ class AccountsFileHandler(FileSystemEventHandler):
         # Schedule callback in the event loop (thread-safe)
         if self._loop and self._is_async_callback:
             # For async callbacks, use run_coroutine_threadsafe
-            asyncio.run_coroutine_threadsafe(self._on_change(), self._loop)
+            async_cb = cast(AsyncCallback, self._on_change)
+            coro = async_cb()
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
         elif self._loop:
             # For sync callbacks, schedule in event loop
-            self._loop.call_soon_threadsafe(self._on_change)
+            self._loop.call_soon_threadsafe(cast(SyncCallback, self._on_change))
         else:
             # No event loop - direct call (sync only)
             if not self._is_async_callback:
-                self._on_change()
+                cast(SyncCallback, self._on_change)()
 
     def on_created(self, event: FileSystemEvent) -> None:
         """Handle file creation event (new accounts file).
@@ -112,7 +130,7 @@ class AccountsFileWatcher:
     def __init__(
         self,
         accounts_path: Path,
-        on_reload: Callable[[], None],
+        on_reload: OnChangeCallback,
         debounce_seconds: float = 1.0,
     ):
         """Initialize file watcher.
@@ -125,7 +143,7 @@ class AccountsFileWatcher:
         self._accounts_path = Path(accounts_path).expanduser()
         self._on_reload = on_reload
         self._debounce_seconds = debounce_seconds
-        self._observer: Observer | None = None
+        self._observer: Any = None  # Observer type from watchdog
         self._running = False
 
     @property
@@ -204,7 +222,7 @@ def get_file_watcher() -> AccountsFileWatcher | None:
 
 def init_file_watcher(
     accounts_path: Path,
-    on_reload: Callable[[], None],
+    on_reload: OnChangeCallback,
 ) -> AccountsFileWatcher:
     """Initialize the global file watcher.
 

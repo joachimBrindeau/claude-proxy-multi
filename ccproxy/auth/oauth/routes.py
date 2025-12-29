@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
+import httpx
+import pydantic
+from cachetools import TTLCache
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import (
     HTMLResponse,
@@ -18,29 +21,28 @@ from fastapi.responses import (
 from pydantic import BaseModel, Field
 from structlog import get_logger
 
+from ccproxy.auth.exceptions import CredentialsStorageError
 from ccproxy.auth.models import (
     ClaudeCredentials,
     OAuthToken,
 )
 from ccproxy.auth.oauth.token_exchange import (
-    OAuthConfig as TokenExchangeConfig,
-)
-from ccproxy.auth.oauth.token_exchange import (
+    TokenExchangeConfig,
     TokenExchangeError,
     exchange_code_async,
 )
 from ccproxy.auth.storage import JsonFileTokenStorage as JsonFileStorage
-
-# Import CredentialsManager locally to avoid circular import
-from ccproxy.services.credentials.config import OAuthConfig
+from ccproxy.config.auth import OAuthSettings
+from ccproxy.rotation.startup import InvalidAccountsPathError, get_accounts_path
 
 
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["oauth"])
 
-# Store for pending OAuth flows
-_pending_flows: dict[str, dict[str, Any]] = {}
+# Store for pending OAuth flows with 10-minute TTL to prevent memory leaks
+# OAuth flows should complete within minutes; abandoned flows are auto-cleaned
+_pending_flows: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=1000, ttl=600)  # type: ignore[no-any-unimported]
 
 
 class OAuthStartRequest(BaseModel):
@@ -67,7 +69,7 @@ class OAuthExchangeRequest(BaseModel):
 
 def get_web_oauth_config() -> dict[str, Any]:
     """Get OAuth configuration with web redirect support."""
-    base_config = OAuthConfig()
+    base_config = OAuthSettings()
 
     # Allow override for web-based OAuth
     redirect_uri = os.getenv(
@@ -122,7 +124,7 @@ def register_oauth_flow(
 
 def get_oauth_flow_result(state: str) -> dict[str, Any] | None:
     """Get and remove OAuth flow result."""
-    return _pending_flows.pop(state, None)
+    return _pending_flows.pop(state, None)  # type: ignore[no-any-return]
 
 
 @router.post("/start", response_model=OAuthStartResponse)
@@ -409,10 +411,51 @@ async def oauth_callback(
                 status_code=500,
             )
 
-    except Exception as e:
+    except (
+        httpx.HTTPError,
+        pydantic.ValidationError,
+        CredentialsStorageError,
+        ValueError,
+        KeyError,
+    ) as e:
+        # HTTP errors from token exchange, validation errors, storage errors,
+        # or missing data in OAuth flow
+        logger.error(
+            "Known error type in OAuth callback",
+            error_type=type(e).__name__,
+            error_message=str(e),
+            state=state,
+            operation="oauth_callback",
+            exc_info=True,
+        )
+
+        if state and state in _pending_flows:
+            _pending_flows[state].update(
+                {
+                    "completed": True,
+                    "success": False,
+                    "error": str(e),
+                }
+            )
+
+        return HTMLResponse(
+            content=f"""
+            <html>
+                <head><title>Login Error</title></head>
+                <body>
+                    <h1>Login Error</h1>
+                    <p>An unexpected error occurred: {str(e)}</p>
+                    <p>You can close this window and try again.</p>
+                </body>
+            </html>
+            """,
+            status_code=500,
+        )
+    except Exception as e:  # noqa: BLE001 - Catch-all for user-facing OAuth callback
+        # Catch any unexpected exceptions to provide user-friendly error page
         logger.error(
             "Unexpected error in OAuth callback",
-            error_type="unexpected_error",
+            error_type=type(e).__name__,
             error_message=str(e),
             state=state,
             operation="oauth_callback",
@@ -465,7 +508,9 @@ async def exchange_oauth_code(body: OAuthExchangeRequest) -> JSONResponse:
         # Strip URL fragment if user accidentally copied it (e.g., code#u_userid)
         if "#" in code:
             code = code.split("#")[0]
-            logger.debug("stripped_url_fragment_from_code", operation="exchange_oauth_code")
+            logger.debug(
+                "stripped_url_fragment_from_code", operation="exchange_oauth_code"
+            )
 
         if not state:
             return JSONResponse(
@@ -541,7 +586,15 @@ async def exchange_oauth_code(body: OAuthExchangeRequest) -> JSONResponse:
                 status_code=400,
             )
 
-    except Exception as e:
+    except (
+        httpx.HTTPError,
+        pydantic.ValidationError,
+        CredentialsStorageError,
+        ValueError,
+        KeyError,
+    ) as e:
+        # HTTP errors from token exchange, validation errors, storage errors,
+        # or missing data in OAuth flow
         logger.error(
             "Unexpected error in code exchange",
             error=str(e),
@@ -596,17 +649,13 @@ async def _exchange_code_for_tokens(
         expires_in = result.get("expires_in")
         expires_at = None
         if expires_in:
-            expires_at = int(
-                (datetime.now(UTC).timestamp() + expires_in) * 1000
-            )
+            expires_at = int((datetime.now(UTC).timestamp() + expires_in) * 1000)
 
         # Create credentials object
         access_token = result.get("access_token")
         refresh_token = result.get("refresh_token")
         scopes = (
-            result.get("scope", "").split()
-            if result.get("scope")
-            else config["scopes"]
+            result.get("scope", "").split() if result.get("scope") else config["scopes"]
         )
         subscription_type = result.get("subscription_type", "unknown")
 
@@ -620,11 +669,11 @@ async def _exchange_code_for_tokens(
                 save_accounts,
             )
 
-            # Get accounts path from env
-            accounts_path = os.getenv(
-                "CCPROXY_ACCOUNTS_PATH",
-                "~/.claude/accounts.json"
-            )
+            # Get accounts path from env (with validation)
+            try:
+                accounts_path = get_accounts_path(validate=True)
+            except InvalidAccountsPathError as e:
+                raise TokenExchangeError(f"Invalid accounts path: {e}") from e
 
             # Load existing accounts
             try:
@@ -632,7 +681,19 @@ async def _exchange_code_for_tokens(
             except FileNotFoundError:
                 accounts_file = AccountsFile(version=1, accounts={})
 
-            # Create new account
+            # Create new account - ensure we have valid tokens
+            if not access_token or not refresh_token or expires_at is None:
+                missing = []
+                if not access_token:
+                    missing.append("access_token")
+                if not refresh_token:
+                    missing.append("refresh_token")
+                if expires_at is None:
+                    missing.append("expires_at")
+                raise TokenExchangeError(
+                    f"Token response missing required fields: {', '.join(missing)}"
+                )
+
             creds = AccountCredentials(
                 access_token=access_token,
                 refresh_token=refresh_token,
@@ -644,21 +705,18 @@ async def _exchange_code_for_tokens(
             accounts_file.accounts[account_name] = account
 
             # Save
-            if save_accounts(accounts_file, accounts_path):
-                logger.info(
-                    "OAuth credentials saved to accounts.json",
-                    account_name=account_name,
-                    subscription_type=subscription_type,
-                    operation="exchange_code_for_tokens",
+            if not save_accounts(accounts_file, accounts_path):
+                raise TokenExchangeError(
+                    f"Failed to save account '{account_name}' to {accounts_path}"
                 )
-                return True
-            else:
-                logger.error(
-                    "Failed to save to accounts.json",
-                    account_name=account_name,
-                    operation="exchange_code_for_tokens",
-                )
-                return False
+
+            logger.info(
+                "OAuth credentials saved to accounts.json",
+                account_name=account_name,
+                subscription_type=subscription_type,
+                operation="exchange_code_for_tokens",
+            )
+            return True
 
         # Otherwise save to credentials.json (legacy/CLI flow)
         oauth_data = {
@@ -681,21 +739,16 @@ async def _exchange_code_for_tokens(
         else:
             manager = CredentialsManager()
 
-        if await manager.save(credentials):
-            logger.info(
-                "Successfully saved OAuth credentials",
-                subscription_type=subscription_type,
-                scopes=scopes,
-                operation="exchange_code_for_tokens",
-            )
-            return True
-        else:
-            logger.error(
-                "Failed to save OAuth credentials",
-                error_type="save_credentials_failed",
-                operation="exchange_code_for_tokens",
-            )
-            return False
+        if not await manager.save(credentials):
+            raise TokenExchangeError("Failed to save OAuth credentials to storage")
+
+        logger.info(
+            "Successfully saved OAuth credentials",
+            subscription_type=subscription_type,
+            scopes=scopes,
+            operation="exchange_code_for_tokens",
+        )
+        return True
 
     except TokenExchangeError as e:
         logger.error(
@@ -707,7 +760,16 @@ async def _exchange_code_for_tokens(
         )
         return False
 
-    except Exception as e:
+    except (
+        httpx.HTTPError,
+        pydantic.ValidationError,
+        CredentialsStorageError,
+        OSError,
+        ValueError,
+        KeyError,
+    ) as e:
+        # HTTP errors, validation errors, credential storage failures,
+        # file system errors, or missing/invalid data
         logger.error(
             "Error during token exchange",
             error_type="token_exchange_exception",

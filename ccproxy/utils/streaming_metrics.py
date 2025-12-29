@@ -1,16 +1,15 @@
 """Streaming metrics extraction utilities.
 
-This module provides utilities for extracting token usage and calculating costs
+This module provides utilities for extracting token usage
 from Anthropic streaming responses in a testable, modular way.
 """
 
-import json
 from typing import Any
 
+import orjson
 import structlog
 
 from ccproxy.models.types import StreamingTokenMetrics, UsageData
-from ccproxy.utils.cost_calculator import calculate_token_cost
 
 
 logger = structlog.get_logger(__name__)
@@ -78,7 +77,6 @@ class StreamingMetricsCollector:
             tokens_output=None,
             cache_read_tokens=None,
             cache_write_tokens=None,
-            cost_usd=None,
         )
 
     def process_chunk(self, chunk_str: str) -> bool:
@@ -107,7 +105,7 @@ class StreamingMetricsCollector:
                 if line.startswith("data: "):
                     data_str = line[6:].strip()
                     if data_str and data_str != "[DONE]":
-                        event_data = json.loads(data_str)
+                        event_data = orjson.loads(data_str)
                         usage_data = extract_usage_from_streaming_chunk(event_data)
 
                         if usage_data:
@@ -151,7 +149,7 @@ class StreamingMetricsCollector:
 
                         break  # Only process first valid data line
 
-        except (json.JSONDecodeError, KeyError) as e:
+        except (orjson.JSONDecodeError, KeyError) as e:
             logger.debug(
                 "Failed to parse streaming token metrics",
                 error=str(e),
@@ -159,36 +157,6 @@ class StreamingMetricsCollector:
             )
 
         return False
-
-    def calculate_final_cost(self, model: str | None) -> float | None:
-        """Calculate the final cost based on collected metrics.
-
-        Args:
-            model: Model name for pricing lookup
-
-        Returns:
-            Final cost in USD or None if calculation fails
-        """
-        cost_usd = calculate_token_cost(
-            self.metrics["tokens_input"],
-            self.metrics["tokens_output"],
-            model,
-            self.metrics["cache_read_tokens"],
-            self.metrics["cache_write_tokens"],
-        )
-        self.metrics["cost_usd"] = cost_usd
-
-        logger.debug(
-            "Final streaming token metrics",
-            tokens_input=self.metrics["tokens_input"],
-            tokens_output=self.metrics["tokens_output"],
-            cache_read_tokens=self.metrics["cache_read_tokens"],
-            cache_write_tokens=self.metrics["cache_write_tokens"],
-            cost_usd=cost_usd,
-            request_id=self.request_id,
-        )
-
-        return cost_usd
 
     def get_metrics(self) -> StreamingTokenMetrics:
         """Get the current collected metrics.

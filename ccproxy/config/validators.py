@@ -1,15 +1,23 @@
-"""Configuration validation utilities."""
+"""Configuration validation utilities using Pydantic."""
 
-import re
 from pathlib import Path
-from typing import Any
-from urllib.parse import urlparse
+from typing import Annotated, Any
+
+from pydantic import (
+    Field,
+    HttpUrl,
+    TypeAdapter,
+)
+from pydantic import (
+    ValidationError as PydanticValidationError,
+)
+
+from ccproxy.exceptions import ConfigValidationError
 
 
-class ConfigValidationError(Exception):
-    """Configuration validation error."""
-
-    pass
+# Type aliases using Pydantic Field constraints
+Port = Annotated[int, Field(ge=1, le=65535, description="TCP/UDP port number")]
+PositiveTimeout = Annotated[float, Field(gt=0, description="Timeout value in seconds")]
 
 
 def validate_host(host: str) -> str:
@@ -27,26 +35,30 @@ def validate_host(host: str) -> str:
     if not host:
         raise ConfigValidationError("Host cannot be empty")
 
-    # Allow localhost, IP addresses, and domain names
-    if host in ["localhost", "0.0.0.0", "127.0.0.1"]:
+    # Allow common localhost addresses
+    if host in ["localhost", "0.0.0.0", "127.0.0.1", "::", "::1"]:
         return host
 
-    # Basic IP address validation
-    if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", host):
-        parts = host.split(".")
-        if all(0 <= int(part) <= 255 for part in parts):
-            return host
-        raise ConfigValidationError(f"Invalid IP address: {host}")
-
-    # Basic domain name validation
-    if re.match(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", host):
+    # Basic domain name validation (Pydantic's HttpUrl requires scheme)
+    # For hosts without scheme, do basic validation
+    if "." in host and all(part.strip() for part in host.split(".")):
         return host
 
-    return host  # Allow other formats for flexibility
+    # Allow IP addresses (basic validation)
+    if (
+        host.replace(".", "")
+        .replace(":", "")
+        .replace("[", "")
+        .replace("]", "")
+        .isdigit()
+    ):
+        return host
+
+    return host
 
 
 def validate_port(port: int | str) -> int:
-    """Validate port number.
+    """Validate port number using Pydantic.
 
     Args:
         port: Port number to validate
@@ -57,23 +69,18 @@ def validate_port(port: int | str) -> int:
     Raises:
         ConfigValidationError: If port is invalid
     """
-    if isinstance(port, str):
-        try:
+    try:
+        if isinstance(port, str):
             port = int(port)
-        except ValueError as e:
-            raise ConfigValidationError(f"Port must be a valid integer: {port}") from e
 
-    if not isinstance(port, int):
-        raise ConfigValidationError(f"Port must be an integer: {port}")
-
-    if port < 1 or port > 65535:
-        raise ConfigValidationError(f"Port must be between 1 and 65535: {port}")
-
-    return port
+        adapter = TypeAdapter(Port)
+        return adapter.validate_python(port)
+    except (ValueError, PydanticValidationError) as e:
+        raise ConfigValidationError(f"Port must be between 1 and 65535: {port}") from e
 
 
 def validate_url(url: str) -> str:
-    """Validate URL format.
+    """Validate URL format using Pydantic.
 
     Args:
         url: URL to validate
@@ -88,13 +95,11 @@ def validate_url(url: str) -> str:
         raise ConfigValidationError("URL cannot be empty")
 
     try:
-        result = urlparse(url)
-        if not result.scheme or not result.netloc:
-            raise ConfigValidationError(f"Invalid URL format: {url}")
-    except Exception as e:
+        adapter = TypeAdapter(HttpUrl)
+        validated = adapter.validate_python(url)
+        return str(validated)
+    except PydanticValidationError as e:
         raise ConfigValidationError(f"Invalid URL: {url}") from e
-
-    return url
 
 
 def validate_path(path: str | Path) -> Path:
@@ -130,6 +135,7 @@ def validate_log_level(level: str) -> str:
     Raises:
         ConfigValidationError: If log level is invalid
     """
+
     valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
     level = level.upper()
 
@@ -167,7 +173,7 @@ def validate_cors_origins(origins: list[str]) -> list[str]:
 
 
 def validate_timeout(timeout: int | float) -> int | float:
-    """Validate timeout value.
+    """Validate timeout value using Pydantic.
 
     Args:
         timeout: Timeout value to validate
@@ -178,13 +184,11 @@ def validate_timeout(timeout: int | float) -> int | float:
     Raises:
         ConfigValidationError: If timeout is invalid
     """
-    if not isinstance(timeout, int | float):
-        raise ConfigValidationError(f"Timeout must be a number: {timeout}")
-
-    if timeout <= 0:
-        raise ConfigValidationError(f"Timeout must be positive: {timeout}")
-
-    return timeout
+    try:
+        adapter = TypeAdapter(PositiveTimeout)
+        return adapter.validate_python(timeout)
+    except PydanticValidationError as e:
+        raise ConfigValidationError(f"Timeout must be positive: {timeout}") from e
 
 
 def validate_config_dict(config: dict[str, Any]) -> dict[str, Any]:

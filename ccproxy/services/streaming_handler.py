@@ -6,11 +6,14 @@ This module handles streaming request processing, including:
 - Metrics collection during streaming
 """
 
-import json
+from __future__ import annotations
+
+import asyncio
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
 import httpx
+import orjson
 import structlog
 from fastapi.responses import StreamingResponse
 from httpx_sse import EventSource
@@ -22,15 +25,13 @@ from ccproxy.utils.simple_request_logger import append_streaming_log
 
 if TYPE_CHECKING:
     from ccproxy.adapters.openai.adapter import OpenAIAdapter
+    from ccproxy.core.http_transformers import HTTPResponseTransformer
     from ccproxy.observability import PrometheusMetrics
     from ccproxy.observability.context import RequestContext
+    from ccproxy.services.proxy_service import RequestData
     from ccproxy.services.verbose_logger import VerboseLogger
-    from ccproxy.transforms.response_transformer import ResponseTransformer
 
 logger = structlog.get_logger(__name__)
-
-# Type alias for request data
-RequestData = dict[str, Any]
 
 
 class StreamingHandler:
@@ -42,10 +43,10 @@ class StreamingHandler:
 
     def __init__(
         self,
-        response_transformer: "ResponseTransformer",
-        openai_adapter: "OpenAIAdapter",
-        verbose_logger: "VerboseLogger",
-        metrics: "PrometheusMetrics",
+        response_transformer: HTTPResponseTransformer,
+        openai_adapter: OpenAIAdapter,
+        verbose_logger: VerboseLogger,
+        metrics: PrometheusMetrics,
         proxy_url: str | None,
         ssl_context: Any,
         proxy_mode: str,
@@ -74,7 +75,7 @@ class StreamingHandler:
         request_data: RequestData,
         original_path: str,
         timeout: float,
-        ctx: "RequestContext",
+        ctx: RequestContext,
     ) -> StreamingResponse | tuple[int, dict[str, str], bytes]:
         """Handle streaming request with transformation.
 
@@ -121,7 +122,7 @@ class StreamingHandler:
         response: httpx.Response,
         request_data: RequestData,
         original_path: str,
-        ctx: "RequestContext",
+        ctx: RequestContext,
     ) -> tuple[int, dict[str, str], bytes]:
         """Handle error response before streaming starts.
 
@@ -184,7 +185,7 @@ class StreamingHandler:
         request_data: RequestData,
         original_path: str,
         timeout: float,
-        ctx: "RequestContext",
+        ctx: RequestContext,
     ) -> StreamingResponse:
         """Create a streaming response with proper headers and generator.
 
@@ -250,7 +251,7 @@ class StreamingHandler:
         request_data: RequestData,
         original_path: str,
         timeout: float,
-        ctx: "RequestContext",
+        ctx: RequestContext,
         response_status: int,
         response_headers: dict[str, str],
     ) -> AsyncGenerator[bytes, None]:
@@ -343,7 +344,12 @@ class StreamingHandler:
                         ):
                             yield chunk
 
-            except Exception as e:
+            except (
+                httpx.HTTPError,
+                httpx.TimeoutException,
+                asyncio.CancelledError,
+            ) as e:
+                # HTTP errors, timeouts, or async cancellation during streaming
                 logger.exception("streaming_error", error=str(e), exc_info=True)
                 error_message = f'data: {{"error": "Streaming error: {str(e)}"}}\n\n'
                 yield error_message.encode("utf-8")
@@ -354,7 +360,7 @@ class StreamingHandler:
         self,
         response: httpx.Response,
         original_path: str,
-        ctx: "RequestContext",
+        ctx: RequestContext,
     ) -> AsyncGenerator[bytes, None]:
         """Stream content in OpenAI format.
 
@@ -391,7 +397,7 @@ class StreamingHandler:
     async def _stream_anthropic_format(
         self,
         response: httpx.Response,
-        ctx: "RequestContext",
+        ctx: RequestContext,
         metrics_collector: Any,
         response_status: int,
     ) -> AsyncGenerator[bytes, None]:
@@ -432,8 +438,6 @@ class StreamingHandler:
 
                 # If this is the final chunk, update context with metrics
                 if is_final:
-                    model = ctx.metadata.get("model")
-                    cost_usd = metrics_collector.calculate_final_cost(model)
                     final_metrics = metrics_collector.get_metrics()
 
                     ctx.add_metadata(
@@ -442,7 +446,6 @@ class StreamingHandler:
                         tokens_output=final_metrics["tokens_output"],
                         cache_read_tokens=final_metrics["cache_read_tokens"],
                         cache_write_tokens=final_metrics["cache_write_tokens"],
-                        cost_usd=cost_usd,
                     )
 
                 # Handle logging based on chunk type
@@ -493,7 +496,7 @@ class StreamingHandler:
             async for sse in event_source.aiter_sse():
                 if sse.data and sse.data != "[DONE]":
                     try:
-                        chunk_data = json.loads(sse.data)
+                        chunk_data = orjson.loads(sse.data)
                         chunk_count += 1
                         logger.debug(
                             "proxy_anthropic_chunk_received",
@@ -502,7 +505,7 @@ class StreamingHandler:
                             chunk=chunk_data,
                         )
                         yield chunk_data
-                    except json.JSONDecodeError:
+                    except ValueError:
                         logger.warning("sse_parse_failed", data=sse.data)
                         continue
 
@@ -510,5 +513,5 @@ class StreamingHandler:
         async for openai_chunk in self.openai_adapter.adapt_stream(
             sse_to_dict_stream()
         ):
-            sse_line = f"data: {json.dumps(openai_chunk)}\n\n"
+            sse_line = f"data: {orjson.dumps(openai_chunk).decode()}\n\n"
             yield sse_line.encode("utf-8")

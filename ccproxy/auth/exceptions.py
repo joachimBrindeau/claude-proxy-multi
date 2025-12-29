@@ -1,79 +1,38 @@
-"""Authentication exceptions."""
+"""Authentication exceptions.
+
+DEPRECATED: This module is deprecated. Import from ccproxy.exceptions instead.
+Re-exports are provided for backwards compatibility.
+"""
+
+from ccproxy.exceptions import (
+    AuthenticationError,
+    AuthenticationRequiredError,
+    CredentialsError,
+    CredentialsExpiredError,
+    CredentialsInvalidError,
+    CredentialsNotFoundError,
+    CredentialsStorageError,
+    InsufficientPermissionsError,
+    InvalidTokenError,
+    OAuthCallbackError,
+    OAuthError,
+    OAuthLoginError,
+    OAuthTokenRefreshError,
+)
 
 
-class AuthenticationError(Exception):
-    """Base authentication error."""
-
-    pass
-
-
-class AuthenticationRequiredError(AuthenticationError):
-    """Authentication is required but not provided."""
-
-    pass
-
-
-class InvalidTokenError(AuthenticationError):
-    """Invalid or expired token."""
-
-    pass
-
-
-class InsufficientPermissionsError(AuthenticationError):
-    """Insufficient permissions for the requested operation."""
-
-    pass
-
-
-class CredentialsError(AuthenticationError):
-    """Base credentials error."""
-
-    pass
-
-
-class CredentialsNotFoundError(CredentialsError):
-    """Credentials not found error."""
-
-    pass
-
-
-class CredentialsExpiredError(CredentialsError):
-    """Credentials expired error."""
-
-    pass
-
-
-class CredentialsInvalidError(CredentialsError):
-    """Credentials are invalid or malformed."""
-
-    pass
-
-
-class CredentialsStorageError(CredentialsError):
-    """Error occurred during credentials storage operations."""
-
-    pass
-
-
-class OAuthError(AuthenticationError):
-    """Base OAuth error."""
-
-    pass
-
-
-class OAuthLoginError(OAuthError):
-    """OAuth login failed."""
-
-    pass
-
-
-class OAuthTokenRefreshError(OAuthError):
-    """OAuth token refresh failed."""
-
-    pass
-
-
-class OAuthCallbackError(OAuthError):
-    """OAuth callback failed."""
-
-    pass
+__all__ = [
+    "AuthenticationError",
+    "AuthenticationRequiredError",
+    "InvalidTokenError",
+    "InsufficientPermissionsError",
+    "CredentialsError",
+    "CredentialsNotFoundError",
+    "CredentialsExpiredError",
+    "CredentialsInvalidError",
+    "CredentialsStorageError",
+    "OAuthError",
+    "OAuthLoginError",
+    "OAuthTokenRefreshError",
+    "OAuthCallbackError",
+]

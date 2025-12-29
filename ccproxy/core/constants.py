@@ -21,12 +21,9 @@ DEFAULT_STREAM = False
 
 # Timeouts (in seconds)
 DEFAULT_TIMEOUT = 30
-DEFAULT_CONNECT_TIMEOUT = 10
-DEFAULT_READ_TIMEOUT = 300
 
 # Rate limiting
 DEFAULT_RATE_LIMIT = 100  # requests per minute
-DEFAULT_BURST_LIMIT = 10  # burst capacity
 
 # Docker defaults
 DEFAULT_DOCKER_IMAGE = "ghcr.io/anthropics/claude-cli:latest"
@@ -47,10 +44,6 @@ CONFIG_FILE_NAMES = [
     "config.yml",
 ]
 
-# Environment variable prefixes
-ENV_PREFIX = "CCPROXY_"
-CLAUDE_ENV_PREFIX = "CLAUDE_"
-
 # Logging levels
 LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
@@ -63,14 +56,11 @@ ERROR_MSG_INTERNAL_ERROR = "Internal server error"
 
 # Status codes
 STATUS_OK = 200
-STATUS_CREATED = 201
 STATUS_BAD_REQUEST = 400
 STATUS_UNAUTHORIZED = 401
-STATUS_FORBIDDEN = 403
 STATUS_NOT_FOUND = 404
 STATUS_RATE_LIMITED = 429
 STATUS_INTERNAL_ERROR = 500
-STATUS_BAD_GATEWAY = 502
 STATUS_SERVICE_UNAVAILABLE = 503
 
 # Stream event types
@@ -85,13 +75,3 @@ STREAM_EVENT_CONTENT_BLOCK_STOP = "content_block_stop"
 CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_STREAM = "text/event-stream"
 CONTENT_TYPE_TEXT = "text/plain"
-
-# Character limits
-MAX_PROMPT_LENGTH = 200_000  # Maximum prompt length in characters
-MAX_MESSAGE_LENGTH = 100_000  # Maximum message length
-MAX_TOOL_CALLS = 100  # Maximum number of tool calls per request
-
-# Validation patterns
-EMAIL_PATTERN = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-URL_PATTERN = r"^https?://[^\s/$.?#].[^\s]*$"
-UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"

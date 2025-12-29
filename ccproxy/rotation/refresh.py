@@ -6,16 +6,26 @@ on failures. Persists refreshed tokens to accounts.json.
 
 import asyncio
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from structlog import get_logger
-
-from ccproxy.auth.oauth.token_exchange import (
-    TokenExchangeError,
-    refresh_token_async,
+from tenacity import (
+    AsyncRetrying,
+    RetryError,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
 )
+
+from ccproxy.auth.oauth.token_exchange import refresh_token_async
+from ccproxy.exceptions import OAuthTokenRefreshError, TokenExchangeError
 from ccproxy.rotation.accounts import AccountCredentials
+from ccproxy.rotation.constants import (
+    DEFAULT_HTTP_TIMEOUT_SECONDS,
+    DEFAULT_TOKEN_EXPIRY_SECONDS,
+)
 from ccproxy.rotation.pool import RotationPool
 
 
@@ -25,7 +35,6 @@ logger = get_logger(__name__)
 REFRESH_CHECK_INTERVAL_SECONDS = 60  # Check every minute
 REFRESH_BUFFER_SECONDS = 600  # Refresh 10 minutes before expiry
 MAX_REFRESH_RETRIES = 3
-INITIAL_RETRY_DELAY_SECONDS = 5
 
 
 class TokenRefreshScheduler:
@@ -55,7 +64,7 @@ class TokenRefreshScheduler:
         self.pool = pool
         self.check_interval = check_interval
         self.refresh_buffer = refresh_buffer
-        self._scheduler: AsyncIOScheduler | None = None
+        self._scheduler: Any = None  # AsyncIOScheduler from apscheduler
         self._http_client: httpx.AsyncClient | None = None
         self._running = False
 
@@ -65,7 +74,7 @@ class TokenRefreshScheduler:
             logger.warning("refresh_scheduler_already_running")
             return
 
-        self._http_client = httpx.AsyncClient(timeout=30.0)
+        self._http_client = httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT_SECONDS)
         self._scheduler = AsyncIOScheduler()
 
         self._scheduler.add_job(
@@ -135,31 +144,56 @@ class TokenRefreshScheduler:
         if not account:
             return False
 
-        delay = INITIAL_RETRY_DELAY_SECONDS
+        def before_sleep_log(retry_state: Any) -> None:
+            """Log retry attempts before sleeping."""
+            logger.warning(
+                "token_refresh_retry",
+                account=account_name,
+                attempt=retry_state.attempt_number,
+                max_attempts=MAX_REFRESH_RETRIES,
+                wait_seconds=retry_state.next_action.sleep
+                if retry_state.next_action
+                else 0,
+                error=str(retry_state.outcome.exception())
+                if retry_state.outcome
+                else None,
+            )
 
-        for attempt in range(MAX_REFRESH_RETRIES):
-            try:
-                new_credentials = await self._refresh_token(
-                    account.credentials.refresh_token
-                )
+        try:
+            async for attempt in AsyncRetrying(
+                wait=wait_exponential(multiplier=1, min=5, max=60),
+                stop=stop_after_attempt(MAX_REFRESH_RETRIES),
+                retry=retry_if_exception_type(OAuthTokenRefreshError),
+                before_sleep=before_sleep_log,
+                reraise=True,
+            ):
+                with attempt:
+                    new_credentials = await self._refresh_token(
+                        account.credentials.refresh_token
+                    )
 
-                # Update account with new credentials
-                self.pool.update_credentials(
-                    account_name, new_credentials, persist=True
-                )
+                    # Update account with new credentials
+                    self.pool.update_credentials(
+                        account_name, new_credentials, persist=True
+                    )
 
-                # If account was rate limited due to expired token, restore it
-                if account.state == "rate_limited":
-                    self.pool.mark_available(account_name)
+                    # If account was rate limited due to expired token, restore it
+                    if account.state == "rate_limited":
+                        self.pool.mark_available(account_name)
 
-                logger.info(
-                    "token_refresh_success",
-                    account=account_name,
-                    new_expires_in=new_credentials.expires_in_seconds,
-                )
-                return True
+                    logger.info(
+                        "token_refresh_success",
+                        account=account_name,
+                        new_expires_in=new_credentials.expires_in_seconds,
+                    )
+                    return True
 
-            except RefreshTokenExpiredError as e:
+        except TokenExchangeError as e:
+            # Check if refresh token itself is invalid/expired
+            response_text = e.response_text or ""
+            is_invalid_grant = "invalid_grant" in response_text.lower()
+            is_expired = "expired" in response_text.lower()
+            if e.status_code == 400 and (is_invalid_grant or is_expired):
                 # Refresh token itself is invalid - needs manual re-auth
                 logger.error(
                     "refresh_token_expired",
@@ -167,36 +201,28 @@ class TokenRefreshScheduler:
                     error=str(e),
                 )
                 self.pool.mark_auth_error(
-                    account_name,
-                    "Refresh token expired. Please re-authenticate."
+                    account_name, "Refresh token expired. Please re-authenticate."
                 )
                 return False
 
-            except RefreshTokenError as e:
-                # Transient error - retry with backoff
-                logger.warning(
-                    "token_refresh_retry",
-                    account=account_name,
-                    attempt=attempt + 1,
-                    max_attempts=MAX_REFRESH_RETRIES,
-                    delay=delay,
-                    error=str(e),
-                )
+            # Other token exchange errors - log and continue
+            logger.error(
+                "token_refresh_failed",
+                account=account_name,
+                error=str(e),
+            )
+            return False
 
-                if attempt < MAX_REFRESH_RETRIES - 1:
-                    await asyncio.sleep(delay)
-                    delay *= 2  # Exponential backoff
-
-        # All retries failed
-        logger.error(
-            "token_refresh_failed",
-            account=account_name,
-            attempts=MAX_REFRESH_RETRIES,
-        )
-
-        # Don't mark as auth_error for transient failures
-        # The token might still be valid for a while
-        return False
+        except RetryError:
+            # All retries failed
+            logger.error(
+                "token_refresh_failed",
+                account=account_name,
+                attempts=MAX_REFRESH_RETRIES,
+            )
+            # Don't mark as auth_error for transient failures
+            # The token might still be valid for a while
+            return False
 
     async def _refresh_token(self, refresh_token_value: str) -> AccountCredentials:
         """Refresh an OAuth token using centralized token exchange.
@@ -208,34 +234,20 @@ class TokenRefreshScheduler:
             New credentials with refreshed tokens
 
         Raises:
-            RefreshTokenExpiredError: If refresh token is invalid
-            RefreshTokenError: On other refresh failures
+            TokenExchangeError: If token refresh fails
         """
-        try:
-            data = await refresh_token_async(refresh_token_value)
-        except TokenExchangeError as e:
-            # Check for expired/invalid refresh token
-            response_text = e.response_text or ""
-            is_invalid_grant = "invalid_grant" in response_text.lower()
-            is_expired = "expired" in response_text.lower()
-            if e.status_code == 400 and (is_invalid_grant or is_expired):
-                raise RefreshTokenExpiredError(
-                    f"Refresh token is invalid or expired: {response_text}"
-                ) from e
-            raise RefreshTokenError(f"Token refresh failed: {e}") from e
+        data = await refresh_token_async(refresh_token_value)
 
         # Parse response
         access_token = data.get("access_token")
         new_refresh_token = data.get("refresh_token", refresh_token_value)
-        expires_in = data.get("expires_in", 3600)
+        expires_in = data.get("expires_in", DEFAULT_TOKEN_EXPIRY_SECONDS)
 
         if not access_token:
-            raise RefreshTokenError("No access_token in refresh response")
+            raise TokenExchangeError("No access_token in refresh response")
 
         # Calculate expiration timestamp
-        expires_at = int(
-            (datetime.now(UTC).timestamp() + expires_in) * 1000
-        )
+        expires_at = int((datetime.now(UTC).timestamp() + expires_in) * 1000)
 
         return AccountCredentials(
             access_token=access_token,
@@ -253,18 +265,6 @@ class TokenRefreshScheduler:
             True if refresh succeeded
         """
         return await self._refresh_with_retry(account_name)
-
-
-class RefreshTokenError(Exception):
-    """Error during token refresh (may be transient)."""
-
-    pass
-
-
-class RefreshTokenExpiredError(RefreshTokenError):
-    """Refresh token is expired or invalid (needs manual intervention)."""
-
-    pass
 
 
 # Global scheduler instance

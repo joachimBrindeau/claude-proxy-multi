@@ -241,7 +241,6 @@ def mock_claude_sdk_client_streaming() -> AsyncMock:
         yield ResultMessage(
             session_id="test_session",
             stop_reason="end_turn",
-            total_cost_usd=0.001,
             usage={
                 "input_tokens": 10,
                 "output_tokens": 5,

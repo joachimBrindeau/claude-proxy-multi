@@ -8,7 +8,6 @@ Provides a web interface to:
 
 import base64
 import hashlib
-import os
 import re
 import secrets
 from dataclasses import dataclass
@@ -16,6 +15,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
+import httpx
+from cachetools import TTLCache
 from fastapi import APIRouter, FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
@@ -35,8 +36,9 @@ from ccproxy.rotation.accounts import (
     load_accounts,
     save_accounts,
 )
-from ccproxy.rotation.capacity_check import CapacityInfo, check_capacity_async
+from ccproxy.rotation.capacity_check import check_capacity_async
 from ccproxy.rotation.pool import RotationPool
+from ccproxy.rotation.startup import get_accounts_path
 
 
 logger = get_logger(__name__)
@@ -63,15 +65,21 @@ class OAuthFlowState:
 
 
 # In-memory storage: Maps code_verifier (state) to OAuth flow state
-_pending_oauth_flows: dict[str, OAuthFlowState] = {}
+# TTLCache auto-expires entries after OAUTH_FLOW_TTL_SECONDS
+_pending_oauth_flows: TTLCache[str, OAuthFlowState] = TTLCache(  # type: ignore[no-any-unimported]
+    maxsize=1000, ttl=OAUTH_FLOW_TTL_SECONDS
+)
 
 
 def _cleanup_expired_flows() -> int:
-    """Remove expired OAuth flows. Returns count removed."""
+    """Remove expired OAuth flows. Returns count removed.
+
+    Note: TTLCache auto-expires entries, so this mainly handles edge cases
+    and provides logging for manual cleanup.
+    """
+    # TTLCache auto-expires, but check for any edge cases
     expired = [
-        state
-        for state, flow in _pending_oauth_flows.items()
-        if flow.is_expired()
+        state for state, flow in list(_pending_oauth_flows.items()) if flow.is_expired()
     ]
     for state in expired:
         logger.info("oauth_flow_expired_cleanup", state=state[:8] + "...")
@@ -81,16 +89,14 @@ def _cleanup_expired_flows() -> int:
 
 def _get_pending_account_names() -> list[str]:
     """Get list of account names with pending (non-expired) flows."""
-    return [
-        flow.account_name
-        for flow in _pending_oauth_flows.values()
-        if not flow.is_expired()
-    ]
+    # TTLCache auto-expires entries, so all remaining items are valid
+    return [flow.account_name for flow in _pending_oauth_flows.values()]
 
 
 @dataclass
 class AccountView:
     """Account data for template rendering."""
+
     name: str
     state: str
     expires_in: str
@@ -103,12 +109,6 @@ class AccountView:
     tokens_remaining_percent: float | None = None
     requests_remaining_percent: float | None = None
     capacity_checked_at: str | None = None
-
-
-def get_accounts_path() -> Path:
-    """Get accounts.json path from environment or default."""
-    path_str = os.getenv("CCPROXY_ACCOUNTS_PATH", "~/.claude/accounts.json")
-    return Path(path_str).expanduser()
 
 
 def format_expires_in(seconds: int | None) -> str:
@@ -143,7 +143,9 @@ def format_rate_limit_reset(iso_str: str | None) -> str | None:
         hours = minutes // 60
         remaining_minutes = minutes % 60
         return f"{hours}h {remaining_minutes}m"
-    except Exception:
+    except (ValueError, TypeError):
+        # ValueError: Invalid datetime format
+        # TypeError: Non-string input
         return None
 
 
@@ -168,7 +170,9 @@ def format_last_used(iso_str: str | None) -> str | None:
             return f"{hours}h ago"
         days = hours // 24
         return f"{days}d ago"
-    except Exception:
+    except (ValueError, TypeError):
+        # ValueError: Invalid datetime format
+        # TypeError: Non-string input
         return None
 
 
@@ -200,7 +204,9 @@ def is_token_expired(expires_at_str: str) -> bool:
     try:
         dt = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
         return datetime.now(UTC) > dt
-    except Exception:
+    except (ValueError, TypeError):
+        # ValueError: Invalid datetime format
+        # TypeError: Non-string input
         return False
 
 
@@ -219,20 +225,26 @@ def get_accounts(request: Request) -> list[AccountView]:
         expired = is_token_expired(expires_at_str)
         name = info.get("name", "Unknown")
 
-        accounts.append(AccountView(
-            name=name,
-            state=info.get("state", "unknown"),
-            expires_in=format_expires_in(info.get("tokenExpiresIn")),
-            is_expired=expired,
-            rate_limited_until=format_rate_limit_reset(info.get("rateLimitedUntil")),
-            last_used=format_last_used(info.get("lastUsed")),
-            last_error=info.get("lastError"),
-            is_next=(name == next_account),
-            # Capacity info
-            tokens_remaining_percent=info.get("tokensRemainingPercent"),
-            requests_remaining_percent=info.get("requestsRemainingPercent"),
-            capacity_checked_at=format_capacity_checked(info.get("capacityCheckedAt")),
-        ))
+        accounts.append(
+            AccountView(
+                name=name,
+                state=info.get("state", "unknown"),
+                expires_in=format_expires_in(info.get("tokenExpiresIn")),
+                is_expired=expired,
+                rate_limited_until=format_rate_limit_reset(
+                    info.get("rateLimitedUntil")
+                ),
+                last_used=format_last_used(info.get("lastUsed")),
+                last_error=info.get("lastError"),
+                is_next=(name == next_account),
+                # Capacity info
+                tokens_remaining_percent=info.get("tokensRemainingPercent"),
+                requests_remaining_percent=info.get("requestsRemainingPercent"),
+                capacity_checked_at=format_capacity_checked(
+                    info.get("capacityCheckedAt")
+                ),
+            )
+        )
 
     return accounts
 
@@ -254,8 +266,10 @@ def get_summary(request: Request) -> str:
     # Count expired tokens
     accounts = status.get("accounts", [])
     expired_count = sum(
-        1 for acc in accounts
-        if acc.get("state") == "available" and is_token_expired(acc.get("tokenExpiresAt", ""))
+        1
+        for acc in accounts
+        if acc.get("state") == "available"
+        and is_token_expired(acc.get("tokenExpiresAt", ""))
     )
 
     available = status.get("availableAccounts", 0)
@@ -329,16 +343,19 @@ def render_page(
     oauth_account: str = "",
 ) -> HTMLResponse:
     """Render the accounts page."""
-    return templates.TemplateResponse("accounts.html", {
-        "request": request,
-        "accounts": get_accounts(request),
-        "summary": get_summary(request),
-        "status_message": status_message,
-        "show_oauth": show_oauth,
-        "oauth_url": oauth_url,
-        "oauth_state": oauth_state,
-        "oauth_account": oauth_account,
-    })
+    return templates.TemplateResponse(
+        "accounts.html",
+        {
+            "request": request,
+            "accounts": get_accounts(request),
+            "summary": get_summary(request),
+            "status_message": status_message,
+            "show_oauth": show_oauth,
+            "oauth_url": oauth_url,
+            "oauth_state": oauth_state,
+            "oauth_account": oauth_account,
+        },
+    )
 
 
 @router.get("", response_class=HTMLResponse)
@@ -351,10 +368,13 @@ async def accounts_page(request: Request) -> HTMLResponse:
 @router.get("/refresh", response_class=HTMLResponse)
 async def refresh_accounts(request: Request) -> HTMLResponse:
     """Refresh accounts table (HTMX partial)."""
-    return templates.TemplateResponse("partials/accounts_table.html", {
-        "request": request,
-        "accounts": get_accounts(request),
-    })
+    return templates.TemplateResponse(
+        "partials/accounts_table.html",
+        {
+            "request": request,
+            "accounts": get_accounts(request),
+        },
+    )
 
 
 @router.get("/start/{account_name}")
@@ -399,7 +419,9 @@ def build_auth_url_for_state(state: str) -> str:
     if not state or not re.match(r"^[A-Za-z0-9_-]{32,}$", state):
         raise ValueError(
             f"Invalid state format: expected base64url string of 32+ chars, "
-            f"got '{state[:10]}...'" if len(state) > 10 else f"got '{state}'"
+            f"got '{state[:10]}...'"
+            if len(state) > 10
+            else f"got '{state}'"
         )
 
     # Compute code_challenge from state (which is the code_verifier)
@@ -435,7 +457,9 @@ async def oauth_return(request: Request, state: str = "") -> HTMLResponse:
         if flow:
             # Clean up expired flow
             _pending_oauth_flows.pop(state, None)
-        return render_page(request, status_message="Invalid or expired OAuth flow. Please start again.")
+        return render_page(
+            request, status_message="Invalid or expired OAuth flow. Please start again."
+        )
 
     # Rebuild auth URL using existing state (don't create new state mapping)
     auth_url = build_auth_url_for_state(state)
@@ -472,7 +496,8 @@ async def delete_account(request: Request, name: str) -> HTMLResponse:
 
         return render_page(request, status_message=f"Account {name} removed")
 
-    except Exception as e:
+    except OSError as e:
+        # OSError: File I/O errors when loading/saving accounts file
         return render_page(request, status_message=f"Error: {e}")
 
 
@@ -499,7 +524,9 @@ async def rename_account(
             return render_page(request, status_message=f"Account {old_name} not found")
 
         if new_name in accounts_file.accounts:
-            return render_page(request, status_message=f"Account {new_name} already exists")
+            return render_page(
+                request, status_message=f"Account {new_name} already exists"
+            )
 
         # Move account to new name
         account = accounts_file.accounts[old_name]
@@ -516,9 +543,12 @@ async def rename_account(
         if pool:
             pool.load()
 
-        return render_page(request, status_message=f"Account renamed: {old_name} → {new_name}")
+        return render_page(
+            request, status_message=f"Account renamed: {old_name} → {new_name}"
+        )
 
-    except Exception as e:
+    except OSError as e:
+        # OSError: File I/O errors when loading/saving accounts file
         return render_page(request, status_message=f"Error: {e}")
 
 
@@ -649,7 +679,9 @@ async def _check_and_update_account_capacity(
             return f" (Capacity check: {capacity.error})"
         elif capacity.tokens_remaining_percent is not None:
             return f" ({capacity.tokens_remaining_percent:.0f}% tokens remaining)"
-    except Exception as e:
+    except (httpx.HTTPError, OSError) as e:
+        # httpx.HTTPError: Network or HTTP errors during capacity check API call
+        # OSError: Low-level network errors (connection refused, etc.)
         logger.warning("capacity_check_after_oauth_failed", error=str(e))
     return ""
 
@@ -670,7 +702,9 @@ async def complete_oauth(
 
     # Validate input lengths to prevent abuse
     if len(code) > 1000 or len(state) > 100:
-        logger.warning("oauth_suspicious_input", code_len=len(code), state_len=len(state))
+        logger.warning(
+            "oauth_suspicious_input", code_len=len(code), state_len=len(state)
+        )
         return render_page(request, status_message="Invalid input parameters")
 
     # Strip URL fragments (user may accidentally copy them)
@@ -694,7 +728,9 @@ async def complete_oauth(
         token_response = await exchange_code_async(code, state, OAuthConfig())
         token_data = _validate_token_response(token_response)
         if not token_data:
-            return render_page(request, status_message="Token response missing required fields")
+            return render_page(
+                request, status_message="Token response missing required fields"
+            )
 
         access_token, refresh_token, expires_in = token_data
         expires_at = int((datetime.now(UTC).timestamp() + expires_in) * 1000)
@@ -714,9 +750,15 @@ async def complete_oauth(
             pool.load()
 
         capacity_msg = await _check_and_update_account_capacity(account_name, pool)
-        return render_page(request, status_message=f"Account {account_name} {action} successfully!{capacity_msg}")
+        return render_page(
+            request,
+            status_message=f"Account {account_name} {action} successfully!{capacity_msg}",
+        )
 
-    except Exception as e:
+    except (httpx.HTTPError, OSError, ValueError) as e:
+        # httpx.HTTPError: Network or HTTP errors during OAuth token exchange
+        # OSError: Low-level network errors (connection refused, etc.)
+        # ValueError: Invalid response data from token exchange
         logger.error("oauth_exchange_failed", error=str(e))
         return render_page(request, status_message=f"Token exchange failed: {e}")
 
@@ -793,7 +835,10 @@ async def check_account_capacity(
                         reason="middleware did not update state",
                     )
                     pool.mark_rate_limited(account_name)
-            return render_page(request, status_message=f"Capacity check for {account_name}: {capacity.error}")
+            return render_page(
+                request,
+                status_message=f"Capacity check for {account_name}: {capacity.error}",
+            )
 
         if capacity.tokens_remaining_percent is not None:
             return render_page(
@@ -801,9 +846,13 @@ async def check_account_capacity(
                 status_message=f"Account {account_name}: {capacity.tokens_remaining_percent:.0f}% tokens remaining",
             )
 
-        return render_page(request, status_message=f"Capacity check for {account_name} completed")
+        return render_page(
+            request, status_message=f"Capacity check for {account_name} completed"
+        )
 
-    except Exception as e:
+    except (httpx.HTTPError, OSError) as e:
+        # httpx.HTTPError: Network or HTTP errors during capacity check API call
+        # OSError: Low-level network errors (connection refused, etc.)
         logger.error("capacity_check_failed", account=account_name, error=str(e))
         return render_page(request, status_message=f"Capacity check failed: {e}")
 

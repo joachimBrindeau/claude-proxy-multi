@@ -1,9 +1,9 @@
 """Response processing utilities for testing."""
 
-import json
 from typing import Any
 
 import httpx
+import orjson
 
 from ccproxy.testing.config import RequestScenario
 
@@ -57,7 +57,10 @@ class ResponseHandler:
                 "format": scenario.api_format,
             }
 
-        except Exception as e:
+        except (orjson.JSONDecodeError, KeyError, IndexError, TypeError) as e:
+            # JSONDecodeError: Invalid JSON response
+            # KeyError/IndexError: Missing expected fields in response structure
+            # TypeError: Unexpected None or wrong type in response
             return {
                 "status_code": response.status_code,
                 "headers": dict(response.headers),
@@ -79,7 +82,7 @@ class ResponseHandler:
                     data_str = line[6:].strip()
                     if data_str and data_str != "[DONE]":
                         try:
-                            chunk_data = json.loads(data_str)
+                            chunk_data = orjson.loads(data_str)
                             chunks.append(chunk_data)
 
                             # Extract content based on format
@@ -96,7 +99,7 @@ class ResponseHandler:
                                         "text", ""
                                     )
                                     total_content += delta_text
-                        except json.JSONDecodeError:
+                        except orjson.JSONDecodeError:
                             continue
 
             return {
@@ -109,7 +112,10 @@ class ResponseHandler:
                 "format": scenario.api_format,
             }
 
-        except Exception as e:
+        except (httpx.StreamError, orjson.JSONDecodeError, KeyError, IndexError) as e:
+            # StreamError: Connection or streaming errors during iteration
+            # JSONDecodeError: Invalid JSON in stream chunks
+            # KeyError/IndexError: Missing expected fields in chunk structure
             return {
                 "status_code": response.status_code,
                 "headers": dict(response.headers),

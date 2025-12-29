@@ -91,7 +91,8 @@ class TestParseToolUseSdkTags:
             xml_content, collect_tool_calls=False
         )
 
-        expected_text = '[claude_code_sdk tool_use tool_123]: search({"query": "test"})'
+        # orjson produces compact output without spaces
+        expected_text = '[claude_code_sdk tool_use tool_123]: search({"query":"test"})'
         assert result_text == expected_text
         assert tool_calls == []
 
@@ -113,7 +114,8 @@ class TestParseToolUseSdkTags:
         assert tool_call.type == "function"
         assert tool_call.id == "tool_123"
         assert tool_call.function.name == "search"
-        assert tool_call.function.arguments == '{"query": "test"}'
+        # orjson produces compact output without spaces
+        assert tool_call.function.arguments == '{"query":"test"}'
 
     def test_parse_multiple_tool_uses(self) -> None:
         """Test parsing multiple tool_use tags."""
@@ -220,7 +222,6 @@ class TestParseResultMessageTags:
             "session_id": "session_123",
             "stop_reason": "end_turn",
             "usage": {"input_tokens": 10, "output_tokens": 20},
-            "total_cost_usd": 0.001,
         }
         xml_content = f"<result_message>{json.dumps(result_data)}</result_message>"
 
@@ -228,8 +229,7 @@ class TestParseResultMessageTags:
 
         expected = (
             "[claude_code_sdk result session_123]: "
-            "stop_reason=end_turn, usage={'input_tokens': 10, 'output_tokens': 20}, "
-            "cost_usd=0.001"
+            "stop_reason=end_turn, usage={'input_tokens': 10, 'output_tokens': 20}"
         )
         assert result == expected
 

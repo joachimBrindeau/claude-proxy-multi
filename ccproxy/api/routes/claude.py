@@ -1,11 +1,13 @@
 """Claude SDK endpoints for CCProxy API Server."""
 
-import json
+import asyncio
 from collections.abc import AsyncIterator
 
+import orjson
 import structlog
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from pydantic import ValidationError as PydanticValidationError
 
 from ccproxy.adapters.openai.adapter import (
     OpenAIAdapter,
@@ -13,6 +15,7 @@ from ccproxy.adapters.openai.adapter import (
     OpenAIChatCompletionResponse,
 )
 from ccproxy.api.dependencies import ClaudeServiceDep
+from ccproxy.core.errors import ClaudeProxyError
 from ccproxy.models.messages import MessageCreateParams, MessageResponse
 from ccproxy.observability.streaming_response import StreamingResponseWithLogging
 
@@ -68,7 +71,7 @@ async def create_openai_chat_completion(
             async def openai_stream_generator() -> AsyncIterator[bytes]:
                 # Use adapt_stream for streaming responses
                 async for openai_chunk in adapter.adapt_stream(response):  # type: ignore[arg-type]
-                    yield f"data: {json.dumps(openai_chunk)}\n\n".encode()
+                    yield b"data: " + orjson.dumps(openai_chunk) + b"\n\n"
                 # Send final chunk
                 yield b"data: [DONE]\n\n"
 
@@ -95,12 +98,19 @@ async def create_openai_chat_completion(
             openai_response = adapter.adapt_response(response_dict)
             return OpenAIChatCompletionResponse.model_validate(openai_response)
 
-    except Exception as e:
-        # Re-raise specific proxy errors to be handled by the error handler
-        from ccproxy.core.errors import ClaudeProxyError
-
-        if isinstance(e, ClaudeProxyError):
-            raise
+    except (HTTPException, ClaudeProxyError):
+        # Re-raise HTTP and proxy errors to be handled by error middleware
+        raise
+    except asyncio.CancelledError:
+        # Streaming was cancelled by client disconnect
+        raise
+    except PydanticValidationError as e:
+        # Request/response validation failed
+        raise HTTPException(
+            status_code=400, detail=f"Validation error: {str(e)}"
+        ) from e
+    except (KeyError, TypeError, ValueError) as e:
+        # Data transformation or format errors during request/response processing
         raise HTTPException(
             status_code=500, detail=f"Internal server error: {str(e)}"
         ) from e
@@ -156,7 +166,7 @@ async def create_openai_chat_completion_with_session(
             async def openai_stream_generator() -> AsyncIterator[bytes]:
                 # Use adapt_stream for streaming responses
                 async for openai_chunk in adapter.adapt_stream(response):  # type: ignore[arg-type]
-                    yield f"data: {json.dumps(openai_chunk)}\n\n".encode()
+                    yield b"data: " + orjson.dumps(openai_chunk) + b"\n\n"
                 # Send final chunk
                 yield b"data: [DONE]\n\n"
 
@@ -184,12 +194,19 @@ async def create_openai_chat_completion_with_session(
             openai_response = adapter.adapt_response(response_dict)
             return OpenAIChatCompletionResponse.model_validate(openai_response)
 
-    except Exception as e:
-        # Re-raise specific proxy errors to be handled by the error handler
-        from ccproxy.core.errors import ClaudeProxyError
-
-        if isinstance(e, ClaudeProxyError):
-            raise
+    except (HTTPException, ClaudeProxyError):
+        # Re-raise HTTP and proxy errors to be handled by error middleware
+        raise
+    except asyncio.CancelledError:
+        # Streaming was cancelled by client disconnect
+        raise
+    except PydanticValidationError as e:
+        # Request/response validation failed
+        raise HTTPException(
+            status_code=400, detail=f"Validation error: {str(e)}"
+        ) from e
+    except (KeyError, TypeError, ValueError) as e:
+        # Data transformation or format errors during request/response processing
         raise HTTPException(
             status_code=500, detail=f"Internal server error: {str(e)}"
         ) from e
@@ -248,10 +265,10 @@ async def create_anthropic_message_with_session(
                             # Determine event type from chunk type
                             event_type = chunk.get("type", "message_delta")
                             yield f"event: {event_type}\n".encode()
-                            yield f"data: {json.dumps(chunk)}\n\n".encode()
+                            yield b"data: " + orjson.dumps(chunk) + b"\n\n"
                         else:
                             # Fallback for unexpected format
-                            yield f"data: {json.dumps(chunk)}\n\n".encode()
+                            yield b"data: " + orjson.dumps(chunk) + b"\n\n"
                 # No final [DONE] chunk for Anthropic format
 
             # Use unified streaming wrapper with logging
@@ -271,12 +288,19 @@ async def create_anthropic_message_with_session(
             # Return Anthropic format response directly
             return MessageResponse.model_validate(response)
 
-    except Exception as e:
-        # Re-raise specific proxy errors to be handled by the error handler
-        from ccproxy.core.errors import ClaudeProxyError
-
-        if isinstance(e, ClaudeProxyError):
-            raise e
+    except (HTTPException, ClaudeProxyError):
+        # Re-raise HTTP and proxy errors to be handled by error middleware
+        raise
+    except asyncio.CancelledError:
+        # Streaming was cancelled by client disconnect
+        raise
+    except PydanticValidationError as e:
+        # Request/response validation failed
+        raise HTTPException(
+            status_code=400, detail=f"Validation error: {str(e)}"
+        ) from e
+    except (KeyError, TypeError, ValueError) as e:
+        # Data transformation or format errors during request/response processing
         raise HTTPException(
             status_code=500, detail=f"Internal server error: {str(e)}"
         ) from e
@@ -337,10 +361,10 @@ async def create_anthropic_message(
                             # Determine event type from chunk type
                             event_type = chunk.get("type", "message_delta")
                             yield f"event: {event_type}\n".encode()
-                            yield f"data: {json.dumps(chunk)}\n\n".encode()
+                            yield b"data: " + orjson.dumps(chunk) + b"\n\n"
                         else:
                             # Fallback for unexpected format
-                            yield f"data: {json.dumps(chunk)}\n\n".encode()
+                            yield b"data: " + orjson.dumps(chunk) + b"\n\n"
                 # No final [DONE] chunk for Anthropic format
 
             # Use unified streaming wrapper with logging for all requests
@@ -360,12 +384,19 @@ async def create_anthropic_message(
             # Return Anthropic format response directly
             return MessageResponse.model_validate(response)
 
-    except Exception as e:
-        # Re-raise specific proxy errors to be handled by the error handler
-        from ccproxy.core.errors import ClaudeProxyError
-
-        if isinstance(e, ClaudeProxyError):
-            raise e
+    except (HTTPException, ClaudeProxyError):
+        # Re-raise HTTP and proxy errors to be handled by error middleware
+        raise
+    except asyncio.CancelledError:
+        # Streaming was cancelled by client disconnect
+        raise
+    except PydanticValidationError as e:
+        # Request/response validation failed
+        raise HTTPException(
+            status_code=400, detail=f"Validation error: {str(e)}"
+        ) from e
+    except (KeyError, TypeError, ValueError) as e:
+        # Data transformation or format errors during request/response processing
         raise HTTPException(
             status_code=500, detail=f"Internal server error: {str(e)}"
         ) from e

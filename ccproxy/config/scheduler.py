@@ -32,24 +32,6 @@ class SchedulerSettings(BaseSettings):
         description="Timeout in seconds for graceful task shutdown",
     )
 
-    # Pricing updater task settings
-    pricing_update_enabled: bool = Field(
-        default=True,
-        description="Whether pricing cache update task is enabled. Enabled by default for privacy - downloads from GitHub when enabled",
-    )
-
-    pricing_update_interval_hours: int = Field(
-        default=24,
-        ge=1,
-        le=168,  # Max 1 week
-        description="Interval in hours between pricing cache updates",
-    )
-
-    pricing_force_refresh_on_startup: bool = Field(
-        default=False,
-        description="Whether to force pricing refresh immediately on startup",
-    )
-
     # Observability tasks (migrated from ObservabilitySettings)
     pushgateway_enabled: bool = Field(
         default=False,

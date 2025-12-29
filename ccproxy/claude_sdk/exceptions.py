@@ -1,16 +1,13 @@
-"""Claude SDK exceptions."""
+"""Claude SDK exceptions.
+
+DEPRECATED: This module is deprecated. Import from ccproxy.exceptions instead.
+Re-exports are provided for backwards compatibility.
+"""
+
+from ccproxy.exceptions import ClaudeSDKError, StreamTimeoutError
 
 
-class ClaudeSDKError(Exception):
-    """Base Claude SDK error."""
-
-    pass
-
-
-class StreamTimeoutError(ClaudeSDKError):
-    """Stream timeout error when no SDK message is received within timeout."""
-
-    def __init__(self, message: str, session_id: str, timeout_seconds: float):
-        super().__init__(message)
-        self.session_id = session_id
-        self.timeout_seconds = timeout_seconds
+__all__ = [
+    "ClaudeSDKError",
+    "StreamTimeoutError",
+]

@@ -1,17 +1,21 @@
 """Credentials manager for coordinating storage and OAuth operations."""
 
 import asyncio
-import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+import orjson
+import pydantic
 from structlog import get_logger
 
 from ccproxy.auth.exceptions import (
     CredentialsExpiredError,
     CredentialsNotFoundError,
+    CredentialsStorageError,
+    OAuthError,
+    OAuthTokenRefreshError,
 )
 from ccproxy.auth.models import (
     ClaudeCredentials,
@@ -21,8 +25,11 @@ from ccproxy.auth.models import (
 )
 from ccproxy.auth.storage import JsonFileTokenStorage as JsonFileStorage
 from ccproxy.auth.storage import TokenStorage as CredentialsStorageBackend
-from ccproxy.config.auth import AuthSettings
 from ccproxy.services.credentials.oauth_client import OAuthClient
+
+
+if TYPE_CHECKING:
+    from ccproxy.config.auth import AuthSettings
 
 
 logger = get_logger(__name__)
@@ -35,7 +42,7 @@ class CredentialsManager:
 
     def __init__(
         self,
-        config: AuthSettings | None = None,
+        config: "AuthSettings | None" = None,
         storage: CredentialsStorageBackend | None = None,
         oauth_client: OAuthClient | None = None,
         http_client: httpx.AsyncClient | None = None,
@@ -48,7 +55,12 @@ class CredentialsManager:
             oauth_client: OAuth client (creates one if not provided)
             http_client: HTTP client for OAuth operations
         """
-        self.config = config or AuthSettings()
+        # Lazy import to avoid circular dependency
+        if config is None:
+            from ccproxy.config.auth import AuthSettings
+
+            config = AuthSettings()
+        self.config = config
         self._storage = storage
         self._oauth_client = oauth_client
         self._http_client = http_client
@@ -118,7 +130,13 @@ class CredentialsManager:
         """
         try:
             return await self.storage.load()
-        except Exception as e:
+        except (
+            CredentialsStorageError,
+            OSError,
+            orjson.JSONDecodeError,
+            pydantic.ValidationError,
+        ) as e:
+            # Storage errors, file I/O issues, JSON parsing failures, or invalid credential format
             logger.error("credentials_load_failed", error=str(e))
             return None
 
@@ -133,7 +151,8 @@ class CredentialsManager:
         """
         try:
             return await self.storage.save(credentials)
-        except Exception as e:
+        except (CredentialsStorageError, OSError, orjson.JSONDecodeError) as e:
+            # Storage errors, file I/O issues, or JSON serialization failures
             logger.error("credentials_save_failed", error=str(e))
             return False
 
@@ -172,9 +191,9 @@ class CredentialsManager:
                 logger.debug(
                     "profile_fetch_skipped", context="login", reason="no_profile_data"
                 )
-        except Exception as e:
+        except (OAuthError, httpx.HTTPError) as e:
+            # OAuth or network errors during profile fetch - non-critical, continue with login
             logger.warning("profile_fetch_failed", context="login", error=str(e))
-            # Continue with login even if profile fetch fails
 
         await self.save(credentials)
         return credentials
@@ -218,7 +237,8 @@ class CredentialsManager:
                         credentials = await self._refresh_token_with_profile(
                             credentials
                         )
-                    except Exception as e:
+                    except (OAuthTokenRefreshError, httpx.HTTPError, ValueError) as e:
+                        # Token refresh failed due to OAuth, network, or validation errors
                         logger.error(
                             "token_refresh_failed", error=str(e), exc_info=True
                         )
@@ -283,7 +303,13 @@ class CredentialsManager:
                 credentials.claude_ai_oauth.access_token,
             )
             return profile
-        except Exception as e:
+        except (
+            OAuthError,
+            CredentialsNotFoundError,
+            CredentialsExpiredError,
+            httpx.HTTPError,
+        ) as e:
+            # OAuth errors, missing/expired credentials, or network failures
             logger.error(
                 "user_profile_fetch_failed",
                 error=str(e),
@@ -306,8 +332,18 @@ class CredentialsManager:
 
         Returns:
             ValidationResult with credentials status and details
+
+        Raises:
+            CredentialsNotFoundError: If no credentials are found or storage fails
         """
-        credentials = await self.load()
+        try:
+            credentials = await self.load()
+        except Exception as e:  # noqa: BLE001 - catch-all to convert storage errors to CredentialsNotFoundError
+            logger.error("credentials_load_exception", error=str(e), exc_info=True)
+            raise CredentialsNotFoundError(
+                "No credentials found. Please login first."
+            ) from e
+
         if not credentials:
             raise CredentialsNotFoundError("No credentials found. Please login first.")
 
@@ -329,7 +365,8 @@ class CredentialsManager:
             success = await self.storage.delete()
             await self._delete_account_profile()
             return success
-        except Exception as e:
+        except (CredentialsStorageError, OSError) as e:
+            # Storage errors or file I/O issues during deletion
             logger.error("credentials_delete_failed", error=str(e), exc_info=True)
             return False
 
@@ -366,13 +403,14 @@ class CredentialsManager:
             # Convert to dict and save as JSON
             profile_data = profile.model_dump()
 
-            with account_path.open("w", encoding="utf-8") as f:
-                json.dump(profile_data, f, indent=2, ensure_ascii=False)
+            with account_path.open("wb") as f:
+                f.write(orjson.dumps(profile_data, option=orjson.OPT_INDENT_2))
 
             logger.debug("account_profile_saved", path=str(account_path))
             return True
 
-        except Exception as e:
+        except (OSError, orjson.JSONDecodeError) as e:
+            # File I/O errors or JSON serialization failures
             logger.error("account_profile_save_failed", error=str(e), exc_info=True)
             return False
 
@@ -389,12 +427,13 @@ class CredentialsManager:
                 logger.debug("account_profile_not_found", path=str(account_path))
                 return None
 
-            with account_path.open("r", encoding="utf-8") as f:
-                profile_data = json.load(f)
+            with account_path.open("rb") as f:
+                profile_data = orjson.loads(f.read())
 
             return UserProfile.model_validate(profile_data)
 
-        except Exception as e:
+        except (OSError, orjson.JSONDecodeError, pydantic.ValidationError) as e:
+            # File I/O errors, JSON parsing failures, or invalid profile format
             logger.debug("account_profile_load_failed", error=str(e))
             return None
 
@@ -410,7 +449,8 @@ class CredentialsManager:
                 account_path.unlink()
                 logger.debug("account_profile_deleted", path=str(account_path))
             return True
-        except Exception as e:
+        except OSError as e:
+            # File I/O errors during deletion (permission denied, file in use, etc.)
             logger.debug("account_profile_delete_failed", error=str(e))
             return False
 
@@ -548,11 +588,11 @@ class CredentialsManager:
                 logger.debug(
                     "profile_fetch_skipped", reason="no_profile_data_available"
                 )
-        except Exception as e:
+        except (OAuthError, httpx.HTTPError) as e:
+            # OAuth or network errors during profile fetch - non-critical, continue with refresh
             logger.warning(
                 "profile_fetch_failed", context="token_refresh", error=str(e)
             )
-            # Continue with token refresh even if profile fetch fails
 
         # Save updated credentials
         await self.save(credentials)

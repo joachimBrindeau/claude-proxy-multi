@@ -105,60 +105,6 @@ LARGE_REQUEST_ANTHROPIC: dict[str, Any] = {
 TEST_AUTH_TOKEN = "test-token-12345"
 INVALID_AUTH_TOKEN = "invalid-token"
 
-# OpenAI Codex request data structures
-STANDARD_CODEX_REQUEST: dict[str, Any] = {
-    "input": [
-        {
-            "type": "message",
-            "role": "user",
-            "content": [{"type": "input_text", "text": "Hello, Codex!"}],
-        }
-    ],
-    "model": "gpt-5",
-    "store": False,
-}
-
-CODEX_REQUEST_WITH_SESSION: dict[str, Any] = {
-    **STANDARD_CODEX_REQUEST,
-    "session_id": "test-session-123",
-}
-
-# Codex streaming request variants
-STREAMING_CODEX_REQUEST: dict[str, Any] = {
-    **STANDARD_CODEX_REQUEST,
-    "stream": True,
-}
-
-# Codex error test cases
-INVALID_MODEL_CODEX_REQUEST: dict[str, Any] = {
-    **STANDARD_CODEX_REQUEST,
-    "model": INVALID_MODEL_NAME,
-}
-
-MISSING_INPUT_CODEX_REQUEST: dict[str, Any] = {
-    "model": "gpt-5",
-    "store": False,
-    # Missing "input" field
-}
-
-EMPTY_INPUT_CODEX_REQUEST: dict[str, Any] = {
-    "input": [],
-    "model": "gpt-5",
-    "store": False,
-}
-
-MALFORMED_INPUT_CODEX_REQUEST: dict[str, Any] = {
-    "input": [
-        {
-            "invalid_field": "message",
-            "role": "user",
-            "content": [{"type": "input_text", "text": "Hello"}],
-        }
-    ],
-    "model": "gpt-5",
-    "store": False,
-}
-
 # Expected response field sets for validation
 OPENAI_RESPONSE_FIELDS = {"id", "object", "created", "model", "choices", "usage"}
 ANTHROPIC_RESPONSE_FIELDS = {
@@ -168,14 +114,6 @@ ANTHROPIC_RESPONSE_FIELDS = {
     "content",
     "model",
     "stop_reason",
-    "usage",
-}
-CODEX_RESPONSE_FIELDS = {
-    "id",
-    "object",
-    "created",
-    "model",
-    "choices",
     "usage",
 }
 
@@ -207,28 +145,6 @@ def create_anthropic_request(
         "model": model,
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": content}],
-    }
-    request.update(kwargs)
-    return request
-
-
-def create_codex_request(
-    content: str = "Hello",
-    model: str = "gpt-5",
-    store: bool = False,
-    **kwargs: Any,
-) -> dict[str, Any]:
-    """Create a customizable Codex request."""
-    request = {
-        "input": [
-            {
-                "type": "message",
-                "role": "user",
-                "content": [{"type": "input_text", "text": content}],
-            }
-        ],
-        "model": model,
-        "store": store,
     }
     request.update(kwargs)
     return request

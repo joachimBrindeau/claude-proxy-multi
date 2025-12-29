@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "accounts": {
+    "primary": {
+      "accessToken": "sk-ant-oat01-YOUR_ACCESS_TOKEN_HERE",
+      "refreshToken": "sk-ant-ort01-YOUR_REFRESH_TOKEN_HERE",
+      "expiresAt": 1735689600000
+    },
+    "secondary": {
+      "accessToken": "sk-ant-oat01-SECOND_ACCESS_TOKEN_HERE",
+      "refreshToken": "sk-ant-ort01-SECOND_REFRESH_TOKEN_HERE",
+      "expiresAt": 1735689600000
+    }
+  }
+}

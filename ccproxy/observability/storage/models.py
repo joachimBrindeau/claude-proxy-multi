@@ -37,13 +37,11 @@ class AccessLog(SQLModel, table=True):
     duration_ms: float
     duration_seconds: float
 
-    # Token and cost tracking
+    # Token tracking
     tokens_input: int = Field(default=0)
     tokens_output: int = Field(default=0)
     cache_read_tokens: int = Field(default=0)
     cache_write_tokens: int = Field(default=0)
-    cost_usd: float = Field(default=0.0)
-    cost_sdk_usd: float = Field(default=0.0)
     num_turns: int = Field(default=0)  # number of conversation turns
 
     # Session context metadata

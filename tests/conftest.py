@@ -44,8 +44,6 @@ from ccproxy.docker.stream_process import DefaultOutputMiddleware
 pytest_plugins = [
     "tests.fixtures.claude_sdk.internal_mocks",
     "tests.fixtures.claude_sdk.client_mocks",
-    "tests.fixtures.external_apis.anthropic_api",
-    "tests.fixtures.external_apis.openai_codex_api",
 ]
 
 
@@ -963,106 +961,6 @@ def auth_headers(
 def client(app: FastAPI) -> TestClient:
     """Basic test client."""
     return TestClient(app)
-
-
-# Codex-specific fixtures following Claude patterns
-
-
-@pytest.fixture
-def mock_openai_credentials(isolated_environment: Path) -> dict[str, Any]:
-    """Mock OpenAI credentials for testing."""
-    import time
-    from datetime import UTC, datetime
-
-    # Set expiration to 1 hour from now (future)
-    future_timestamp = int(time.time()) + 3600
-
-    return {
-        "access_token": "test-openai-access-token-12345",
-        "refresh_token": "test-openai-refresh-token-67890",
-        "expires_at": datetime.fromtimestamp(future_timestamp, UTC),
-        "account_id": "test-account-id",
-    }
-
-
-@pytest.fixture
-def client_with_mock_codex(
-    test_settings: Settings,
-    mock_openai_credentials: dict[str, Any],
-    fastapi_app_factory: "FastAPIAppFactory",
-) -> Generator[TestClient, None, None]:
-    """Test client with mocked Codex service (no auth)."""
-    app = fastapi_app_factory.create_app(
-        settings=test_settings,
-        auth_enabled=False,
-    )
-
-    # Mock OpenAI credentials
-    from unittest.mock import patch
-
-    with patch("ccproxy.auth.openai.OpenAITokenManager.load_credentials") as mock_load:
-        from ccproxy.auth.openai import OpenAICredentials
-
-        mock_load.return_value = OpenAICredentials(**mock_openai_credentials)
-
-        yield TestClient(app)
-
-
-@pytest.fixture
-def client_with_mock_codex_streaming(
-    test_settings: Settings,
-    mock_openai_credentials: dict[str, Any],
-    fastapi_app_factory: "FastAPIAppFactory",
-) -> Generator[TestClient, None, None]:
-    """Test client with mocked Codex streaming service (no auth)."""
-    app = fastapi_app_factory.create_app(
-        settings=test_settings,
-        auth_enabled=False,
-    )
-
-    # Mock OpenAI credentials
-    from unittest.mock import patch
-
-    with patch("ccproxy.auth.openai.OpenAITokenManager.load_credentials") as mock_load:
-        from ccproxy.auth.openai import OpenAICredentials
-
-        mock_load.return_value = OpenAICredentials(**mock_openai_credentials)
-
-        yield TestClient(app)
-
-
-@pytest.fixture
-def codex_responses() -> dict[str, Any]:
-    """Load standard Codex API responses for testing.
-
-    Returns a dictionary of mock Codex API responses.
-    """
-    return {
-        "standard_completion": {
-            "id": "codex_01234567890",
-            "object": "codex.response",
-            "created": 1234567890,
-            "model": "gpt-5",
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": "Hello! How can I help you with coding today?",
-                    },
-                    "finish_reason": "stop",
-                }
-            ],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 12, "total_tokens": 22},
-        },
-        "error_response": {
-            "error": {
-                "type": "invalid_request_error",
-                "message": "Invalid model specified",
-                "code": "invalid_model",
-            }
-        },
-    }
 
 
 # Test Utilities

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from claude_code_sdk import ClaudeCodeOptions
@@ -12,10 +12,6 @@ from claude_code_sdk import ClaudeCodeOptions
 from ccproxy.claude_sdk.session_client import SessionClient, SessionStatus
 from ccproxy.config.claude import SessionPoolSettings
 from ccproxy.core.errors import ClaudeProxyError, ServiceUnavailableError
-
-
-if TYPE_CHECKING:
-    pass
 
 
 logger = structlog.get_logger(__name__)
@@ -223,7 +219,8 @@ class SessionPool:
                                         old_handle_id=old_handle_id,
                                         message="Ongoing timeout stream was already completed",
                                     )
-                            except Exception as e:
+                            except (TimeoutError, asyncio.CancelledError, OSError) as e:
+                                # Interrupt errors: task cancellation, timeout, or I/O failures
                                 logger.warning(
                                     "session_pool_interrupt_ongoing_failed",
                                     session_id=session_id,
@@ -331,7 +328,7 @@ class SessionPool:
         )
 
         # Start connection in background
-        connection_task = session_client.connect_background()
+        session_client.connect_background()
 
         # Add to sessions immediately (will connect in background)
         self.sessions[session_id] = session_client
@@ -382,7 +379,8 @@ class SessionPool:
                 await self._cleanup_sessions()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (TimeoutError, OSError, RuntimeError) as e:
+                # Cleanup errors: timeout during cleanup, I/O failures, or runtime issues
                 logger.error("session_cleanup_error", error=str(e), exc_info=True)
 
     async def _cleanup_sessions(self) -> None:
@@ -417,7 +415,8 @@ class SessionPool:
                 # Try to interrupt stuck session before cleanup
                 try:
                     await session_client.interrupt()
-                except Exception as e:
+                except (TimeoutError, asyncio.CancelledError, OSError) as e:
+                    # Stuck session interrupt errors: task cancellation, timeout, or I/O failures
                     logger.warning(
                         "session_stuck_interrupt_failed",
                         session_id=session_id,
@@ -466,7 +465,10 @@ class SessionPool:
             await self._remove_session(session_id)
             return True
 
-        except (TimeoutError, Exception) as e:
+        except (TimeoutError, asyncio.CancelledError, OSError) as e:
+            # TimeoutError: Interrupt timeout exceeded
+            # CancelledError: Interrupt was cancelled
+            # OSError: Connection or system errors
             logger.error(
                 "session_interrupt_failed",
                 session_id=session_id,
@@ -475,7 +477,7 @@ class SessionPool:
                 else "Timeout after 30s",
             )
             # Always remove the session on failure
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(asyncio.CancelledError, OSError):
                 await self._remove_session(session_id)
             return False
 
@@ -500,7 +502,8 @@ class SessionPool:
             try:
                 await session_client.interrupt()
                 interrupted_count += 1
-            except Exception as e:
+            except (TimeoutError, asyncio.CancelledError, OSError) as e:
+                # Session interrupt errors: task cancellation, timeout, or I/O failures
                 logger.error(
                     "session_interrupt_failed_during_all",
                     session_id=session_id,

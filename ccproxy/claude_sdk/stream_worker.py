@@ -5,13 +5,26 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import AsyncIterator
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import structlog
+from claude_code_sdk import (
+    CLIConnectionError as SDKConnectionError,
+)
+from claude_code_sdk import (
+    CLIJSONDecodeError as SDKJSONDecodeError,
+)
+from claude_code_sdk import (
+    CLINotFoundError as SDKNotFoundError,
+)
+from claude_code_sdk import (
+    ProcessError as SDKProcessError,
+)
 
 from ccproxy.claude_sdk.exceptions import StreamTimeoutError
 from ccproxy.claude_sdk.message_queue import MessageQueue
+from ccproxy.core.errors import ClaudeProxyError, ServiceUnavailableError
 from ccproxy.models import claude_sdk as sdk_models
 
 
@@ -22,7 +35,7 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
-class WorkerStatus(str, Enum):
+class WorkerStatus(StrEnum):
     """Status of the stream worker."""
 
     IDLE = "idle"
@@ -137,7 +150,8 @@ class StreamWorker:
                         task_cancelled=self._worker_task.cancelled(),
                     )
 
-            except Exception as e:
+            except (TimeoutError, asyncio.CancelledError, OSError) as e:
+                # Stop errors: task cancellation, wait timeout, or I/O errors
                 logger.warning(
                     "stream_worker_stop_error",
                     worker_id=self.worker_id,
@@ -274,8 +288,18 @@ class StreamWorker:
             )
             # Don't re-raise StreamTimeoutError to avoid unhandled task exceptions
 
-        except Exception as e:
-            # Error during processing (other than timeout)
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            SDKConnectionError,
+            SDKNotFoundError,
+            SDKProcessError,
+            SDKJSONDecodeError,
+            ClaudeProxyError,
+            ServiceUnavailableError,
+        ) as e:
+            # Worker errors: I/O failures, runtime issues, invalid data, SDK errors, or wrapped proxy errors
             self.status = WorkerStatus.ERROR
             await self._message_queue.broadcast_error(e)
 
@@ -356,7 +380,8 @@ class StreamWorker:
                     )
                     break
 
-        except Exception as e:
+        except (TimeoutError, asyncio.CancelledError, OSError) as e:
+            # Drain errors: task cancellation, iteration timeout, or I/O failures
             logger.error(
                 "stream_worker_drain_error",
                 worker_id=self.worker_id,

@@ -22,6 +22,7 @@ build/
 
 # Testing & Coverage
 .pytest_cache/
+.benchmarks/
 .coverage
 htmlcov/
 coverage.xml
@@ -81,6 +82,18 @@ credentials.json
 *.pem
 *.key
 secrets.*
+
+# Local config directory (keep README and examples)
+config/accounts.json
+config/.credentials.json
+config/projects/
+config/shell-snapshots/
+config/statsig/
+config/telemetry/
+config/todos/
+config/debug/
+!config/README.md
+!config/*.example
 
 # Project specific
 .aider*

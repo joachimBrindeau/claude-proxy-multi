@@ -5,11 +5,11 @@ from datetime import UTC
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from ccproxy.scheduler.tasks import (
     BaseScheduledTask,
-    PricingCacheUpdateTask,
     PushgatewayTask,
     StatsPrintingTask,
     VersionUpdateCheckTask,
@@ -98,15 +98,20 @@ class TestBaseScheduledTask:
         assert delay == 10.0
 
         # Simulate failures
+        # tenacity uses 2^(attempt_number - 1) formula
         task._consecutive_failures = 1
         delay = task.calculate_next_delay()
-        assert delay == 20.0  # 10 * 2^1
+        assert delay == 10.0  # 10 * 2^0 = 10
 
         task._consecutive_failures = 2
         delay = task.calculate_next_delay()
-        assert delay == 40.0  # 10 * 2^2
+        assert delay == 20.0  # 10 * 2^1 = 20
 
         task._consecutive_failures = 3
+        delay = task.calculate_next_delay()
+        assert delay == 40.0  # 10 * 2^2 = 40
+
+        task._consecutive_failures = 4
         delay = task.calculate_next_delay()
         assert delay == 60.0  # Capped at max_backoff_seconds
 
@@ -254,7 +259,8 @@ class TestPushgatewayTask:
         with patch("ccproxy.observability.metrics.get_metrics") as mock_get_metrics:
             mock_metrics = MagicMock()
             mock_metrics.is_pushgateway_enabled.return_value = True
-            mock_metrics.push_to_gateway.side_effect = Exception("Network error")
+            # Use httpx.HTTPError which is now the expected exception type
+            mock_metrics.push_to_gateway.side_effect = httpx.HTTPError("Network error")
             mock_get_metrics.return_value = mock_metrics
 
             task = PushgatewayTask(
@@ -362,7 +368,8 @@ class TestStatsPrintingTask:
             mock_get_metrics.return_value = mock_metrics
 
             mock_stats_collector = AsyncMock()
-            mock_stats_collector.print_stats.side_effect = Exception("Print error")
+            # Use RuntimeError which is now the expected exception type
+            mock_stats_collector.print_stats.side_effect = RuntimeError("Print error")
             mock_get_stats.return_value = mock_stats_collector
 
             task = StatsPrintingTask(
@@ -376,176 +383,6 @@ class TestStatsPrintingTask:
 
             assert result is False
             mock_stats_collector.print_stats.assert_called_once()
-
-            await task.cleanup()
-
-
-class TestPricingCacheUpdateTask:
-    """Test PricingCacheUpdateTask specific functionality."""
-
-    @pytest.mark.asyncio
-    async def test_pricing_task_setup(self) -> None:
-        """Test PricingCacheUpdateTask setup process."""
-        with patch(
-            "ccproxy.pricing.updater.PricingUpdater"
-        ) as mock_pricing_updater_class:
-            mock_pricing_updater = AsyncMock()
-            mock_pricing_updater_class.return_value = mock_pricing_updater
-
-            task = PricingCacheUpdateTask(
-                name="pricing_setup_test",
-                interval_seconds=3600.0,
-                enabled=True,
-            )
-
-            await task.setup()
-            assert task._pricing_updater is not None
-            mock_pricing_updater_class.assert_called_once()
-
-            await task.cleanup()
-
-    @pytest.mark.asyncio
-    async def test_pricing_task_force_refresh_on_startup(self) -> None:
-        """Test pricing task force refresh on startup."""
-        with patch(
-            "ccproxy.pricing.updater.PricingUpdater"
-        ) as mock_pricing_updater_class:
-            mock_pricing_updater = AsyncMock()
-            mock_pricing_updater.force_refresh.return_value = True
-            mock_pricing_updater_class.return_value = mock_pricing_updater
-
-            task = PricingCacheUpdateTask(
-                name="pricing_force_test",
-                interval_seconds=3600.0,
-                enabled=True,
-                force_refresh_on_startup=True,
-            )
-
-            await task.setup()
-
-            # First run should force refresh
-            result = await task.run()
-            assert result is True
-            mock_pricing_updater.force_refresh.assert_called_once()
-
-            await task.cleanup()
-
-    @pytest.mark.asyncio
-    async def test_pricing_task_regular_update(self) -> None:
-        """Test pricing task regular update behavior."""
-        with patch(
-            "ccproxy.pricing.updater.PricingUpdater"
-        ) as mock_pricing_updater_class:
-            mock_pricing_updater = AsyncMock()
-            mock_pricing_updater.get_current_pricing.return_value = {
-                "model": "claude-3"
-            }
-            mock_pricing_updater_class.return_value = mock_pricing_updater
-
-            task = PricingCacheUpdateTask(
-                name="pricing_regular_test",
-                interval_seconds=3600.0,
-                enabled=True,
-                force_refresh_on_startup=False,
-            )
-
-            await task.setup()
-
-            # Regular run should check current pricing
-            result = await task.run()
-            assert result is True
-            mock_pricing_updater.get_current_pricing.assert_called_once_with(
-                force_refresh=False
-            )
-
-            await task.cleanup()
-
-    @pytest.mark.asyncio
-    async def test_pricing_task_startup_then_regular(self) -> None:
-        """Test pricing task startup behavior then regular behavior."""
-        with patch(
-            "ccproxy.pricing.updater.PricingUpdater"
-        ) as mock_pricing_updater_class:
-            mock_pricing_updater = AsyncMock()
-            mock_pricing_updater.force_refresh.return_value = True
-            mock_pricing_updater.get_current_pricing.return_value = {
-                "model": "claude-3"
-            }
-            mock_pricing_updater_class.return_value = mock_pricing_updater
-
-            task = PricingCacheUpdateTask(
-                name="pricing_transition_test",
-                interval_seconds=3600.0,
-                enabled=True,
-                force_refresh_on_startup=True,
-            )
-
-            await task.setup()
-
-            # First run should force refresh
-            result1 = await task.run()
-            assert result1 is True
-            mock_pricing_updater.force_refresh.assert_called_once()
-
-            # Second run should do regular update
-            result2 = await task.run()
-            assert result2 is True
-            mock_pricing_updater.get_current_pricing.assert_called_once_with(
-                force_refresh=False
-            )
-
-            await task.cleanup()
-
-    @pytest.mark.asyncio
-    async def test_pricing_task_error_handling(self) -> None:
-        """Test pricing task error handling."""
-        with patch(
-            "ccproxy.pricing.updater.PricingUpdater"
-        ) as mock_pricing_updater_class:
-            mock_pricing_updater = AsyncMock()
-            mock_pricing_updater.get_current_pricing.side_effect = Exception(
-                "Update error"
-            )
-            mock_pricing_updater_class.return_value = mock_pricing_updater
-
-            task = PricingCacheUpdateTask(
-                name="pricing_error_test",
-                interval_seconds=3600.0,
-                enabled=True,
-                force_refresh_on_startup=False,
-            )
-
-            await task.setup()
-            result = await task.run()
-
-            assert result is False
-            mock_pricing_updater.get_current_pricing.assert_called_once()
-
-            await task.cleanup()
-
-    @pytest.mark.asyncio
-    async def test_pricing_task_no_data_returned(self) -> None:
-        """Test pricing task when no data is returned."""
-        with patch(
-            "ccproxy.pricing.updater.PricingUpdater"
-        ) as mock_pricing_updater_class:
-            mock_pricing_updater = AsyncMock()
-            mock_pricing_updater.get_current_pricing.return_value = None
-            mock_pricing_updater_class.return_value = mock_pricing_updater
-
-            task = PricingCacheUpdateTask(
-                name="pricing_no_data_test",
-                interval_seconds=3600.0,
-                enabled=True,
-                force_refresh_on_startup=False,
-            )
-
-            await task.setup()
-            result = await task.run()
-
-            # Should return False when no data is returned
-            assert result is False
-            mock_pricing_updater.get_current_pricing.assert_called_once()
 
             await task.cleanup()
 
@@ -791,8 +628,8 @@ class TestVersionUpdateCheckTask:
         with (
             patch("ccproxy.utils.version_checker.load_check_state") as mock_load,
         ):
-            # Mock exception during load
-            mock_load.side_effect = Exception("File system error")
+            # Use OSError which is now the expected exception type for file operations
+            mock_load.side_effect = OSError("File system error")
 
             task = VersionUpdateCheckTask(
                 name="version_error_test",

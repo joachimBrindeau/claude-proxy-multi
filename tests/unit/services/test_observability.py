@@ -100,9 +100,6 @@ class TestPrometheusMetrics:
             metrics.record_tokens(150, "input", "claude-3-sonnet")
             metrics.record_tokens(75, "output", "claude-3-sonnet")
 
-            # Test cost recording
-            metrics.record_cost(0.0023, "claude-3-sonnet", "total")
-
             # Test error recording
             metrics.record_error("timeout_error", "/v1/messages", "claude-3-sonnet")
 
@@ -122,7 +119,6 @@ class TestPrometheusMetrics:
             metrics.record_request("POST", "/v1/messages", "claude-3-sonnet", "200")
             metrics.record_response_time(1.5, "claude-3-sonnet", "/v1/messages")
             metrics.record_tokens(150, "input", "claude-3-sonnet")
-            metrics.record_cost(0.0023, "claude-3-sonnet")
             metrics.record_error("timeout_error", "/v1/messages")
             metrics.inc_active_requests()
             metrics.dec_active_requests()
@@ -278,7 +274,6 @@ class TestObservabilityIntegration:
                 )
                 metrics.record_tokens(150, "input", "claude-3-sonnet")
                 metrics.record_tokens(75, "output", "claude-3-sonnet")
-                metrics.record_cost(0.0023, "claude-3-sonnet")
 
                 metrics.dec_active_requests()
 

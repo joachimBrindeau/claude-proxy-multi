@@ -1,5 +1,6 @@
 """Access logging middleware for structured HTTP request/response logging."""
 
+import asyncio
 import time
 from typing import Any
 
@@ -68,8 +69,8 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                 context = request.state.context
                 if hasattr(context, "request_id") and hasattr(context, "metadata"):
                     request_id = context.request_id
-        except Exception:
-            # Ignore any errors getting request_id
+        except (AttributeError, KeyError, LookupError):
+            # State/context attributes may not exist or be accessible
             pass
 
         # Process the request
@@ -78,10 +79,10 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
-        except Exception as e:
-            # Capture error for logging
-            error_message = str(e)
-            # Re-raise to let error handlers process it
+        except (Exception, asyncio.CancelledError) as e:
+            # Capture downstream exception message for finally block logging
+            # Includes asyncio.CancelledError (BaseException in Python 3.8+)
+            error_message = str(e)  # Used in finally block's logger.error() call
             raise
         finally:
             try:
@@ -140,8 +141,8 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                                     "error_message",
                                 ]:
                                     context_metadata.pop(key, None)
-                    except Exception:
-                        # Ignore any errors extracting context metadata
+                    except (AttributeError, KeyError, LookupError):
+                        # Context metadata attributes may not exist or be accessible
                         pass
 
                     # Use start-only logging - let context handle comprehensive access logging
@@ -172,8 +173,15 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                         error_message=error_message or "No response generated",
                         exc_info=True,
                     )
-            except Exception as log_error:
-                # If logging fails, don't crash the app
+            except (
+                OSError,
+                ValueError,
+                AttributeError,
+                KeyError,
+                LookupError,
+            ) as log_error:
+                # OSError for I/O issues, ValueError for serialization issues
+                # AttributeError/KeyError/LookupError for state/context access issues
                 # Use print as a last resort to indicate the issue
                 print(f"Failed to write access log: {log_error}")
 

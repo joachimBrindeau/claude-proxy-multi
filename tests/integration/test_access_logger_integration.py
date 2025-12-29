@@ -53,7 +53,6 @@ def mock_request_context() -> RequestContext:
         status_code=200,
         tokens_input=100,
         tokens_output=50,
-        cost_usd=0.002,
     )
     return context
 
@@ -96,7 +95,6 @@ class TestAccessLoggerIntegration:
             assert result.model == "claude-3-5-sonnet-20241022"
             assert result.tokens_input == 100
             assert result.tokens_output == 50
-            assert result.cost_usd == pytest.approx(0.002)
 
     async def test_log_request_access_without_storage(
         self, mock_request_context: RequestContext
@@ -128,7 +126,6 @@ class TestAccessLoggerIntegration:
                 status_code=200,
                 tokens_input=50 + i,
                 tokens_output=25 + i,
-                cost_usd=0.001 * (i + 1),
             )
             contexts.append(context)
 
@@ -168,9 +165,9 @@ class TestAccessLoggerIntegration:
         self, storage_with_db: SimpleDuckDBStorage, mock_request_context: RequestContext
     ) -> None:
         """Test that access logger handles storage errors gracefully."""
-        # Mock storage to fail
+        # Mock storage to fail with RuntimeError (DuckDB internal error type)
         with patch.object(
-            storage_with_db, "store_request", side_effect=Exception("Storage error")
+            storage_with_db, "store_request", side_effect=RuntimeError("Storage error")
         ):
             # Should not raise exception even if storage fails
             await log_request_access(
@@ -199,7 +196,6 @@ class TestAccessLoggerIntegration:
             status_code=200,
             tokens_input=150,
             tokens_output=75,
-            cost_usd=0.003,
         )
 
         # Log streaming access
@@ -265,7 +261,6 @@ class TestAccessLoggerIntegration:
             assert result.status_code == 200
             assert result.tokens_input == 0  # Default value
             assert result.tokens_output == 0  # Default value
-            assert result.cost_usd == 0.0  # Default value
 
     async def test_access_logger_metadata_extraction(
         self, storage_with_db: SimpleDuckDBStorage
@@ -287,8 +282,6 @@ class TestAccessLoggerIntegration:
             tokens_output=100,
             cache_read_tokens=50,
             cache_write_tokens=25,
-            cost_usd=0.005,
-            cost_sdk_usd=0.001,
         )
 
         # Log without explicitly passing some parameters (should use context metadata)
@@ -318,8 +311,6 @@ class TestAccessLoggerIntegration:
             assert result.tokens_output == 100
             assert result.cache_read_tokens == 50
             assert result.cache_write_tokens == 25
-            assert result.cost_usd == pytest.approx(0.005)
-            assert result.cost_sdk_usd == pytest.approx(0.001)
 
     async def test_access_logger_error_with_message(
         self, storage_with_db: SimpleDuckDBStorage, mock_request_context: RequestContext
@@ -374,7 +365,6 @@ class TestAccessLoggerPerformance:
                 status_code=200,
                 tokens_input=100,
                 tokens_output=50,
-                cost_usd=0.002,
             )
             contexts.append(context)
 
@@ -434,7 +424,6 @@ class TestAccessLoggerPerformance:
                 status_code=200,
                 tokens_input=100 + i,
                 tokens_output=50 + i,
-                cost_usd=0.002 + (i * 0.001),
             )
 
             task = log_request_access(

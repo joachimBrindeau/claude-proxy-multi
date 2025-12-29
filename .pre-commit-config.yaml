@@ -60,7 +60,7 @@ repos:
           - types-aiofiles>=24.0.0
           - pyjwt>=2.10.0
         args: [--config-file=pyproject.toml]
-        exclude: ^(docs/|examples/)
+        exclude: ^examples/
 
   # Biome for TypeScript/JavaScript (dashboard)
   # - repo: local
@@ -89,7 +89,6 @@ repos:
         args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
-        exclude: ^mkdocs\.yml$ # MkDocs uses custom YAML tags like !ENV
       - id: check-toml
       - id: check-json
       - id: check-merge-conflict

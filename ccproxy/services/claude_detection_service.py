@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import socket
 import subprocess
@@ -11,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import orjson
 import structlog
 from fastapi import FastAPI, Request, Response
 
@@ -66,7 +66,11 @@ class ClaudeDetectionService:
                 raise ValueError("Claude detection failed")
             return detected_data
 
-        except Exception as e:
+        except (TimeoutError, OSError, ValueError, RuntimeError) as e:
+            # OSError: File system or subprocess errors
+            # ValueError: Invalid detection data
+            # RuntimeError: Detection process failures
+            # TimeoutError: Claude CLI timeout
             logger.warning("detection_claude_headers_failed", fallback=True, error=e)
             # Return fallback data
             fallback_data = self._get_fallback_data()
@@ -177,7 +181,11 @@ class ClaudeDetectionService:
                 cached_at=datetime.now(UTC),
             )
 
-        except Exception as e:
+        except (TimeoutError, OSError, RuntimeError, ValueError):
+            # OSError: Socket/server errors
+            # RuntimeError: Server or subprocess failures
+            # TimeoutError: Process or server timeout
+            # ValueError: Invalid captured data
             # Ensure server is stopped
             server.should_exit = True
             if not server_task.done():
@@ -192,10 +200,13 @@ class ClaudeDetectionService:
             return None
 
         try:
-            with cache_file.open("r") as f:
-                data = json.load(f)
+            with cache_file.open("rb") as f:
+                data = orjson.loads(f.read())
                 return ClaudeCacheData.model_validate(data)
-        except Exception:
+        except (OSError, orjson.JSONDecodeError, ValueError):
+            # OSError: File access issues
+            # JSONDecodeError: Invalid JSON
+            # ValueError: Pydantic validation failures
             return None
 
     def _save_to_cache(self, data: ClaudeCacheData) -> None:
@@ -203,26 +214,34 @@ class ClaudeDetectionService:
         cache_file = self.cache_dir / f"claude_headers_{data.claude_version}.json"
 
         try:
-            with cache_file.open("w") as f:
-                json.dump(data.model_dump(), f, indent=2, default=str)
+            with cache_file.open("wb") as f:
+                f.write(
+                    orjson.dumps(
+                        data.model_dump(), option=orjson.OPT_INDENT_2, default=str
+                    )
+                )
             logger.debug(
                 "cache_saved", file=str(cache_file), version=data.claude_version
             )
-        except Exception as e:
+        except (OSError, orjson.JSONEncodeError) as e:
+            # OSError: File write permission or disk errors
+            # JSONEncodeError: Serialization failures
             logger.warning("cache_save_failed", file=str(cache_file), error=str(e))
 
     def _extract_headers(self, headers: dict[str, str]) -> ClaudeCodeHeaders:
         """Extract Claude CLI headers from captured request."""
         try:
             return ClaudeCodeHeaders.model_validate(headers)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
+            # ValueError/KeyError: Pydantic validation failures for missing/invalid headers
+            # TypeError: Invalid header types
             logger.error("header_extraction_failed", error=str(e))
             raise ValueError(f"Failed to extract required headers: {e}") from e
 
     def _extract_system_prompt(self, body: bytes) -> SystemPromptData:
         """Extract system prompt from captured request body."""
         try:
-            data = json.loads(body.decode("utf-8"))
+            data = orjson.loads(body.decode("utf-8"))
             system_content = data.get("system")
 
             if system_content is None:
@@ -230,7 +249,11 @@ class ClaudeDetectionService:
 
             return SystemPromptData(system_field=system_content)
 
-        except Exception as e:
+        except (orjson.JSONDecodeError, UnicodeDecodeError, ValueError, KeyError) as e:
+            # JSONDecodeError: Invalid JSON body
+            # UnicodeDecodeError: Body encoding issues
+            # ValueError: Missing system field or validation errors
+            # KeyError: Missing expected fields
             logger.error("system_prompt_extraction_failed", error=str(e))
             raise ValueError(f"Failed to extract system prompt: {e}") from e
 
@@ -242,6 +265,6 @@ class ClaudeDetectionService:
         package_data_file = (
             Path(__file__).parent.parent / "data" / "claude_headers_fallback.json"
         )
-        with package_data_file.open("r") as f:
-            fallback_data_dict = json.load(f)
+        with package_data_file.open("rb") as f:
+            fallback_data_dict = orjson.loads(f.read())
             return ClaudeCacheData.model_validate(fallback_data_dict)

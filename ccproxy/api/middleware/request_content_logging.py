@@ -1,9 +1,10 @@
 """Request content logging middleware for capturing full HTTP request/response data."""
 
-import json
+import asyncio
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import orjson
 import structlog
 from fastapi import Request, Response
 from fastapi.responses import StreamingResponse
@@ -79,8 +80,9 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
             if "x-request-id" in request.headers:
                 return request.headers["x-request-id"]
 
-        except Exception:
-            pass  # Ignore errors and use fallback
+        except (AttributeError, KeyError, LookupError):
+            # State/context attributes may not exist or be accessible
+            pass
 
         return "unknown"
 
@@ -100,8 +102,9 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
                 if hasattr(context, "get_log_timestamp_prefix"):
                     result = context.get_log_timestamp_prefix()
                     return str(result) if result is not None else None
-        except Exception:
-            pass  # Ignore errors and use fallback
+        except (AttributeError, KeyError, LookupError):
+            # Context attributes may not exist or be accessible
+            pass
 
         return None
 
@@ -135,11 +138,12 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
             # Try to parse body as JSON, fallback to string
             if body:
                 try:
-                    request_data["body"] = json.loads(body.decode("utf-8"))
-                except (json.JSONDecodeError, UnicodeDecodeError):
+                    request_data["body"] = orjson.loads(body.decode("utf-8"))
+                except (orjson.JSONDecodeError, UnicodeDecodeError):
                     try:
                         request_data["body"] = body.decode("utf-8", errors="replace")
-                    except Exception:
+                    except (UnicodeDecodeError, ValueError) as e:
+                        # Fallback for truly binary data that cannot be decoded
                         request_data["body"] = f"<binary data of length {len(body)}>"
 
             await write_request_log(
@@ -149,7 +153,9 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
                 timestamp=timestamp,
             )
 
-        except Exception as e:
+        except (OSError, ValueError, asyncio.CancelledError) as e:
+            # OSError for file I/O issues, ValueError for encoding/serialization issues
+            # asyncio.CancelledError for cancelled async operations
             logger.error(
                 "failed_to_log_request_content",
                 request_id=request_id,
@@ -174,7 +180,9 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
                 # Handle regular response
                 await self._log_regular_response(response, request_id, timestamp)
 
-        except Exception as e:
+        except (OSError, ValueError, asyncio.CancelledError) as e:
+            # OSError for file I/O issues, ValueError for encoding/serialization issues
+            # asyncio.CancelledError for cancelled async operations
             logger.error(
                 "failed_to_log_response_content",
                 request_id=request_id,
@@ -207,13 +215,14 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
                 # Convert to bytes if needed
                 body_bytes = bytes(body) if isinstance(body, memoryview) else body
                 # Try to parse as JSON
-                response_data["body"] = json.loads(body_bytes.decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError):
+                response_data["body"] = orjson.loads(body_bytes.decode("utf-8"))
+            except (orjson.JSONDecodeError, UnicodeDecodeError):
                 try:
                     # Fallback to string
                     body_bytes = bytes(body) if isinstance(body, memoryview) else body
                     response_data["body"] = body_bytes.decode("utf-8", errors="replace")
-                except Exception:
+                except (UnicodeDecodeError, ValueError):
+                    # Fallback for truly binary data that cannot be decoded
                     response_data["body"] = f"<binary data of length {len(body)}>"
         else:
             response_data["body_size"] = 0
@@ -281,7 +290,9 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
 
                         yield chunk
 
-                except Exception as e:
+                except (OSError, UnicodeEncodeError, asyncio.CancelledError) as e:
+                    # OSError for file I/O issues, UnicodeEncodeError for encoding failures
+                    # asyncio.CancelledError for cancelled async operations
                     logger.error(
                         "error_in_streaming_response_logging",
                         request_id=request_id,

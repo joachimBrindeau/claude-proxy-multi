@@ -1,9 +1,9 @@
 """Request ID middleware for generating and tracking request IDs."""
 
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+import shortuuid
 import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -37,7 +37,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             The HTTP response
         """
         # Generate or extract request ID
-        request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+        request_id = request.headers.get("x-request-id") or shortuuid.uuid()
 
         # Generate datetime for consistent logging across all layers
         log_timestamp = datetime.now(UTC)

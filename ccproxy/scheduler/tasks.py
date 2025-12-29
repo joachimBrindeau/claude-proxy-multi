@@ -8,7 +8,13 @@ from abc import ABC, abstractmethod
 from datetime import UTC
 from typing import Any
 
+import httpx
+import orjson
 import structlog
+from pydantic import ValidationError as PydanticValidationError
+from tenacity import wait_exponential
+
+from ccproxy.exceptions import TaskExecutionError
 
 
 logger = structlog.get_logger(__name__)
@@ -94,9 +100,25 @@ class BaseScheduledTask(ABC):
         if self._consecutive_failures == 0:
             base_delay = self.interval_seconds
         else:
-            # Exponential backoff: interval * (2 ^ failures)
-            base_delay = self.interval_seconds * (2**self._consecutive_failures)
-            base_delay = min(base_delay, self.max_backoff_seconds)
+            # Use tenacity's exponential backoff calculation
+            # wait_exponential returns a callable that computes delay based on attempt number
+            wait_strategy = wait_exponential(
+                multiplier=self.interval_seconds,
+                min=self.interval_seconds,
+                max=self.max_backoff_seconds,
+            )
+            # Calculate delay for current failure count (1-indexed for tenacity)
+            base_delay = wait_strategy(
+                type(
+                    "RetryState",
+                    (),
+                    {
+                        "attempt_number": self._consecutive_failures,
+                        "outcome": None,
+                        "next_action": None,
+                    },
+                )()
+            )
 
         # Add jitter to prevent thundering herd
         if self.jitter_factor > 0:
@@ -117,7 +139,12 @@ class BaseScheduledTask(ABC):
             await self.setup()
             self._task = asyncio.create_task(self._run_loop())
             logger.debug("task_started", task_name=self.name)
-        except Exception as e:
+        except (
+            TaskExecutionError,  # scheduler-specific errors from setup()
+            ImportError,  # setup() may dynamically import modules
+            RuntimeError,  # general runtime issues during initialization
+            OSError,  # file system issues (e.g., config file access)
+        ) as e:
             self._running = False
             logger.error(
                 "task_start_failed",
@@ -144,7 +171,11 @@ class BaseScheduledTask(ABC):
         try:
             await self.cleanup()
             logger.debug("task_stopped", task_name=self.name)
-        except Exception as e:
+        except (
+            RuntimeError,  # cleanup operations may raise runtime errors
+            OSError,  # file system cleanup errors
+            TimeoutError,  # async cleanup timeout
+        ) as e:
             logger.error(
                 "task_cleanup_failed",
                 task_name=self.name,
@@ -199,7 +230,13 @@ class BaseScheduledTask(ABC):
             except asyncio.CancelledError:
                 logger.debug("task_cancelled", task_name=self.name)
                 break
-            except Exception as e:
+            except (
+                TaskExecutionError,  # scheduler-specific task errors
+                httpx.HTTPError,  # HTTP operations (network tasks)
+                TimeoutError,  # async operation timeouts
+                OSError,  # file system errors
+                RuntimeError,  # general runtime errors in task execution
+            ) as e:
                 self._consecutive_failures += 1
                 logger.error(
                     "task_execution_error",
@@ -280,7 +317,10 @@ class PushgatewayTask(BaseScheduledTask):
 
             self._metrics_instance = get_metrics()
             logger.debug("pushgateway_task_setup_complete", task_name=self.name)
-        except Exception as e:
+        except (
+            ImportError,  # metrics module import failure
+            RuntimeError,  # metrics initialization errors
+        ) as e:
             logger.error(
                 "pushgateway_task_setup_failed",
                 task_name=self.name,
@@ -309,7 +349,12 @@ class PushgatewayTask(BaseScheduledTask):
 
             return success
 
-        except Exception as e:
+        except (
+            httpx.HTTPError,  # pushgateway HTTP communication errors
+            httpx.TimeoutException,  # pushgateway timeout
+            httpx.ConnectError,  # pushgateway connection failure
+            OSError,  # network-related OS errors
+        ) as e:
             logger.error(
                 "pushgateway_task_error",
                 task_name=self.name,
@@ -358,7 +403,11 @@ class StatsPrintingTask(BaseScheduledTask):
                 metrics_instance=self._metrics_instance,
             )
             logger.debug("stats_printing_task_setup_complete", task_name=self.name)
-        except Exception as e:
+        except (
+            ImportError,  # module import failure
+            RuntimeError,  # initialization errors
+            PydanticValidationError,  # settings validation failure
+        ) as e:
             logger.error(
                 "stats_printing_task_setup_failed",
                 task_name=self.name,
@@ -378,104 +427,13 @@ class StatsPrintingTask(BaseScheduledTask):
             logger.debug("stats_printing_success", task_name=self.name)
             return True
 
-        except Exception as e:
+        except (
+            RuntimeError,  # stats printing runtime errors
+            OSError,  # output stream errors (e.g., broken pipe)
+            TimeoutError,  # async stats collection timeout
+        ) as e:
             logger.error(
                 "stats_printing_task_error",
-                task_name=self.name,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            return False
-
-
-class PricingCacheUpdateTask(BaseScheduledTask):
-    """Task for updating pricing cache periodically."""
-
-    def __init__(
-        self,
-        name: str,
-        interval_seconds: float,
-        enabled: bool = True,
-        force_refresh_on_startup: bool = False,
-        pricing_updater: Any | None = None,
-    ):
-        """
-        Initialize pricing cache update task.
-
-        Args:
-            name: Task name
-            interval_seconds: Interval between pricing updates
-            enabled: Whether task is enabled
-            force_refresh_on_startup: Whether to force refresh on first run
-            pricing_updater: Injected pricing updater instance
-        """
-        super().__init__(
-            name=name,
-            interval_seconds=interval_seconds,
-            enabled=enabled,
-        )
-        self.force_refresh_on_startup = force_refresh_on_startup
-        self._pricing_updater = pricing_updater
-        self._first_run = True
-
-    async def setup(self) -> None:
-        """Initialize pricing updater instance if not injected."""
-        if self._pricing_updater is None:
-            try:
-                from ccproxy.config.pricing import PricingSettings
-                from ccproxy.pricing.cache import PricingCache
-                from ccproxy.pricing.updater import PricingUpdater
-
-                # Create pricing components with dependency injection
-                settings = PricingSettings()
-                cache = PricingCache(settings)
-                self._pricing_updater = PricingUpdater(cache, settings)
-                logger.debug("pricing_update_task_setup_complete", task_name=self.name)
-            except Exception as e:
-                logger.error(
-                    "pricing_update_task_setup_failed",
-                    task_name=self.name,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                )
-                raise
-        else:
-            logger.debug(
-                "pricing_update_task_using_injected_updater", task_name=self.name
-            )
-
-    async def run(self) -> bool:
-        """Execute pricing cache update."""
-        try:
-            if not self._pricing_updater:
-                logger.warning("pricing_update_no_updater", task_name=self.name)
-                return False
-
-            # Force refresh on first run if configured
-            force_refresh = self._first_run and self.force_refresh_on_startup
-            self._first_run = False
-
-            if force_refresh:
-                logger.info("pricing_update_force_refresh_startup", task_name=self.name)
-                refresh_result = await self._pricing_updater.force_refresh()
-                success = bool(refresh_result)
-            else:
-                # Regular update check
-                pricing_data = await self._pricing_updater.get_current_pricing(
-                    force_refresh=False
-                )
-                success = pricing_data is not None
-
-            if success:
-                logger.debug("pricing_update_success", task_name=self.name)
-            else:
-                logger.warning("pricing_update_failed", task_name=self.name)
-
-            return success
-
-        except Exception as e:
-            logger.error(
-                "pricing_update_task_error",
                 task_name=self.name,
                 error=str(e),
                 error_type=type(e).__name__,
@@ -595,7 +553,11 @@ class PoolStatsTask(BaseScheduledTask):
 
             return True
 
-        except Exception as e:
+        except (
+            AttributeError,  # missing pool manager attributes
+            RuntimeError,  # pool stats collection errors
+            TimeoutError,  # async pool stats timeout
+        ) as e:
             logger.error(
                 "pool_stats_task_error",
                 task_name=self.name,
@@ -761,7 +723,14 @@ class VersionUpdateCheckTask(BaseScheduledTask):
 
             return True
 
-        except Exception as e:
+        except (
+            httpx.HTTPError,  # GitHub API HTTP errors
+            httpx.TimeoutException,  # GitHub API timeout
+            httpx.ConnectError,  # GitHub API connection failure
+            orjson.JSONDecodeError,  # JSON parsing errors for state file
+            OSError,  # file I/O errors (state file read/write)
+            PydanticValidationError,  # VersionCheckState validation failure
+        ) as e:
             logger.error(
                 "version_check_task_error",
                 task_name=self.name,

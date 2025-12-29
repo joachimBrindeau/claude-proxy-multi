@@ -1,7 +1,7 @@
 """OS keyring storage implementation for token storage."""
 
-import json
-
+import orjson
+import pydantic
 from structlog import get_logger
 
 from ccproxy.auth.exceptions import (
@@ -64,17 +64,23 @@ class KeyringTokenStorage(TokenStorage):
                 return None
 
             # Parse the stored JSON
-            data = json.loads(password)
+            data = orjson.loads(password)
             credentials = ClaudeCredentials.model_validate(data)
 
             self._log_credential_details(credentials)
             return credentials
 
-        except json.JSONDecodeError as e:
+        except orjson.JSONDecodeError as e:
             raise CredentialsStorageError(
                 f"Failed to parse credentials from keyring: {e}"
             ) from e
-        except Exception as e:
+        except pydantic.ValidationError as e:
+            # Pydantic validation errors when parsing credential data
+            raise CredentialsStorageError(
+                f"Invalid credential data in keyring: {e}"
+            ) from e
+        except (keyring.errors.KeyringError, OSError) as e:
+            # Keyring backend errors or OS-level storage failures
             raise CredentialsStorageError(
                 f"Error loading credentials from keyring: {e}"
             ) from e
@@ -112,9 +118,9 @@ class KeyringTokenStorage(TokenStorage):
             ) from e
 
         try:
-            # Convert to JSON string
+            # Convert to JSON bytes
             data = credentials.model_dump(by_alias=True)
-            json_data = json.dumps(data)
+            json_data = orjson.dumps(data).decode()
 
             # Store in keyring
             keyring.set_password(self.service_name, self.username, json_data)
@@ -126,7 +132,8 @@ class KeyringTokenStorage(TokenStorage):
             )
             return True
 
-        except Exception as e:
+        except (keyring.errors.KeyringError, OSError) as e:
+            # Keyring backend errors or OS-level storage failures
             raise CredentialsStorageError(
                 f"Error saving credentials to keyring: {e}"
             ) from e
@@ -145,7 +152,8 @@ class KeyringTokenStorage(TokenStorage):
         try:
             password = keyring.get_password(self.service_name, self.username)
             return password is not None
-        except Exception:
+        except (keyring.errors.KeyringError, OSError):
+            # Keyring backend errors or OS-level storage failures
             return False
 
     async def delete(self) -> bool:
@@ -175,7 +183,8 @@ class KeyringTokenStorage(TokenStorage):
                 )
                 return True
             return False
-        except Exception as e:
+        except (keyring.errors.KeyringError, OSError) as e:
+            # Keyring backend errors or OS-level storage failures
             raise CredentialsStorageError(
                 f"Error deleting credentials from keyring: {e}"
             ) from e

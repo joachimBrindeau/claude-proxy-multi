@@ -216,7 +216,8 @@ class PermissionService:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except RuntimeError as e:
+                # Runtime errors during expiry checking (e.g., event loop issues)
                 logger.error(
                     "expiry_checker_error",
                     error=str(e),
@@ -287,7 +288,6 @@ class PermissionService:
         """
         async with self._lock:
             pending = []
-            now = datetime.now(UTC)
             for request in self._requests.values():
                 if request.is_expired():
                     request.status = PermissionStatus.EXPIRED
