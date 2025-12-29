@@ -88,8 +88,6 @@ config/accounts.json
 config/.credentials.json
 config/projects/
 config/shell-snapshots/
-config/statsig/
-config/telemetry/
 config/todos/
 config/debug/
 !config/README.md
@@ -104,8 +102,6 @@ _version.py
 workspace/
 data/home
 ccproxy/static/dashboard/
-*.wal
-*.duckdb
 
 # Temporary
 tmp/
