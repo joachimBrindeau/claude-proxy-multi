@@ -6,7 +6,7 @@ import typer
 
 
 def validate_max_thinking_tokens(
-    ctx: typer.Context, param: typer.CallbackParam, value: int | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: int | None
 ) -> int | None:
     """Validate max thinking tokens."""
     if value is None:
@@ -19,7 +19,7 @@ def validate_max_thinking_tokens(
 
 
 def validate_max_turns(
-    ctx: typer.Context, param: typer.CallbackParam, value: int | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: int | None
 ) -> int | None:
     """Validate max turns."""
     if value is None:
@@ -32,7 +32,7 @@ def validate_max_turns(
 
 
 def validate_permission_mode(
-    ctx: typer.Context, param: typer.CallbackParam, value: str | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: str | None
 ) -> str | None:
     """Validate permission mode."""
     if value is None:
@@ -48,7 +48,7 @@ def validate_permission_mode(
 
 
 def validate_claude_cli_path(
-    ctx: typer.Context, param: typer.CallbackParam, value: str | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: str | None
 ) -> str | None:
     """Validate Claude CLI path."""
     if value is None:
@@ -62,7 +62,7 @@ def validate_claude_cli_path(
 
 
 def validate_cwd(
-    ctx: typer.Context, param: typer.CallbackParam, value: str | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: str | None
 ) -> str | None:
     """Validate working directory."""
     if value is None:
@@ -78,7 +78,7 @@ def validate_cwd(
 
 
 def validate_sdk_message_mode(
-    ctx: typer.Context, param: typer.CallbackParam, value: str | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: str | None
 ) -> str | None:
     """Validate SDK message mode."""
     if value is None:
@@ -94,7 +94,7 @@ def validate_sdk_message_mode(
 
 
 def validate_pool_size(
-    ctx: typer.Context, param: typer.CallbackParam, value: int | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: int | None
 ) -> int | None:
     """Validate pool size."""
     if value is None:
@@ -110,7 +110,7 @@ def validate_pool_size(
 
 
 def validate_system_prompt_injection_mode(
-    ctx: typer.Context, param: typer.CallbackParam, value: str | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: str | None
 ) -> str | None:
     """Validate system prompt injection mode."""
     if value is None:

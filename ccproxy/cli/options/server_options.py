@@ -4,7 +4,7 @@ import typer
 
 
 def validate_port(
-    ctx: typer.Context, param: typer.CallbackParam, value: int | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: int | None
 ) -> int | None:
     """Validate port number."""
     if value is None:
@@ -17,7 +17,7 @@ def validate_port(
 
 
 def validate_log_level(
-    ctx: typer.Context, param: typer.CallbackParam, value: str | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: str | None
 ) -> str | None:
     """Validate log level."""
     if value is None:

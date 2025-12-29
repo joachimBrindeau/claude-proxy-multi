@@ -4,7 +4,7 @@ import typer
 
 
 def validate_auth_token(
-    ctx: typer.Context, param: typer.CallbackParam, value: str | None
+    _ctx: typer.Context, _param: typer.CallbackParam, value: str | None
 ) -> str | None:
     """Validate auth token."""
     if value is None:

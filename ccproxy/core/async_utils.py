@@ -197,7 +197,7 @@ _default_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=300)
 async def async_cache_result(
     func: Callable[..., Awaitable[T]],
     cache_key: str,
-    cache_duration: float = 300.0,
+    _cache_duration: float = 300.0,
     *args: Any,
     **kwargs: Any,
 ) -> T:
@@ -209,7 +209,7 @@ async def async_cache_result(
     Args:
         func: The async function to cache
         cache_key: Unique key for caching
-        cache_duration: Cache duration in seconds (Note: uses global cache TTL)
+        _cache_duration: Cache duration in seconds (unused, uses global cache TTL)
         *args: Positional arguments to pass to the function
         **kwargs: Keyword arguments to pass to the function
 

@@ -19,7 +19,7 @@ suppress_debug = [
 
 
 def format_timestamp_ms(
-    logger: Any, log_method: str, event_dict: MutableMapping[str, Any]
+    _logger: Any, _log_method: str, event_dict: MutableMapping[str, Any]
 ) -> MutableMapping[str, Any]:
     """Format timestamp with milliseconds instead of microseconds."""
     if "timestamp_raw" in event_dict:
