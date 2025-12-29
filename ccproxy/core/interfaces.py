@@ -21,8 +21,6 @@ __all__ = [
     "TransformerProtocol",
     # Storage interfaces
     "TokenStorage",
-    # Metrics interfaces
-    "MetricExporter",
 ]
 
 
@@ -211,37 +209,5 @@ class TokenStorage(ABC):
 
         Returns:
             Human-readable description of where credentials are stored
-        """
-        pass
-
-
-# === Metrics Interfaces ===
-
-
-class MetricExporter(ABC):
-    """Abstract interface for exporting metrics to external systems."""
-
-    @abstractmethod
-    async def export_metrics(self, metrics: dict[str, Any]) -> bool:
-        """Export metrics to the target system.
-
-        Args:
-            metrics: Dictionary of metrics to export
-
-        Returns:
-            True if export was successful, False otherwise
-
-        Raises:
-            ConnectionError: If unable to connect to the metrics backend
-            ValueError: If metrics format is invalid
-        """
-        pass
-
-    @abstractmethod
-    async def health_check(self) -> bool:
-        """Check if the metrics export system is healthy.
-
-        Returns:
-            True if the system is healthy, False otherwise
         """
         pass
