@@ -34,10 +34,6 @@ class SessionManager:
         Args:
             settings: Settings containing session pool configuration
         """
-        import structlog
-
-        logger = structlog.get_logger(__name__)
-
         self._settings = settings
         self._session_pool: SessionPool | None = None
         self._lock = asyncio.Lock()
@@ -66,10 +62,6 @@ class SessionManager:
 
     def _should_enable_session_pool(self) -> bool:
         """Check if session pool should be enabled."""
-        import structlog
-
-        logger = structlog.get_logger(__name__)
-
         if not self._settings:
             logger.debug("session_pool_check", decision="no_settings", enabled=False)
             return False

@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 import orjson
+import shortuuid
 import structlog
 from fastapi import Request
 from fastapi.responses import StreamingResponse
@@ -185,14 +186,11 @@ class ProxyService:
         """
         # Extract request metadata
         model, streaming = extract_metadata(body)
-        endpoint = path.split("/")[-1] if path else "unknown"
 
         # Use existing context from request if available, otherwise create new one
         if request and hasattr(request, "state") and hasattr(request.state, "context"):
             ctx = request.state.context
         else:
-            import shortuuid
-
             ctx = RequestContext(
                 request_id=shortuuid.uuid(),
                 method=method,
