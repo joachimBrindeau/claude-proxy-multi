@@ -240,11 +240,30 @@ class RotationPool:
             1 for a in self._accounts.values() if a.state == AccountState.AUTH_ERROR
         )
 
+    def _copy_capacity_state(self, source: Account, target: Account) -> None:
+        """Copy capacity-related runtime state from source to target account.
+
+        Args:
+            source: Account to copy state from
+            target: Account to copy state to
+        """
+        target.last_used = source.last_used
+        target.tokens_limit = source.tokens_limit
+        target.tokens_remaining = source.tokens_remaining
+        target.tokens_remaining_percent = source.tokens_remaining_percent
+        target.requests_limit = source.requests_limit
+        target.requests_remaining = source.requests_remaining
+        target.requests_remaining_percent = source.requests_remaining_percent
+        target.capacity_checked_at = source.capacity_checked_at
+
     def load(self) -> None:
         """Load accounts from file.
 
         Preserves runtime state (rate limits, capacity info, etc.) for existing accounts.
         Only credentials are updated from the file.
+
+        If credentials have changed (new refresh_token), resets auth_error state
+        since the user has re-authenticated.
         """
         accounts_file = load_accounts(self._accounts_path)
         new_accounts = accounts_file.accounts
@@ -253,26 +272,35 @@ class RotationPool:
         for name, new_account in new_accounts.items():
             if name in self._accounts:
                 existing = self._accounts[name]
-                # Preserve runtime state by copying it to the new account
-                new_account.state = existing.state
-                new_account.rate_limited_until = existing.rate_limited_until
-                new_account.last_used = existing.last_used
-                new_account.last_error = existing.last_error
-                new_account.tokens_limit = existing.tokens_limit
-                new_account.tokens_remaining = existing.tokens_remaining
-                new_account.tokens_remaining_percent = existing.tokens_remaining_percent
-                new_account.requests_limit = existing.requests_limit
-                new_account.requests_remaining = existing.requests_remaining
-                new_account.requests_remaining_percent = (
-                    existing.requests_remaining_percent
+
+                # Detect if credentials have changed (user re-authenticated)
+                credentials_changed = (
+                    existing.credentials.refresh_token
+                    != new_account.credentials.refresh_token
                 )
-                new_account.capacity_checked_at = existing.capacity_checked_at
-                logger.debug(
-                    "account_state_preserved",
-                    account=name,
-                    state=existing.state,
-                    rate_limited_until=existing.rate_limited_until,
-                )
+
+                # If credentials changed and account was in auth_error, restore it
+                if credentials_changed and existing.state == AccountState.AUTH_ERROR:
+                    logger.info(
+                        "account_credentials_refreshed_clearing_auth_error",
+                        account=name,
+                        previous_error=existing.last_error,
+                    )
+                    # Keep new_account state as default "available"
+                    # Preserve only capacity state (not error state)
+                    self._copy_capacity_state(existing, new_account)
+                else:
+                    # Preserve all runtime state including error state
+                    new_account.state = existing.state
+                    new_account.rate_limited_until = existing.rate_limited_until
+                    new_account.last_error = existing.last_error
+                    self._copy_capacity_state(existing, new_account)
+                    logger.debug(
+                        "account_state_preserved",
+                        account=name,
+                        state=existing.state,
+                        rate_limited_until=existing.rate_limited_until,
+                    )
 
         self._accounts = new_accounts
         self._account_order = list(self._accounts.keys())
