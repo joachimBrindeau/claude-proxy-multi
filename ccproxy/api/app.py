@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import APIRouter, FastAPI
-from fastapi.staticfiles import StaticFiles
 from structlog import get_logger
 from typing_extensions import TypedDict
 
@@ -317,27 +316,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             permissions_router, prefix="/permissions", tags=["permissions"]
         )
         setup_mcp(app)
-
-    # Mount static files for dashboard SPA
-    from pathlib import Path
-
-    # Get the path to the dashboard static files
-    current_file = Path(__file__)
-    project_root = (
-        current_file.parent.parent.parent
-    )  # ccproxy/api/app.py -> project root
-    dashboard_static_path = project_root / "ccproxy" / "static" / "dashboard"
-
-    # Mount dashboard static files if they exist
-    if dashboard_static_path.exists():
-        # Mount the _app directory for SvelteKit assets at the correct base path
-        app_path = dashboard_static_path / "_app"
-        if app_path.exists():
-            app.mount(
-                "/dashboard/_app",
-                StaticFiles(directory=str(app_path)),
-                name="dashboard-assets",
-            )
 
     # Mount accounts management UI (HTMX)
     try:

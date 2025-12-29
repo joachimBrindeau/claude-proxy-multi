@@ -101,7 +101,6 @@ _version.py
 .serena
 workspace/
 data/home
-ccproxy/static/dashboard/
 
 # Temporary
 tmp/
