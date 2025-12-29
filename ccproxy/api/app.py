@@ -335,12 +335,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 name="dashboard-assets",
             )
 
-        # Mount favicon.svg at root level
-        favicon_path = dashboard_static_path / "favicon.svg"
-        if favicon_path.exists():
-            # For single files, we'll handle this in the dashboard route or add a specific route
-            pass
-
     # Mount accounts management UI (HTMX)
     try:
         mount_accounts_ui(app)

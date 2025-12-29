@@ -59,8 +59,6 @@ async def create_anthropic_message(
             status_code, response_headers, response_body = response
 
             if status_code >= 400:
-                # Store headers for preservation middleware
-                request.state.preserve_headers = response_headers
                 # Forward error response directly with headers
                 return ProxyResponse(
                     content=response_body,
@@ -96,9 +94,6 @@ async def create_anthropic_message(
                     headers=streaming_headers,
                 )
             else:
-                # Store headers for preservation middleware
-                request.state.preserve_headers = response_headers
-
                 # Return response with headers
                 return ProxyResponse(
                     content=response_body,  # Use original body to preserve exact format
@@ -167,8 +162,6 @@ async def create_openai_chat_completion(
             status_code, response_headers, response_body = response
 
             if status_code >= 400:
-                # Store headers for preservation middleware
-                request.state.preserve_headers = response_headers
                 # Forward error response directly with headers
                 return ProxyResponse(
                     content=response_body,
@@ -204,9 +197,6 @@ async def create_openai_chat_completion(
                     headers=streaming_headers,
                 )
             else:
-                # Store headers for preservation middleware
-                request.state.preserve_headers = response_headers
-
                 # Return response with headers
                 return ProxyResponse(
                     content=response_body,  # Use original body to preserve exact format

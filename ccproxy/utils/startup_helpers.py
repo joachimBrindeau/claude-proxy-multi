@@ -357,10 +357,8 @@ async def initialize_permission_service_startup(
 
             permission_service = get_permission_service()
 
-            # Only connect terminal handler if not using external handler
-            if settings.server.use_terminal_permission_handler:
-                pass
-            else:
+            # Log if external handler is expected
+            if not settings.server.use_terminal_permission_handler:
                 logger.debug(
                     "permission_handler_configured",
                     handler_type="external_sse",

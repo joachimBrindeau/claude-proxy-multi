@@ -20,17 +20,14 @@ from ccproxy.core.http_transformers import (
     HTTPResponseTransformer,
 )
 from ccproxy.core.request_context import RequestContext
-from ccproxy.services.bypass_generator import BypassGenerator
 from ccproxy.services.credentials.manager import CredentialsManager
 from ccproxy.services.request_metadata import (
-    extract_message_type,
     extract_metadata,
     is_streaming_request,
 )
 from ccproxy.services.streaming_handler import StreamingHandler
 from ccproxy.services.token_provider import TokenProvider
 from ccproxy.services.verbose_logger import VerboseLogger
-from ccproxy.testing import RealisticMockResponseGenerator
 
 
 class RequestData(TypedDict):
@@ -94,9 +91,6 @@ class ProxyService:
         self.request_transformer = HTTPRequestTransformer()
         self.response_transformer = HTTPResponseTransformer()
 
-        # Create mock response generator for bypass mode
-        self.mock_generator = RealisticMockResponseGenerator()
-
         # Initialize OpenAI adapter for format conversion
         self.openai_adapter = OpenAIAdapter()
 
@@ -116,12 +110,6 @@ class ProxyService:
 
         # Initialize token provider
         self.token_provider = TokenProvider(credentials_manager=credentials_manager)
-
-        # Initialize bypass generator for mock responses
-        self.bypass = BypassGenerator(
-            mock_generator=self.mock_generator,
-            openai_adapter=self.openai_adapter,
-        )
 
         # Initialize streaming handler
         self.streaming = StreamingHandler(
@@ -235,33 +223,6 @@ class ProxyService:
                     injection_mode,
                 )
             )
-
-            # 3. Check for bypass header to skip upstream forwarding
-            bypass_upstream = (
-                headers.get("X-CCProxy-Bypass-Upstream", "").lower() == "true"
-            )
-
-            if bypass_upstream:
-                logger.debug("bypassing_upstream_forwarding_due_to_header")
-                # Determine message type from request body for realistic response generation
-                message_type = extract_message_type(body)
-
-                # Check if this is an OpenAI format request
-                is_openai_format = self.response_transformer._is_openai_request(path)
-
-                # Check if this will be a streaming response
-                should_stream = streaming or is_streaming_request(
-                    transformed_request["headers"]
-                )
-
-                if should_stream:
-                    return await self.bypass.generate_streaming(
-                        model, is_openai_format, ctx, message_type
-                    )
-                else:
-                    return await self.bypass.generate_standard(
-                        model, is_openai_format, ctx, message_type
-                    )
 
             # 3. Forward request using proxy client
             logger.debug("request_forwarding_start", url=transformed_request["url"])

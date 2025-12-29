@@ -271,12 +271,11 @@ def _run_local_server(settings: Settings, cli_overrides: dict[str, Any]) -> None
         host=settings.server.host,
         port=settings.server.port,
         reload=settings.server.reload,
-        workers=None,  # ,settings.workers,
+        workers=None,
         log_config=None,
         access_log=False,  # Disable uvicorn's default access logs
         server_header=False,  # Disable uvicorn's server header to preserve upstream headers
         reload_includes=reload_includes,
-        # log_config=get_uvicorn_log_config(),
     )
 
 

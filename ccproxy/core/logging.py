@@ -118,21 +118,6 @@ def setup_logging(
     """
     log_level = getattr(logging, log_level_name.upper(), logging.INFO)
 
-    # Install rich traceback handler globally with frame limit
-    # install_rich_traceback(
-    #     show_locals=log_level <= logging.DEBUG,  # Only show locals in debug mode
-    #     max_frames=max_traceback_frames,
-    #     width=120,
-    #     word_wrap=True,
-    #     suppress=[
-    #         "click",
-    #         "typer",
-    #         "uvicorn",
-    #         "fastapi",
-    #         "starlette",
-    #     ],  # Suppress noise from these libraries
-    # )
-
     # Get root logger and set level BEFORE configuring structlog
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
