@@ -5,6 +5,13 @@
 **Status**: Draft
 **Input**: User description: "Universal deployment system for CCProxy that makes installation one-click easy on any platform (macOS, Linux, Windows, Docker, cloud services). Use existing libraries and package managers to minimize custom code while maximizing platform coverage. Include: Docker one-liner installer, Homebrew formula, cloud deploy buttons (Railway/Render/Fly.io), Chocolatey package, Snap package, Helm chart for Kubernetes, and standalone binaries. Prioritize developer experience and leverage existing packaging ecosystems."
 
+## Clarifications
+
+### Session 2025-12-30
+
+- Q: How should the installer endpoint at https://get.ccproxy.dev be hosted and managed? → A: GitHub Pages with custom domain (get.ccproxy.dev CNAME to joachimbrindeau.github.io/ccproxy-api/install.sh) - zero cost, automatic deployment via GitHub Actions
+- Q: What format should OAuth credentials use for export/import between installation methods? → A: Web UI buttons on /accounts/ page for export (browser download API) and import (browser file upload API) of accounts.json file - uses standard browser APIs to minimize custom code
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Docker Developer Quick Start (Priority: P1)
@@ -136,7 +143,7 @@ A user without Docker, package managers, or cloud access wants to download a sin
 - **What happens when port 8000 is already in use?** The installer detects the port conflict and either offers to stop the existing service or prompts for a different port via environment variable configuration
 - **What happens when OAuth callbacks fail due to network restrictions or firewall rules?** The web UI displays clear error messages with troubleshooting steps for common network issues and offers an alternative manual token configuration method
 - **What happens when persistent storage (Docker volume, PVC) fails to mount?** The service starts in a degraded state, displays a warning that OAuth credentials won't persist, and provides instructions for fixing storage permissions
-- **What happens when upgrading from one installation method to another (e.g., Docker to Homebrew)?** Installation documentation clearly explains how to export OAuth credentials from one method and import them into another, preserving user accounts
+- **What happens when upgrading from one installation method to another (e.g., Docker to Homebrew)?** Users visit the /accounts/ page, click "Export Accounts" to download their accounts.json file, install CCProxy via the new method, then click "Import Accounts" to upload the file and restore their OAuth credentials
 - **What happens when package manager repositories have approval delays or are rejected?** Documentation provides alternative installation methods and the project maintains direct downloads as fallbacks until approval completes
 - **What happens when users install on unsupported platforms (BSD, ARM Linux, old macOS)?** The installer detects unsupported platforms and recommends the closest supported alternative or Docker as a universal fallback
 
@@ -146,7 +153,7 @@ A user without Docker, package managers, or cloud access wants to download a sin
 
 #### Installation & Distribution
 - **FR-001**: System MUST provide a Docker-based installer script at `scripts/install.sh` that detects Docker installation, downloads compose.dist.yaml, starts the service, and opens the browser to the accounts page
-- **FR-002**: System MUST provide a publicly accessible installer endpoint at `https://get.ccproxy.dev` that serves the Docker installer script via curl
+- **FR-002**: System MUST provide a publicly accessible installer endpoint at `https://get.ccproxy.dev` that serves the Docker installer script via curl. The endpoint MUST be hosted on GitHub Pages with a custom domain CNAME pointing to joachimbrindeau.github.io/ccproxy-api/install.sh, deployed automatically via GitHub Actions
 - **FR-003**: System MUST provide a Homebrew formula in a dedicated tap repository (`joachimbrindeau/homebrew-tap`) that installs CCProxy with all dependencies using standard Homebrew practices
 - **FR-004**: System MUST provide cloud deployment configurations for Railway (`railway.json`), Render (`render.yaml`), and Fly.io (`fly.toml`) that include persistent storage mounting for OAuth credentials
 - **FR-005**: System MUST provide a Chocolatey package specification (`.nuspec`) that installs CCProxy on Windows with automatic Windows Service registration
@@ -169,20 +176,22 @@ A user without Docker, package managers, or cloud access wants to download a sin
 - **FR-018**: GitHub Actions MUST build standalone binaries for all 4 platforms (darwin-arm64, darwin-amd64, linux-amd64, windows-amd64) and attach them to GitHub releases
 - **FR-019**: GitHub Actions MUST update Homebrew formula with new release versions and SHA256 checksums automatically using existing Homebrew tap automation
 - **FR-020**: GitHub Actions MUST package and publish Helm charts to GitHub Pages-based chart repository using `helm package` and `helm repo index` commands
+- **FR-021**: GitHub Actions MUST deploy the installer script to GitHub Pages automatically on commits to main branch, making it accessible at https://get.ccproxy.dev via CNAME configuration
 
 #### User Experience
-- **FR-021**: Docker installer MUST automatically open the user's default browser to `http://localhost:8000/accounts/` upon successful service start
-- **FR-022**: Homebrew installation MUST provide post-install instructions via `brew info ccproxy` that include service start commands and web UI URL
-- **FR-023**: All installation methods MUST preserve OAuth credentials across upgrades in platform-appropriate persistent storage locations
-- **FR-024**: All installation methods MUST provide clear documentation for troubleshooting common issues (port conflicts, permission errors, network problems)
-- **FR-025**: README MUST include visible "Deploy to" buttons for Railway, Render, and Fly.io that users can click to deploy immediately
+- **FR-022**: Docker installer MUST automatically open the user's default browser to `http://localhost:8000/accounts/` upon successful service start
+- **FR-023**: Homebrew installation MUST provide post-install instructions via `brew info ccproxy` that include service start commands and web UI URL
+- **FR-024**: All installation methods MUST preserve OAuth credentials across upgrades in platform-appropriate persistent storage locations
+- **FR-025**: The /accounts/ page MUST provide "Export Accounts" button that downloads accounts.json using browser download API and "Import Accounts" button that uploads accounts.json using browser file upload API, enabling OAuth credential migration between installation methods without custom code
+- **FR-026**: All installation methods MUST provide clear documentation for troubleshooting common issues (port conflicts, permission errors, network problems)
+- **FR-027**: README MUST include visible "Deploy to" buttons for Railway, Render, and Fly.io that users can click to deploy immediately
 
 #### Service Management
-- **FR-026**: Homebrew installation MUST integrate with `brew services` for background daemon management (start, stop, restart)
-- **FR-027**: Chocolatey installation MUST register CCProxy as a Windows Service with automatic startup configured
-- **FR-028**: Snap installation MUST register CCProxy as a systemd daemon with automatic startup and restart policies
-- **FR-029**: Docker installer MUST configure the service with `restart: unless-stopped` policy in the compose file
-- **FR-030**: All service configurations MUST include health checks that validate the web UI is accessible on the configured port
+- **FR-028**: Homebrew installation MUST integrate with `brew services` for background daemon management (start, stop, restart)
+- **FR-029**: Chocolatey installation MUST register CCProxy as a Windows Service with automatic startup configured
+- **FR-030**: Snap installation MUST register CCProxy as a systemd daemon with automatic startup and restart policies
+- **FR-031**: Docker installer MUST configure the service with `restart: unless-stopped` policy in the compose file
+- **FR-032**: All service configurations MUST include health checks that validate the web UI is accessible on the configured port
 
 ### Key Entities
 
@@ -253,7 +262,7 @@ A user without Docker, package managers, or cloud access wants to download a sin
 
 7. **Configuration Wizards**: Interactive CLI or GUI wizards for post-installation configuration are not included. Users configure via environment variables or editing compose.yaml/values.yaml.
 
-8. **Automatic Migration Tools**: Tools to automatically migrate OAuth credentials between installation methods (e.g., Docker to Homebrew) are not included. Documentation provides manual export/import instructions.
+8. **Automatic Cross-Platform Detection**: Tools that automatically detect and migrate OAuth credentials between installation methods without user action (e.g., automatically finding and importing credentials when switching from Docker to Homebrew) are not included. Users must manually export/import via the web UI buttons.
 
 9. **Custom Linux Package Repositories**: Dedicated APT (Debian/Ubuntu) or YUM (RHEL/CentOS) repositories with signed packages are not included. Linux users can use Docker, Snap, or standalone binaries.
 
