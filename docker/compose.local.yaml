@@ -2,13 +2,13 @@
 # Run: docker compose -f docker/compose.local.yaml up --build
 
 services:
-  ccproxy:
+  claude-code-proxy:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: ccproxy:local
-    container_name: ccproxy-local
-    hostname: ccproxy
+    image: claude-code-proxy:local
+    container_name: claude-code-proxy-local
+    hostname: claude-code-proxy
     restart: unless-stopped
     ports:
       - '8000:8000'

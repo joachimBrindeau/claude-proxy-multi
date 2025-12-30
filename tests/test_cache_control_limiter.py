@@ -9,7 +9,7 @@ import sys
 if "ccproxy.core.http_transformers" in sys.modules:
     importlib.reload(sys.modules["ccproxy.core.http_transformers"])
 
-from ccproxy.core.http_transformers import HTTPRequestTransformer
+from claude_code_proxy.core.http_transformers import HTTPRequestTransformer
 
 
 class TestCacheControlLimiter:

@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated startup lifecycle to validate both authentication systems independently
   - Clear differentiation between Claude and Codex authentication status in logs
 - **Package Data Fallback System**: Implemented robust fallback data system using package-embedded JSON files
-  - Added `ccproxy/data/claude_headers_fallback.json` with Claude CLI headers and system prompts
-  - Added `ccproxy/data/codex_headers_fallback.json` with Codex CLI headers and detection data
+  - Added `claude-code-proxy/data/claude_headers_fallback.json` with Claude CLI headers and system prompts
+  - Added `claude-code-proxy/data/codex_headers_fallback.json` with Codex CLI headers and detection data
   - Updated `pyproject.toml` to include data files in package builds via `[tool.hatch.build.targets.wheel]`
   - Enhanced detection services to load fallback data from package files instead of hardcoded values
   - Removed identifying UUIDs from fallback files for privacy protection
@@ -66,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Infrastructure
 
 - **Package Data Management**: Added proper package data inclusion for distribution
-  - Updated build configuration to include `ccproxy/data/*.json` files in wheel packages
+  - Updated build configuration to include `claude-code-proxy/data/*.json` files in wheel packages
   - Ensured fallback data is available in both development and packaged installations
   - Improved data file loading with proper path resolution for packaged deployments
 - **Code Quality**: Enhanced code organization and linting compliance
@@ -119,11 +119,11 @@ Implemented comprehensive support for OpenAI Codex CLI integration, enabling use
 
 **New Components Added:**
 
-- `ccproxy/auth/openai.py` - OAuth token management and credential storage
-- `ccproxy/core/codex_transformers.py` - Request/response transformation for Codex format
-- `ccproxy/api/routes/codex.py` - FastAPI routes for Codex endpoints
-- `ccproxy/models/detection.py` - Codex CLI detection and header management
-- `ccproxy/services/codex_detection_service.py` - Runtime detection of Codex CLI requests
+- `claude-code-proxy/auth/openai.py` - OAuth token management and credential storage
+- `claude-code-proxy/core/codex_transformers.py` - Request/response transformation for Codex format
+- `claude-code-proxy/api/routes/codex.py` - FastAPI routes for Codex endpoints
+- `claude-code-proxy/models/detection.py` - Codex CLI detection and header management
+- `claude-code-proxy/services/codex_detection_service.py` - Runtime detection of Codex CLI requests
 
 **Enhanced Proxy Service:**
 
@@ -178,7 +178,7 @@ curl -X POST "http://127.0.0.1:8000/codex/responses" \
 export CODEX__BASE_URL="https://chatgpt.com/backend-api/codex"
 ```
 
-**Configuration File (`~/.ccproxy.toml`):**
+**Configuration File (`~/.claude-code-proxy.toml`):**
 
 ```toml
 [codex]
@@ -199,18 +199,18 @@ base_url = "https://chatgpt.com/backend-api/codex"
 
 **New Files:**
 
-- `ccproxy/auth/openai.py` - OpenAI authentication management
-- `ccproxy/core/codex_transformers.py` - Codex request/response transformation
-- `ccproxy/api/routes/codex.py` - Codex API endpoints
-- `ccproxy/models/detection.py` - Codex detection models
-- `ccproxy/services/codex_detection_service.py` - Codex CLI detection service
+- `claude-code-proxy/auth/openai.py` - OpenAI authentication management
+- `claude-code-proxy/core/codex_transformers.py` - Codex request/response transformation
+- `claude-code-proxy/api/routes/codex.py` - Codex API endpoints
+- `claude-code-proxy/models/detection.py` - Codex detection models
+- `claude-code-proxy/services/codex_detection_service.py` - Codex CLI detection service
 
 **Modified Files:**
 
-- `ccproxy/services/proxy_service.py` - Added `handle_codex_request()` method
-- `ccproxy/config/settings.py` - Added Codex configuration section
-- `ccproxy/api/app.py` - Integrated Codex routes
-- `ccproxy/api/routes/health.py` - Added Codex health checks
+- `claude-code-proxy/services/proxy_service.py` - Added `handle_codex_request()` method
+- `claude-code-proxy/config/settings.py` - Added Codex configuration section
+- `claude-code-proxy/api/app.py` - Integrated Codex routes
+- `claude-code-proxy/api/routes/health.py` - Added Codex health checks
 
 ### Breaking Changes
 
@@ -266,11 +266,11 @@ Implemented comprehensive support for OpenAI Codex CLI integration, enabling use
 
 **New Components Added:**
 
-- `ccproxy/auth/openai.py` - OAuth token management and credential storage
-- `ccproxy/core/codex_transformers.py` - Request/response transformation for Codex format
-- `ccproxy/api/routes/codex.py` - FastAPI routes for Codex endpoints
-- `ccproxy/models/detection.py` - Codex CLI detection and header management
-- `ccproxy/services/codex_detection_service.py` - Runtime detection of Codex CLI requests
+- `claude-code-proxy/auth/openai.py` - OAuth token management and credential storage
+- `claude-code-proxy/core/codex_transformers.py` - Request/response transformation for Codex format
+- `claude-code-proxy/api/routes/codex.py` - FastAPI routes for Codex endpoints
+- `claude-code-proxy/models/detection.py` - Codex CLI detection and header management
+- `claude-code-proxy/services/codex_detection_service.py` - Runtime detection of Codex CLI requests
 
 **Enhanced Proxy Service:**
 
@@ -325,7 +325,7 @@ curl -X POST "http://127.0.0.1:8000/codex/responses" \
 export CODEX__BASE_URL="https://chatgpt.com/backend-api/codex"
 ```
 
-**Configuration File (`~/.ccproxy.toml`):**
+**Configuration File (`~/.claude-code-proxy.toml`):**
 
 ```toml
 [codex]
@@ -346,18 +346,18 @@ base_url = "https://chatgpt.com/backend-api/codex"
 
 **New Files:**
 
-- `ccproxy/auth/openai.py` - OpenAI authentication management
-- `ccproxy/core/codex_transformers.py` - Codex request/response transformation
-- `ccproxy/api/routes/codex.py` - Codex API endpoints
-- `ccproxy/models/detection.py` - Codex detection models
-- `ccproxy/services/codex_detection_service.py` - Codex CLI detection service
+- `claude-code-proxy/auth/openai.py` - OpenAI authentication management
+- `claude-code-proxy/core/codex_transformers.py` - Codex request/response transformation
+- `claude-code-proxy/api/routes/codex.py` - Codex API endpoints
+- `claude-code-proxy/models/detection.py` - Codex detection models
+- `claude-code-proxy/services/codex_detection_service.py` - Codex CLI detection service
 
 **Modified Files:**
 
-- `ccproxy/services/proxy_service.py` - Added `handle_codex_request()` method
-- `ccproxy/config/settings.py` - Added Codex configuration section
-- `ccproxy/api/app.py` - Integrated Codex routes
-- `ccproxy/api/routes/health.py` - Added Codex health checks
+- `claude-code-proxy/services/proxy_service.py` - Added `handle_codex_request()` method
+- `claude-code-proxy/config/settings.py` - Added Codex configuration section
+- `claude-code-proxy/api/app.py` - Integrated Codex routes
+- `claude-code-proxy/api/routes/health.py` - Added Codex health checks
 
 ### Breaking Changes
 
@@ -481,11 +481,11 @@ This implementation provides a complete, production-ready OpenAI Codex proxy sol
 
 - **Test Structure**: Added `.gitignore` for test artifacts and coverage reports
 - **Documentation**: Updated `TESTING.md` with new test organization and examples
-- **Cache Directory**: Added automatic creation of `~/.cache/ccproxy/` for detection data persistence
+- **Cache Directory**: Added automatic creation of `~/.cache/claude-code-proxy/` for detection data persistence
 - **Session Pool Components**: Added new modules for session management:
-  - `ccproxy/claude_sdk/session_pool.py` - Core session pool implementation
-  - `ccproxy/claude_sdk/session_client.py` - Session-aware client wrapper
-  - `ccproxy/claude_sdk/manager.py` - Unified pool management with metrics integration
+  - `claude-code-proxy/claude_sdk/session_pool.py` - Core session pool implementation
+  - `claude-code-proxy/claude_sdk/session_client.py` - Session-aware client wrapper
+  - `claude-code-proxy/claude_sdk/manager.py` - Unified pool management with metrics integration
 - **Test Coverage**: Added comprehensive tests for session pool functionality:
   - Unit tests for session lifecycle, cleanup, and recovery
   - Integration tests for end-to-end session pooling behavior
@@ -505,7 +505,7 @@ This implementation provides a complete, production-ready OpenAI Codex proxy sol
 - **Permission System**: Implemented comprehensive permission management with REST API endpoints and Server-Sent Events (SSE) streaming for real-time permission requests
 - **Request/Response Logging**: Added comprehensive logging middleware with configurable verbosity levels (`CCPROXY_VERBOSE_API`, `CCPROXY_REQUEST_LOG_DIR`)
 - **Claude SDK Custom Content Blocks**: Added support for `system_message`, `tool_use_sdk`, and `tool_result_sdk` content blocks with full metadata preservation
-- **Model Mapping Utilities**: Centralized model provider abstraction with unified mapping logic in `ccproxy/utils/models_provider.py`
+- **Model Mapping Utilities**: Centralized model provider abstraction with unified mapping logic in `claude-code-proxy/utils/models_provider.py`
 - **Terminal Permission Handler**: Interactive permission workflow handler for CLI-based permission management
 - **Claude SDK Field Rendering**: Added flexible content handling with `forward`, `formatted`, and `ignore` rendering options for Claude SDK fields
 
@@ -551,13 +551,13 @@ This implementation provides a complete, production-ready OpenAI Codex proxy sol
   - Validates OAuth credentials and warns about expired tokens
   - Checks for Claude CLI binary availability with installation instructions
   - Logs token expiration time and subscription type when valid
-- **Default Command**: The `serve` command is now the default - running `ccproxy` without subcommands automatically starts the server.
-- **Alternative Entry Point**: Added `ccproxy-api` as an alternative command-line entry point.
+- **Default Command**: The `serve` command is now the default - running `claude-code-proxy` without subcommands automatically starts the server.
+- **Alternative Entry Point**: Added `claude-code-proxy` as an alternative command-line entry point.
 
 ### Changed
 
 - **Authentication Variable**: Renamed environment variable from `AUTH_TOKEN` to `SECURITY__AUTH_TOKEN` for better namespace organization and clarity.
-- **Credential Priority**: Reordered credential search paths to prioritize ccproxy-specific credentials before Claude CLI paths.
+- **Credential Priority**: Reordered credential search paths to prioritize claude-code-proxy-specific credentials before Claude CLI paths.
 - **CLI Syntax**: Migrated all CLI parameters to modern Annotated syntax for better type safety and IDE support.
 - **Pydantic v2**: Updated all models to use Pydantic v2 configuration syntax (`model_config` instead of `Config` class).
 - **Documentation**: Improved Aider integration docs with correct API endpoint URLs and added installation options (uv, pipx).
@@ -576,7 +576,7 @@ This implementation provides a complete, production-ready OpenAI Codex proxy sol
 
 ## [0.1.0] - 2025-07-21
 
-This is the initial public release of the CCProxy API.
+This is the initial public release of the Claude Code Proxy API.
 
 ### Added
 
@@ -599,7 +599,7 @@ This is the initial public release of the CCProxy API.
 
 #### Configuration & CLI
 
-- **Unified `ccproxy` CLI**: A single, user-friendly command-line interface for managing the proxy.
+- **Unified `claude-code-proxy` CLI**: A single, user-friendly command-line interface for managing the proxy.
 - **TOML Configuration**: Configure the server using a `config.toml` file with JSON Schema validation.
 - **Keyring Integration**: Securely stores and manages OAuth credentials in the system's native keyring.
 - **`generate-token` Command**: A CLI command to manually generate and manage API tokens.

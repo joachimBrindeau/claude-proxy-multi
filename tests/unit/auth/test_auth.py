@@ -15,20 +15,20 @@ import pytest
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
-from ccproxy.auth.bearer import BearerTokenAuthManager
-from ccproxy.auth.credentials_adapter import CredentialsAuthManager
-from ccproxy.auth.dependencies import (
+from claude_code_proxy.auth.bearer import BearerTokenAuthManager
+from claude_code_proxy.auth.credentials_adapter import CredentialsAuthManager
+from claude_code_proxy.auth.dependencies import (
     get_access_token,
     require_auth,
 )
-from ccproxy.auth.manager import AuthManager
-from ccproxy.auth.models import (
+from claude_code_proxy.auth.manager import AuthManager
+from claude_code_proxy.auth.models import (
     AccountInfo,
     ClaudeCredentials,
     OAuthToken,
     UserProfile,
 )
-from ccproxy.exceptions import (
+from claude_code_proxy.exceptions import (
     AuthenticationError,
     AuthenticationRequiredError,
     CredentialsError,
@@ -40,7 +40,7 @@ from ccproxy.exceptions import (
     OAuthLoginError,
     OAuthTokenRefreshError,
 )
-from ccproxy.services.credentials.manager import CredentialsManager
+from claude_code_proxy.services.credentials.manager import CredentialsManager
 
 
 @pytest.mark.auth

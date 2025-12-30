@@ -1,5 +1,5 @@
 [project]
-name = "ccproxy-api"
+name = "claude-code-proxy"
 # version = "0.1.0"
 dynamic = ["version"]
 description = "High-performance Claude Code multi-account proxy server with Anthropic API compatibility for managing multiple Claude accounts."
@@ -33,6 +33,7 @@ dependencies = [
   "tenacity>=9.1.2",
   "textual>=3.7.1",
   "tomli>=2.0.0; python_version<'3.11'",
+  "tomli-w>=1.1.0",
   "typer>=0.16.0",
   "typing-extensions>=4.0.0",
   "uvicorn>=0.34.0",
@@ -51,18 +52,18 @@ source = "vcs"
 
 
 [tool.hatch.build.hooks.vcs]
-version-file = "src/ccproxy/_version.py"
+version-file = "src/claude_code_proxy/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ccproxy"]
+packages = ["src/claude_code_proxy"]
 include = [
-    "src/ccproxy/data/*.json"
+    "src/claude_code_proxy/data/*.json"
 ]
 
 [project.scripts]
-ccproxy = "ccproxy.cli:main"
-ccproxy-api = "ccproxy.cli:main"
-ccproxy-perm = "ccproxy.cli.commands.permission:main"
+claude-code-proxy = "claude_code_proxy.cli:main"
+claude-code-proxy-api = "claude_code_proxy.cli:main"
+claude-code-proxy-perm = "claude_code_proxy.cli.commands.permission:main"
 
 [dependency-groups]
 dev = [
@@ -113,11 +114,11 @@ schema = ["pydantic>=2.8.0", "check-jsonschema>=0.33.2"]
 
 [tool.coverage.run]
 data_file = ".coverage/coverage"
-source = ["src/ccproxy", "tests"]
-include = ["src/ccproxy/*", "tests/*"]
+source = ["src/claude_code_proxy", "tests"]
+include = ["src/claude_code_proxy/*", "tests/*"]
 omit = [
-  "src/ccproxy/_version.py",
-  "src/ccproxy/__main__.py",
+  "src/claude_code_proxy/_version.py",
+  "src/claude_code_proxy/__main__.py",
   "tests/conftest.py",
   "*/migrations/*",
   "*/__pycache__/*",
@@ -151,7 +152,7 @@ exclude_lines = [
 
 [tool.coverage.html]
 directory = ".coverage/html"
-title = "CCProxy Coverage Report"
+title = "Claude Code Proxy Coverage Report"
 
 [tool.coverage.xml]
 output = ".coverage/coverage.xml"
@@ -200,7 +201,7 @@ indent-style = "space"
 
 
 [tool.ruff.lint.isort]
-known-first-party = ["ccproxy"]
+known-first-party = ["claude_code_proxy"]
 force-single-line = false
 lines-after-imports = 2
 
@@ -273,20 +274,20 @@ disable_error_code = ["attr-defined"]
 
 # Files that use watchdog subclasses - need to ignore subclassing Any
 [[tool.mypy.overrides]]
-module = "ccproxy.rotation.file_watcher"
+module = "claude_code_proxy.rotation.file_watcher"
 disallow_subclassing_any = false
 disallow_any_unimported = false
 
 # Claude SDK options file uses dynamic attributes
 [[tool.mypy.overrides]]
-module = "ccproxy.claude_sdk.options"
+module = "claude_code_proxy.claude_sdk.options"
 disable_error_code = ["attr-defined"]
 
 # Files with intentional Any from untyped imports
 [[tool.mypy.overrides]]
 module = [
-    "ccproxy.utils.id_generator",
-    "ccproxy.core.async_utils",
+    "claude_code_proxy.utils.id_generator",
+    "claude_code_proxy.core.async_utils",
 ]
 disallow_any_unimported = false
 disallow_subclassing_any = false
@@ -295,8 +296,8 @@ disable_error_code = ["no-any-return", "no-any-unimported", "misc", "operator", 
 # Retry decorators can modify return types
 [[tool.mypy.overrides]]
 module = [
-    "ccproxy.rotation.capacity_check",
-    "ccproxy.rotation.refresh",
+    "claude_code_proxy.rotation.capacity_check",
+    "claude_code_proxy.rotation.refresh",
 ]
 disable_error_code = ["return"]
 
@@ -311,7 +312,7 @@ addopts = [
   "--disable-warnings",
   "--tb=short",
   "-v",
-  "--cov=src/ccproxy",
+  "--cov=src/claude_code_proxy",
   "--cov=tests",
   "--cov-report=term-missing",
   "--cov-report=html:.coverage/html",
@@ -345,7 +346,7 @@ filterwarnings = [
 
 # Set test mode to prevent pollution of real credential files
 env = [
-  "CCPROXY_TEST_MODE=true",
+  "CLAUDE_CODE_PROXY_TEST_MODE=true",
   "PYTEST_CURRENT_TEST=true",
   "LOG_LEVEL=WARNING",
 ]
@@ -398,7 +399,7 @@ skips = [
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
-include = ["src/ccproxy"]
+include = ["src/claude_code_proxy"]
 exclude = ["**/__pycache__", ".venv", "tests", "examples", "scripts"]
 reportMissingImports = true
 reportMissingTypeStubs = false
@@ -465,7 +466,7 @@ legacy_tox_ini = """
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["ccproxy*"]
+include = ["claude_code_proxy*"]
 
 [tool.uv]
 package = true

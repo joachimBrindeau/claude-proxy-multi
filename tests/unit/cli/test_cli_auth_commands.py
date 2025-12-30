@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from ccproxy.auth.models import (
+from claude_code_proxy.auth.models import (
     AccountInfo,
     ClaudeCredentials,
     OAuthToken,
@@ -18,7 +18,7 @@ from ccproxy.auth.models import (
     UserProfile,
     ValidationResult,
 )
-from ccproxy.cli.commands.auth import (
+from claude_code_proxy.cli.commands.auth import (
     app,
     credential_info,
     get_credentials_manager,
@@ -27,7 +27,7 @@ from ccproxy.cli.commands.auth import (
     renew,
     validate_credentials,
 )
-from ccproxy.services.credentials.manager import CredentialsManager
+from claude_code_proxy.services.credentials.manager import CredentialsManager
 
 
 class TestAuthCLICommands:

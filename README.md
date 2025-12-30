@@ -1,6 +1,6 @@
 <div align="center">
 
-# CCProxy Multi-Account
+# Claude Code Proxy Multi-Account
 
 **Claude Code Proxy with Multi-Account Rotation & Rate Limit Failover**
 
@@ -10,9 +10,9 @@
 
 ---
 
-### Fork of [CaddyGlow/ccproxy-api](https://github.com/CaddyGlow/ccproxy-api)
+### Fork of [CaddyGlow/claude-code-proxy](https://github.com/CaddyGlow/claude-code-proxy)
 
-This project is built on top of the excellent **CCProxy** by [@CaddyGlow](https://github.com/CaddyGlow).
+This project is built on top of the excellent **Claude Code Proxy** by [@CaddyGlow](https://github.com/CaddyGlow).
 All core proxy functionality, authentication, and API translation comes from the original project.
 
 **This fork adds:** Multi-account rotation with automatic failover
@@ -27,7 +27,7 @@ All core proxy functionality, authentication, and API translation comes from the
 
 ## What This Fork Adds
 
-Built on top of CaddyGlow's CCProxy, this fork adds **multi-account rotation** for production deployments:
+Built on top of CaddyGlow's Claude Code Proxy, this fork adds **multi-account rotation** for production deployments:
 
 - **3x+ throughput** by distributing requests across multiple Claude accounts
 - **Zero downtime** with automatic failover when accounts hit rate limits
@@ -36,11 +36,11 @@ Built on top of CaddyGlow's CCProxy, this fork adds **multi-account rotation** f
 
 | Feature | Source |
 |---------|:------:|
-| Claude API proxy | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| OAuth2 authentication | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| SDK & API modes | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| OpenAI format compatibility | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| Observability suite | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| Claude API proxy | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
+| OAuth2 authentication | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
+| SDK & API modes | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
+| OpenAI format compatibility | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
+| Observability suite | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
 | **Multi-account rotation** | This Fork |
 | **Rate limit failover** | This Fork |
 | **Proactive token refresh** | This Fork |
@@ -153,10 +153,10 @@ curl http://localhost:8000/status/accounts
 
 ```bash
 # Install with uv (recommended)
-uv tool install git+https://github.com/joachimBrindeau/ccproxy-api.git
+uv tool install git+https://github.com/joachimBrindeau/claude-code-proxy.git
 
 # Or with pipx
-pipx install git+https://github.com/joachimBrindeau/ccproxy-api.git
+pipx install git+https://github.com/joachimBrindeau/claude-code-proxy.git
 
 # Required: Claude Code CLI for SDK mode
 npm install -g @anthropic-ai/claude-code
@@ -169,7 +169,7 @@ npm install -g @anthropic-ai/claude-code
 claude /login
 
 # Start proxy
-ccproxy
+claude-code-proxy
 ```
 
 ### Multi-Account (Production)
@@ -195,7 +195,7 @@ cat > ~/.claude/accounts.json << 'EOF'
 EOF
 
 # 2. Start proxy with rotation
-ccproxy
+claude-code-proxy
 
 # 3. Verify accounts loaded
 curl http://localhost:8000/status
@@ -209,7 +209,7 @@ curl http://localhost:8000/status
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
-│   Client    │────▶│   CCProxy    │────▶│  Claude API     │
+│   Client    │────▶│   Claude Code Proxy    │────▶│  Claude API     │
 │   Request   │     │  (Rotation)  │     │                 │
 └─────────────┘     └──────────────┘     └─────────────────┘
                            │
@@ -299,13 +299,13 @@ curl -X POST http://localhost:8000/api/v1/messages \
 1. Command-line arguments
 2. Environment variables
 3. `.env` file
-4. TOML config (`~/.config/ccproxy/config.toml`)
+4. TOML config (`~/.config/claude-code-proxy/config.toml`)
 5. Defaults
 
 ### Example Configuration
 
 ```toml
-# ~/.config/ccproxy/config.toml
+# ~/.config/claude-code-proxy/config.toml
 
 [server]
 host = "0.0.0.0"
@@ -327,8 +327,8 @@ auth_token = "your-secret-token"
 
 ```bash
 # One command to start
-docker run -d -p 8000:8000 -v ccproxy-config:/config \
-  --name ccproxy ghcr.io/joachimbrindeau/ccproxy-multi:latest
+docker run -d -p 8000:8000 -v claude-code-proxy-config:/config \
+  --name claude-code-proxy ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
 
 # Open http://localhost:8000 to add accounts via web UI
 ```
@@ -338,19 +338,19 @@ docker run -d -p 8000:8000 -v ccproxy-config:/config \
 ```yaml
 # docker/compose.yaml (or your own compose file)
 services:
-  ccproxy:
-    image: ghcr.io/joachimbrindeau/ccproxy-multi:latest
+  claude-code-proxy:
+    image: ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
     ports:
       - "8000:8000"
     volumes:
-      - ccproxy-config:/config
+      - claude-code-proxy-config:/config
     environment:
       - CCPROXY_ACCOUNTS_PATH=/config/accounts.json
       - CCPROXY_ROTATION_ENABLED=true
       - CCPROXY_HOT_RELOAD=true
 
 volumes:
-  ccproxy-config:
+  claude-code-proxy-config:
 ```
 
 **First Run:**
@@ -441,10 +441,10 @@ model_list:
 
 ```bash
 # Check credential status
-ccproxy auth status
+claude-code-proxy auth status
 
 # Re-authenticate
-ccproxy auth login
+claude-code-proxy auth login
 ```
 
 </details>
@@ -469,7 +469,7 @@ curl http://localhost:8000/status
 curl -X POST http://localhost:8000/status/accounts/{name}/refresh
 
 # Check logs for OAuth errors
-docker logs ccproxy 2>&1 | grep -i oauth
+docker logs claude-code-proxy 2>&1 | grep -i oauth
 ```
 
 </details>
@@ -488,16 +488,16 @@ MIT License - see [LICENSE](LICENSE).
 
 ### Original Project
 
-This fork would not exist without the excellent work by **[@CaddyGlow](https://github.com/CaddyGlow)** on [ccproxy-api](https://github.com/CaddyGlow/ccproxy-api).
+This fork would not exist without the excellent work by **[@CaddyGlow](https://github.com/CaddyGlow)** on [claude-code-proxy](https://github.com/CaddyGlow/claude-code-proxy).
 
-The original CCProxy provides:
+The original Claude Code Proxy provides:
 - Claude proxy architecture with OpenAI format compatibility
 - OAuth2 PKCE authentication flows
 - SDK and API operating modes
 - MCP server integration
 - Observability suite (metrics, dashboard, logging)
 
-**If you don't need multi-account rotation, use the [original project](https://github.com/CaddyGlow/ccproxy-api).**
+**If you don't need multi-account rotation, use the [original project](https://github.com/CaddyGlow/claude-code-proxy).**
 
 ### Also Thanks To
 
@@ -507,6 +507,6 @@ The original CCProxy provides:
 
 <div align="center">
 
-**[⬆ Back to Top](#ccproxy-multi-account)**
+**[⬆ Back to Top](#claude-code-proxy-multi-account)**
 
 </div>

@@ -22,21 +22,21 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from ccproxy.api.app import create_app
-from ccproxy.core.request_context import RequestContext
+from claude_code_proxy.api.app import create_app
+from claude_code_proxy.core.request_context import RequestContext
 
 
 if TYPE_CHECKING:
     from tests.factories import FastAPIAppFactory, FastAPIClientFactory
-from ccproxy.auth.manager import AuthManager
-from ccproxy.config.auth import AuthSettings, CredentialStorageSettings
-from ccproxy.config.security import SecuritySettings
-from ccproxy.config.server import ServerSettings
-from ccproxy.config.settings import Settings
-from ccproxy.docker.adapter import DockerAdapter
-from ccproxy.docker.docker_path import DockerPath, DockerPathSet
-from ccproxy.docker.models import DockerUserContext
-from ccproxy.docker.stream_process import DefaultOutputMiddleware
+from claude_code_proxy.auth.manager import AuthManager
+from claude_code_proxy.config.auth import AuthSettings, CredentialStorageSettings
+from claude_code_proxy.config.security import SecuritySettings
+from claude_code_proxy.config.server import ServerSettings
+from claude_code_proxy.config.settings import Settings
+from claude_code_proxy.docker.adapter import DockerAdapter
+from claude_code_proxy.docker.docker_path import DockerPath, DockerPathSet
+from claude_code_proxy.docker.models import DockerUserContext
+from claude_code_proxy.docker.stream_process import DefaultOutputMiddleware
 
 
 # Import organized fixture modules
@@ -186,8 +186,8 @@ def app(test_settings: Settings) -> FastAPI:
     app = create_app(settings=test_settings)
 
     # Override the settings dependency for testing
-    from ccproxy.api.dependencies import get_cached_settings
-    from ccproxy.config.settings import get_settings as original_get_settings
+    from claude_code_proxy.api.dependencies import get_cached_settings
+    from claude_code_proxy.config.settings import get_settings as original_get_settings
 
     app.dependency_overrides[original_get_settings] = lambda: test_settings
 
@@ -217,8 +217,11 @@ def app_with_claude_sdk_environment(
     app = create_app(settings=test_settings)
 
     # Override the settings dependency for testing
-    from ccproxy.api.dependencies import get_cached_claude_service, get_cached_settings
-    from ccproxy.config.settings import get_settings as original_get_settings
+    from claude_code_proxy.api.dependencies import (
+        get_cached_claude_service,
+        get_cached_settings,
+    )
+    from claude_code_proxy.config.settings import get_settings as original_get_settings
 
     app.dependency_overrides[original_get_settings] = lambda: test_settings
 
@@ -469,8 +472,10 @@ def app_factory(tmp_path: Path) -> Callable[[dict[str, Any]], FastAPI]:
         app = create_app(settings=settings)
 
         # Override settings dependency for testing
-        from ccproxy.api.dependencies import get_cached_settings
-        from ccproxy.config.settings import get_settings as original_get_settings
+        from claude_code_proxy.api.dependencies import get_cached_settings
+        from claude_code_proxy.config.settings import (
+            get_settings as original_get_settings,
+        )
 
         app.dependency_overrides[original_get_settings] = lambda: settings
 
@@ -485,7 +490,7 @@ def app_factory(tmp_path: Path) -> Callable[[dict[str, Any]], FastAPI]:
         if auth_config["mode"] != "none":
             from fastapi.security import HTTPAuthorizationCredentials
 
-            from ccproxy.auth.dependencies import (
+            from claude_code_proxy.auth.dependencies import (
                 _get_auth_manager_with_settings,
                 get_auth_manager,
             )
@@ -751,7 +756,7 @@ def docker_adapter_success(
 
     Returns a DockerAdapter instance that will succeed on Docker operations.
     """
-    from ccproxy.docker.adapter import DockerAdapter
+    from claude_code_proxy.docker.adapter import DockerAdapter
 
     return DockerAdapter()
 
@@ -762,7 +767,7 @@ def docker_adapter_unavailable(mock_docker_run_unavailable: Any) -> DockerAdapte
 
     Returns a DockerAdapter instance that simulates Docker not being available.
     """
-    from ccproxy.docker.adapter import DockerAdapter
+    from claude_code_proxy.docker.adapter import DockerAdapter
 
     return DockerAdapter()
 
@@ -775,7 +780,7 @@ def docker_adapter_failure(
 
     Returns a DockerAdapter instance that simulates Docker command failures.
     """
-    from ccproxy.docker.adapter import DockerAdapter
+    from claude_code_proxy.docker.adapter import DockerAdapter
 
     return DockerAdapter()
 
@@ -786,7 +791,7 @@ def docker_path_fixture(tmp_path: Path) -> DockerPath:
 
     Returns a DockerPath configured with test directories.
     """
-    from ccproxy.docker.docker_path import DockerPath
+    from claude_code_proxy.docker.docker_path import DockerPath
 
     host_path = tmp_path / "host_dir"
     host_path.mkdir()
@@ -804,7 +809,7 @@ def docker_path_set_fixture(tmp_path: Path) -> DockerPathSet:
 
     Returns a DockerPathSet configured with test directories.
     """
-    from ccproxy.docker.docker_path import DockerPathSet
+    from claude_code_proxy.docker.docker_path import DockerPathSet
 
     # Create multiple test directories
     host_dir1 = tmp_path / "host_dir1"
@@ -826,7 +831,7 @@ def docker_user_context() -> DockerUserContext:
 
     Returns a DockerUserContext with test configuration.
     """
-    from ccproxy.docker.models import DockerUserContext
+    from claude_code_proxy.docker.models import DockerUserContext
 
     return DockerUserContext.create_manual(
         uid=1000,
@@ -842,7 +847,7 @@ def output_middleware() -> DefaultOutputMiddleware:
 
     Returns a DefaultOutputMiddleware instance.
     """
-    from ccproxy.docker.stream_process import DefaultOutputMiddleware
+    from claude_code_proxy.docker.stream_process import DefaultOutputMiddleware
 
     return DefaultOutputMiddleware()
 

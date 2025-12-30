@@ -10,16 +10,16 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from ccproxy.api.routes.permissions import (
+from claude_code_proxy.api.routes.permissions import (
     event_generator,
     router,
 )
-from ccproxy.api.services.permission_service import (
+from claude_code_proxy.api.services.permission_service import (
     PermissionService,
     get_permission_service,
 )
-from ccproxy.config.settings import Settings, get_settings
-from ccproxy.models.permissions import (
+from claude_code_proxy.config.settings import Settings, get_settings
+from claude_code_proxy.models.permissions import (
     PermissionRequest,
     PermissionStatus,
 )
@@ -489,7 +489,7 @@ async def test_sse_stream_endpoint(
     """Test the SSE stream endpoint with async client."""
     from fastapi import FastAPI
 
-    from ccproxy.config.settings import get_settings
+    from claude_code_proxy.config.settings import get_settings
 
     app = FastAPI()
     app.include_router(router)

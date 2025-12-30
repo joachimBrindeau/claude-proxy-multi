@@ -1,7 +1,7 @@
-# CCProxy Runtime Data
+# Claude Code Proxy Runtime Data
 
-This directory contains runtime data and configuration files for the CCProxy Docker container.
-(Previously named `config/`, renamed to avoid confusion with `ccproxy/config/` package)
+This directory contains runtime data and configuration files for the Claude Code Proxy Docker container.
+(Previously named `config/`, renamed to avoid confusion with `claude-code-proxy/config/` package)
 
 ## accounts.json (for multi-account rotation)
 
@@ -27,10 +27,10 @@ To enable multi-account rotation, create `accounts.json` with your Claude OAuth 
 
 ### Getting OAuth tokens
 
-**Option 1: Use ccproxy auth login**
+**Option 1: Use claude-code-proxy auth login**
 ```bash
 # Run without Docker first to authenticate
-uv run ccproxy auth login
+uv run claude-code-proxy auth login
 
 # Copy credentials to accounts.json format
 # (tokens are saved to ~/.claude/.credentials.json)

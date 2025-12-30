@@ -15,8 +15,8 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from ccproxy.cli.main import app as cli_app
-from ccproxy.config.settings import Settings
+from claude_code_proxy.cli.main import app as cli_app
+from claude_code_proxy.config.settings import Settings
 
 
 class TestServeCommand:
@@ -433,7 +433,7 @@ class TestServeCommandEdgeCases:
     def test_serve_configuration_error_handling(self, runner: CliRunner) -> None:
         """Test that configuration errors are handled gracefully."""
         with patch("ccproxy.config.settings.config_manager.load_settings") as mock_load:
-            from ccproxy.config.settings import ConfigurationError
+            from claude_code_proxy.config.settings import ConfigurationError
 
             mock_load.side_effect = ConfigurationError("Test configuration error")
 

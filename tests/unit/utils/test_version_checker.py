@@ -9,7 +9,7 @@ import httpx
 import pytest
 from packaging import version as pkg_version
 
-from ccproxy.utils.version_checker import (
+from claude_code_proxy.utils.version_checker import (
     VersionCheckState,
     compare_versions,
     fetch_latest_github_version,

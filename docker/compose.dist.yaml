@@ -9,9 +9,9 @@
 # The proxy is now ready to use at http://localhost:8000/api/v1/messages
 
 services:
-  ccproxy:
-    image: ghcr.io/joachimbrindeau/ccproxy-multi:latest
-    container_name: ccproxy
+  claude-code-proxy:
+    image: ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
+    container_name: claude-code-proxy
     restart: unless-stopped
     ports:
       - '8000:8000'
@@ -28,7 +28,7 @@ services:
     volumes:
       # Persistent storage for OAuth credentials
       # Accounts are managed via web UI at /accounts/
-      - ccproxy-config:/config
+      - claude-code-proxy-config:/config
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
       interval: 30s
@@ -37,5 +37,5 @@ services:
       start_period: 10s
 
 volumes:
-  ccproxy-config:
-    name: ccproxy-config
+  claude-code-proxy-config:
+    name: claude-code-proxy-config

@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from ccproxy.api.routes.mcp import PermissionCheckRequest, check_permission
-from ccproxy.api.services.permission_service import (
+from claude_code_proxy.api.routes.mcp import PermissionCheckRequest, check_permission
+from claude_code_proxy.api.services.permission_service import (
     PermissionService,
 )
-from ccproxy.config.settings import Settings
-from ccproxy.models.permissions import PermissionStatus
-from ccproxy.models.responses import (
+from claude_code_proxy.config.settings import Settings
+from claude_code_proxy.models.permissions import PermissionStatus
+from claude_code_proxy.models.responses import (
     PermissionToolAllowResponse,
     PermissionToolDenyResponse,
 )

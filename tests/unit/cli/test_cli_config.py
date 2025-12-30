@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from ccproxy.cli.commands.config import app
-from ccproxy.config.settings import Settings
+from claude_code_proxy.cli.commands.config import app
+from claude_code_proxy.config.settings import Settings
 
 
 @pytest.fixture
@@ -341,7 +341,7 @@ class TestConfigHelpers:
 
     def test_format_value_functions(self) -> None:
         """Test value formatting functions."""
-        from ccproxy.cli.commands.config.commands import _format_value
+        from claude_code_proxy.cli.commands.config.commands import _format_value
 
         # Test various value types
         assert _format_value(None) == "[dim]Auto-detect[/dim]"
@@ -356,7 +356,7 @@ class TestConfigHelpers:
 
     def test_detect_config_format(self) -> None:
         """Test config format detection."""
-        from ccproxy.cli.commands.config.commands import _detect_config_format
+        from claude_code_proxy.cli.commands.config.commands import _detect_config_format
 
         assert _detect_config_format(Path("config.toml")) == "toml"
         assert (
@@ -368,7 +368,7 @@ class TestConfigHelpers:
 
     def test_generate_default_config_from_model(self) -> None:
         """Test generating default config from Settings model."""
-        from ccproxy.cli.commands.config.commands import (
+        from claude_code_proxy.cli.commands.config.commands import (
             _generate_default_config_from_model,
         )
 

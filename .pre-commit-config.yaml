@@ -110,7 +110,7 @@ repos:
     hooks:
       - id: bandit
         name: bandit security check
-        args: [-c, pyproject.toml, -r, src/ccproxy]
+        args: [-c, pyproject.toml, -r, src/claude_code_proxy]
         additional_dependencies: ["bandit[toml]"]
 
   # Spell checking
@@ -139,7 +139,7 @@ repos:
         entry: uv run vulture
         language: system
         types: [python]
-        args: [src/ccproxy, --min-confidence=80]
+        args: [src/claude_code_proxy, --min-confidence=80]
         pass_filenames: false
 
       - id: deptry
@@ -165,4 +165,4 @@ ci:
 # Note: Tests are intentionally not run in pre-commit hooks as they can be slow
 # Run tests manually with: make test or make ci
 # The CI pipeline will run the full test suite including:
-# - uv run pytest -v --cov=ccproxy --cov-report=xml --cov-report=term-missing
+# - uv run pytest -v --cov=claude_code_proxy --cov-report=xml --cov-report=term-missing

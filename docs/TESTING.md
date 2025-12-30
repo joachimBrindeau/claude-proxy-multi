@@ -1,4 +1,4 @@
-# Simplified Testing Guide for CCProxy
+# Simplified Testing Guide for Claude Code Proxy
 
 ## Philosophy
 
@@ -147,7 +147,7 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def app() -> FastAPI:
     """Create test FastAPI application"""
-    from ccproxy.main import create_app
+    from claude-code-proxy.main import create_app
     return create_app()
 
 @pytest.fixture
@@ -169,7 +169,7 @@ def test_config_loading(tmp_path: Path) -> None:
     config_file: Path = tmp_path / "config.toml"
     config_file.write_text("port = 8080")
 
-    from ccproxy.config.settings import Settings
+    from claude-code-proxy.config.settings import Settings
     settings: Settings = Settings(_config_file=config_file)
     assert settings.port == 8080
 ```
@@ -385,7 +385,7 @@ def test_invalid_model_error(fastapi_client_factory,
                            mock_internal_claude_sdk_service) -> None:
     """Test error handling with internal service mock."""
     # Configure mock to raise validation error
-    from ccproxy.exceptions import ValidationError
+    from claude-code-proxy.exceptions import ValidationError
     mock_internal_claude_sdk_service.create_completion.side_effect = \
         ValidationError("Invalid model specified")
 
@@ -427,7 +427,7 @@ def test_config_loading(tmp_path: Path) -> None:
     config_file: Path = tmp_path / "config.toml"
     config_file.write_text("port = 8080")
 
-    from ccproxy.config.settings import Settings
+    from claude-code-proxy.config.settings import Settings
     settings: Settings = Settings(_config_file=config_file)
     assert settings.port == 8080
 ```
