@@ -17,7 +17,6 @@ from claude_code_proxy.adapters.openai.adapter import (
 from claude_code_proxy.api.dependencies import ClaudeServiceDep
 from claude_code_proxy.api.routes.stream_helpers import (
     create_anthropic_stream_generator,
-    create_openai_stream_generator,
     create_streaming_headers,
     extract_session_id_from_metadata,
     get_request_context,

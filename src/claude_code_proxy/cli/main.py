@@ -1,5 +1,15 @@
 """Main entry point for CCProxy API Server."""
 
+# IMPORTANT: Apply typing patch before any other imports
+# This fixes Pydantic incompatibility with typing.TypedDict on Python < 3.12
+# ruff: noqa: E402
+import typing
+
+import typing_extensions
+
+
+typing.TypedDict = typing_extensions.TypedDict
+
 from pathlib import Path
 from typing import Annotated
 
