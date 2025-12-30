@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Code Proxy - Multi-Account API Proxy for Claude Code CLI</title>
     <meta name="description" content="Run Claude Code CLI across multiple Anthropic accounts with automatic rotation. Avoid rate limits, manage team usage, and scale your AI-powered development workflow.">
-    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools">
+    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, claude api proxy, anthropic api gateway, claude code proxy server">
     <meta name="author" content="Joachim Brindeau">
     <meta name="robots" content="index, follow">
 
@@ -431,6 +431,35 @@
                     <div class="feature-icon">🛡️</div>
                     <h3>Drop-in Replacement</h3>
                     <p>Works with existing Claude Code CLI. Just point to the proxy and you're done.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works">
+        <div class="container">
+            <h2 class="section-title">How It Works</h2>
+            <p class="section-subtitle">A powerful Claude API proxy that acts as an intelligent Anthropic API gateway.</p>
+
+            <div class="architecture">
+                <div class="arch-content">
+                    <h3>Your Personal Claude Code Proxy Server</h3>
+                    <p>Claude Code Proxy sits between your Claude Code CLI and the Anthropic API, acting as a transparent gateway that intelligently routes requests across multiple accounts. When you send a request, the proxy server evaluates each account's rate limit status, token usage, and availability to select the optimal account for your request.</p>
+
+                    <div class="arch-features">
+                        <div class="arch-feature">
+                            <h4>Transparent API Gateway</h4>
+                            <p>The Claude API proxy intercepts all requests to api.anthropic.com and forwards them using your pooled accounts. Your Claude Code CLI works exactly as before - no configuration changes needed beyond pointing to the proxy endpoint.</p>
+                        </div>
+                        <div class="arch-feature">
+                            <h4>Intelligent Load Balancing</h4>
+                            <p>Unlike simple round-robin proxies, this Anthropic API gateway tracks real-time rate limit headers and token consumption. It automatically routes requests to accounts with available capacity, ensuring maximum throughput.</p>
+                        </div>
+                        <div class="arch-feature">
+                            <h4>Self-Hosted Control</h4>
+                            <p>Run your Claude code proxy server locally, on your own infrastructure, or in the cloud. Your API keys and conversation data never touch third-party servers. Full control, full privacy.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
