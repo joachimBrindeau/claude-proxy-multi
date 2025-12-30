@@ -1,0 +1,90 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.ingress.enabled }}
+
+The application is available at:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+
+Get the application URL by running:
+
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "claude-code-proxy.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+
+{{- else if contains "LoadBalancer" .Values.service.type }}
+
+Get the application URL by running:
+
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        You can watch the status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "claude-code-proxy.fullname" . }}'
+
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "claude-code-proxy.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+
+{{- else if contains "ClusterIP" .Values.service.type }}
+
+Get the application URL by running:
+
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "claude-code-proxy.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8000 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8000:$CONTAINER_PORT
+
+{{- end }}
+
+Important Next Steps:
+
+1. Add Claude Accounts:
+   The proxy needs Claude accounts to function. You have two options:
+
+   a) Use the Web UI to add accounts:
+      - Access the application URL above
+      - Navigate to the web interface
+      - Use the OAuth flow to add Claude accounts
+
+   b) Manually create accounts.json on the persistent volume:
+      - Execute into the pod: kubectl exec -it {{ include "claude-code-proxy.fullname" . }}-<pod-id> -- /bin/bash
+      - Create /data/accounts.json with your OAuth credentials
+      - Restart the pod or wait for hot reload
+
+2. Check Health Status:
+   kubectl exec -it {{ include "claude-code-proxy.fullname" . }}-<pod-id> -- curl http://localhost:8000/health
+
+3. View Logs:
+   kubectl logs -f deployment/{{ include "claude-code-proxy.fullname" . }}
+
+4. Configure Your Claude SDK Client:
+   Set these environment variables in your client application:
+
+   export ANTHROPIC_BASE_URL=http://<service-url>:{{ .Values.service.port }}
+   export ANTHROPIC_API_KEY=<get-from-web-ui>
+
+{{- if .Values.persistence.enabled }}
+
+Data Persistence:
+  A PersistentVolumeClaim has been created to store your accounts.json file.
+  PVC Name: {{ include "claude-code-proxy.pvcName" . }}
+  Size: {{ .Values.persistence.size }}
+  Mount Path: /data
+{{- else }}
+
+WARNING: Persistence is disabled!
+  Your accounts.json file will be lost if the pod restarts.
+  Enable persistence in values.yaml for production use:
+    persistence:
+      enabled: true
+{{- end }}
+
+Documentation:
+  For more information, visit:
+  https://github.com/joachimbrindeau/claude-proxy-multi/tree/main/docs

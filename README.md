@@ -1,6 +1,6 @@
 <div align="center">
 
-# CCProxy Multi-Account
+# Claude Code Proxy Multi-Account
 
 **Claude Code Proxy with Multi-Account Rotation & Rate Limit Failover**
 
@@ -10,9 +10,9 @@
 
 ---
 
-### Fork of [CaddyGlow/ccproxy-api](https://github.com/CaddyGlow/ccproxy-api)
+### Fork of [CaddyGlow/claude-code-proxy](https://github.com/CaddyGlow/claude-code-proxy)
 
-This project is built on top of the excellent **CCProxy** by [@CaddyGlow](https://github.com/CaddyGlow).
+This project is built on top of the excellent **Claude Code Proxy** by [@CaddyGlow](https://github.com/CaddyGlow).
 All core proxy functionality, authentication, and API translation comes from the original project.
 
 **This fork adds:** Multi-account rotation with automatic failover
@@ -27,7 +27,7 @@ All core proxy functionality, authentication, and API translation comes from the
 
 ## What This Fork Adds
 
-Built on top of CaddyGlow's CCProxy, this fork adds **multi-account rotation** for production deployments:
+Built on top of CaddyGlow's Claude Code Proxy, this fork adds **multi-account rotation** for production deployments:
 
 - **3x+ throughput** by distributing requests across multiple Claude accounts
 - **Zero downtime** with automatic failover when accounts hit rate limits
@@ -36,11 +36,11 @@ Built on top of CaddyGlow's CCProxy, this fork adds **multi-account rotation** f
 
 | Feature | Source |
 |---------|:------:|
-| Claude API proxy | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| OAuth2 authentication | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| SDK & API modes | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| OpenAI format compatibility | [Original](https://github.com/CaddyGlow/ccproxy-api) |
-| Observability suite | [Original](https://github.com/CaddyGlow/ccproxy-api) |
+| Claude API proxy | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
+| OAuth2 authentication | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
+| SDK & API modes | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
+| OpenAI format compatibility | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
+| Observability suite | [Original](https://github.com/CaddyGlow/claude-code-proxy) |
 | **Multi-account rotation** | This Fork |
 | **Rate limit failover** | This Fork |
 | **Proactive token refresh** | This Fork |
@@ -153,10 +153,10 @@ curl http://localhost:8000/status/accounts
 
 ```bash
 # Install with uv (recommended)
-uv tool install git+https://github.com/joachimBrindeau/ccproxy-api.git
+uv tool install git+https://github.com/joachimBrindeau/claude-code-proxy.git
 
 # Or with pipx
-pipx install git+https://github.com/joachimBrindeau/ccproxy-api.git
+pipx install git+https://github.com/joachimBrindeau/claude-code-proxy.git
 
 # Required: Claude Code CLI for SDK mode
 npm install -g @anthropic-ai/claude-code
@@ -169,7 +169,7 @@ npm install -g @anthropic-ai/claude-code
 claude /login
 
 # Start proxy
-ccproxy
+claude-code-proxy
 ```
 
 ### Multi-Account (Production)
@@ -195,11 +195,61 @@ cat > ~/.claude/accounts.json << 'EOF'
 EOF
 
 # 2. Start proxy with rotation
-ccproxy
+claude-code-proxy
 
 # 3. Verify accounts loaded
 curl http://localhost:8000/status
 ```
+
+### Cloud Deployment (One-Click)
+
+Deploy to your preferred cloud platform with persistent storage:
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/claude-code-proxy?referralCode=joachim)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/joachimbrindeau/claude-proxy-multi)
+
+**Fly.io**: `flyctl launch --config packaging/cloud/fly.toml`
+
+> All cloud deployments include persistent storage for OAuth credentials and automatic account rotation.
+
+---
+
+## 📦 Installation Methods
+
+Choose the installation method that fits your environment:
+
+| Method | Best For | Install Time | Auto-Start | Commands |
+|--------|----------|--------------|------------|----------|
+| **[Docker](docs/installation/docker.md)** | Quick setup, cross-platform | ~60 seconds | ✅ Yes | `curl -fsSL https://get.claude-code-proxy.dev \| bash` |
+| **[Homebrew](docs/installation/homebrew.md)** | macOS developers | ~2 minutes | ✅ Service | `brew install joachimbrindeau/claude-code-proxy/claude-code-proxy` |
+| **[Cloud](docs/installation/cloud.md)** | Production deployments | ~3-5 minutes | ✅ Auto-scale | Click deploy button above |
+| **[Windows](docs/installation/windows.md)** | Windows environments | ~3 minutes | ✅ Service | `choco install claude-code-proxy` |
+| **[Linux/Snap](docs/installation/linux.md)** | Ubuntu/Debian servers | ~2 minutes | ✅ Daemon | `sudo snap install claude-code-proxy` |
+| **[Kubernetes](docs/installation/kubernetes.md)** | Enterprise/K8s clusters | ~5 minutes | ✅ Deployment | `helm install claude-code-proxy/claude-code-proxy` |
+| **[Binary](docs/installation/binaries.md)** | No dependencies needed | ~1 minute | ❌ Manual | Download from releases |
+
+### Feature Comparison
+
+| Feature | Docker | Homebrew | Cloud | Windows | Linux | Kubernetes | Binary |
+|---------|--------|----------|-------|---------|-------|------------|--------|
+| **Platform** | Any with Docker | macOS | Cloud | Windows 10+ | Ubuntu/Debian | Any K8s | Any |
+| **Dependencies** | Docker only | None (managed) | None | None (managed) | None (managed) | Helm | None |
+| **Persistence** | Volume | Filesystem | Volume | Registry | Filesystem | PVC | Filesystem |
+| **Updates** | `docker pull` | `brew upgrade` | Auto/Git-based | `choco upgrade` | `snap refresh` | `helm upgrade` | Manual |
+| **Resource Usage** | Medium | Low | Varies | Low | Low | Varies | Low |
+| **Isolation** | Container | Native | Container | Native | Snap sandbox | Container | Native |
+| **Multi-instance** | ✅ Easy | ⚠️ Manual | ✅ Auto-scale | ⚠️ Manual | ❌ Single | ✅ Replicas | ✅ Easy |
+| **Production Ready** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ⚠️ Basic |
+
+**Quick recommendations**:
+- 🚀 **Quick testing**: Docker (60-second install)
+- 🍎 **macOS development**: Homebrew (native integration)
+- ☁️ **Production hosting**: Cloud platforms (auto-scaling)
+- 🪟 **Windows workstations**: Chocolatey (service management)
+- 🐧 **Linux servers**: Snap (automatic updates)
+- ☸️ **Enterprise/DevOps**: Kubernetes (orchestration)
+- 📦 **Air-gapped/offline**: Standalone binaries
 
 ---
 
@@ -209,7 +259,7 @@ curl http://localhost:8000/status
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
-│   Client    │────▶│   CCProxy    │────▶│  Claude API     │
+│   Client    │────▶│   Claude Code Proxy    │────▶│  Claude API     │
 │   Request   │     │  (Rotation)  │     │                 │
 └─────────────┘     └──────────────┘     └─────────────────┘
                            │
@@ -299,13 +349,13 @@ curl -X POST http://localhost:8000/api/v1/messages \
 1. Command-line arguments
 2. Environment variables
 3. `.env` file
-4. TOML config (`~/.config/ccproxy/config.toml`)
+4. TOML config (`~/.config/claude-code-proxy/config.toml`)
 5. Defaults
 
 ### Example Configuration
 
 ```toml
-# ~/.config/ccproxy/config.toml
+# ~/.config/claude-code-proxy/config.toml
 
 [server]
 host = "0.0.0.0"
@@ -319,26 +369,46 @@ refresh_buffer_seconds = 600
 
 [security]
 auth_token = "your-secret-token"
-
-[observability]
-metrics_enabled = true
-dashboard_enabled = true
 ```
 
 ### Docker Deployment
 
+**Quick Start (Recommended):**
+
+```bash
+# One command to start
+docker run -d -p 8000:8000 -v claude-code-proxy-config:/config \
+  --name claude-code-proxy ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
+
+# Open http://localhost:8000 to add accounts via web UI
+```
+
+**Docker Compose:**
+
 ```yaml
-# docker-compose.yml
+# docker/compose.yaml (or your own compose file)
 services:
-  ccproxy:
-    image: ghcr.io/joachimbrindeau/ccproxy-api:latest
+  claude-code-proxy:
+    image: ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
     ports:
       - "8000:8000"
     volumes:
-      - ./accounts.json:/config/accounts.json:ro
+      - claude-code-proxy-config:/config
     environment:
       - CCPROXY_ACCOUNTS_PATH=/config/accounts.json
+      - CCPROXY_ROTATION_ENABLED=true
+      - CCPROXY_HOT_RELOAD=true
+
+volumes:
+  claude-code-proxy-config:
 ```
+
+**First Run:**
+
+1. Start the container
+2. Visit `http://localhost:8000/` (redirects to setup if no accounts)
+3. Click "Add Account" and complete OAuth flow
+4. Credentials are saved to the volume, persisting across restarts
 
 ---
 
@@ -421,10 +491,10 @@ model_list:
 
 ```bash
 # Check credential status
-ccproxy auth status
+claude-code-proxy auth status
 
 # Re-authenticate
-ccproxy auth login
+claude-code-proxy auth login
 ```
 
 </details>
@@ -449,7 +519,7 @@ curl http://localhost:8000/status
 curl -X POST http://localhost:8000/status/accounts/{name}/refresh
 
 # Check logs for OAuth errors
-docker logs ccproxy 2>&1 | grep -i oauth
+docker logs claude-code-proxy 2>&1 | grep -i oauth
 ```
 
 </details>
@@ -468,16 +538,16 @@ MIT License - see [LICENSE](LICENSE).
 
 ### Original Project
 
-This fork would not exist without the excellent work by **[@CaddyGlow](https://github.com/CaddyGlow)** on [ccproxy-api](https://github.com/CaddyGlow/ccproxy-api).
+This fork would not exist without the excellent work by **[@CaddyGlow](https://github.com/CaddyGlow)** on [claude-code-proxy](https://github.com/CaddyGlow/claude-code-proxy).
 
-The original CCProxy provides:
+The original Claude Code Proxy provides:
 - Claude proxy architecture with OpenAI format compatibility
 - OAuth2 PKCE authentication flows
 - SDK and API operating modes
 - MCP server integration
 - Observability suite (metrics, dashboard, logging)
 
-**If you don't need multi-account rotation, use the [original project](https://github.com/CaddyGlow/ccproxy-api).**
+**If you don't need multi-account rotation, use the [original project](https://github.com/CaddyGlow/claude-code-proxy).**
 
 ### Also Thanks To
 
@@ -487,6 +557,6 @@ The original CCProxy provides:
 
 <div align="center">
 
-**[⬆ Back to Top](#ccproxy-multi-account)**
+**[⬆ Back to Top](#claude-code-proxy-multi-account)**
 
 </div>

@@ -9,10 +9,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ccproxy.auth.exceptions import CredentialsNotFoundError
-from ccproxy.auth.models import ClaudeCredentials, OAuthToken, ValidationResult
-from ccproxy.config.auth import AuthSettings
-from ccproxy.services.credentials.manager import CredentialsManager
+from claude_code_proxy.auth.models import (
+    ClaudeCredentials,
+    OAuthToken,
+    ValidationResult,
+)
+from claude_code_proxy.config.auth import AuthSettings
+from claude_code_proxy.exceptions import CredentialsNotFoundError
+from claude_code_proxy.services.credentials.manager import CredentialsManager
 
 
 class TestCredentialsManagerValidation:
@@ -199,7 +203,7 @@ class TestCredentialsManagerValidation:
         expected_message = "No credentials found. Please login first."
         assert str(exc_info.value) == expected_message
 
-    @patch("ccproxy.services.credentials.manager.logger")
+    @patch("claude_code_proxy.services.credentials.manager.logger")
     async def test_validate_no_credentials_logging(
         self,
         mock_logger: MagicMock,

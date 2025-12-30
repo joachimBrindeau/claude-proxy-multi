@@ -13,8 +13,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
-from ccproxy.api.app import create_app
-from ccproxy.config.settings import Settings
+from claude_code_proxy.api.app import create_app
+from claude_code_proxy.config.settings import Settings
 
 
 # Type aliases for better readability
@@ -178,8 +178,10 @@ class FastAPIAppFactory:
         # Always override settings - both original and cached versions
         from fastapi import Request
 
-        from ccproxy.api.dependencies import get_cached_settings
-        from ccproxy.config.settings import get_settings as original_get_settings
+        from claude_code_proxy.api.dependencies import get_cached_settings
+        from claude_code_proxy.config.settings import (
+            get_settings as original_get_settings,
+        )
 
         overrides[original_get_settings] = lambda: settings
 
@@ -192,7 +194,7 @@ class FastAPIAppFactory:
         # NOTE: Since we're setting claude_service in app.state, the cached dependency
         # should work automatically. We'll only add override as backup for non-cached calls.
         if claude_service_mock is not None:
-            from ccproxy.api.dependencies import get_claude_service
+            from claude_code_proxy.api.dependencies import get_claude_service
 
             def mock_get_claude_service(
                 settings: Any = None, auth_manager: Any = None
@@ -206,11 +208,11 @@ class FastAPIAppFactory:
         if auth_enabled and settings.security.auth_token:
             from fastapi.security import HTTPAuthorizationCredentials
 
-            from ccproxy.auth.dependencies import (
+            from claude_code_proxy.auth.dependencies import (
                 _get_auth_manager_with_settings,
                 get_auth_manager,
             )
-            from ccproxy.auth.manager import AuthManager
+            from claude_code_proxy.auth.manager import AuthManager
 
             async def test_auth_manager(
                 credentials: HTTPAuthorizationCredentials | None = None,

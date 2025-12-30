@@ -9,13 +9,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from ccproxy.api.routes.permissions import router as confirmation_router
-from ccproxy.api.services.permission_service import (
+from claude_code_proxy.api.routes.permissions import router as confirmation_router
+from claude_code_proxy.api.services.permission_service import (
     PermissionService,
     get_permission_service,
 )
-from ccproxy.config.settings import Settings, get_settings
-from ccproxy.models.permissions import PermissionStatus
+from claude_code_proxy.config.settings import Settings, get_settings
+from claude_code_proxy.models.permissions import PermissionStatus
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ def test_client(app: FastAPI) -> TestClient:
 class TestConfirmationIntegration:
     """Integration tests for the confirmation system."""
 
-    @patch("ccproxy.api.routes.permissions.get_permission_service")
+    @patch("claude_code_proxy.api.routes.permissions.get_permission_service")
     async def test_mcp_permission_flow(
         self,
         mock_get_service: Mock,
@@ -180,7 +180,7 @@ class TestConfirmationIntegration:
             await confirmation_service.unsubscribe_from_events(queue1)
             await confirmation_service.unsubscribe_from_events(queue2)
 
-    @patch("ccproxy.api.routes.permissions.get_permission_service")
+    @patch("claude_code_proxy.api.routes.permissions.get_permission_service")
     async def test_confirmation_expiration(
         self,
         mock_get_service: Mock,
@@ -219,7 +219,7 @@ class TestConfirmationIntegration:
         finally:
             await service.stop()
 
-    @patch("ccproxy.api.routes.permissions.get_permission_service")
+    @patch("claude_code_proxy.api.routes.permissions.get_permission_service")
     async def test_concurrent_confirmations(
         self,
         mock_get_service: Mock,
@@ -266,7 +266,7 @@ class TestConfirmationIntegration:
             )
             assert status == expected
 
-    @patch("ccproxy.api.routes.permissions.get_permission_service")
+    @patch("claude_code_proxy.api.routes.permissions.get_permission_service")
     async def test_duplicate_resolution_attempts(
         self,
         mock_get_service: Mock,

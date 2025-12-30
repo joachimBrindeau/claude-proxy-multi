@@ -13,13 +13,13 @@ from unittest.mock import patch
 
 import pytest
 
-from ccproxy.core.http_transformers import (
+from claude_code_proxy.core.http_transformers import (
     HTTPRequestTransformer,
     HTTPResponseTransformer,
     get_detected_system_field,
     get_fallback_system_field,
 )
-from ccproxy.core.types import (
+from claude_code_proxy.core.types import (
     ProxyMethod,
     ProxyProtocol,
     ProxyRequest,
@@ -373,7 +373,7 @@ class TestHTTPRequestTransformer:
     ) -> None:
         """Test system prompt transformation in full mode with app state."""
         # Mock app state with detected system prompts
-        from ccproxy.models.detection import SystemPromptData
+        from claude_code_proxy.models.detection import SystemPromptData
 
         mock_app_state = type("MockAppState", (), {})()
         mock_claude_data = type("MockClaudeData", (), {})()
@@ -517,7 +517,7 @@ class TestHTTPRequestTransformer:
         result = request_transformer._is_openai_request(path, body)
         assert result is False
 
-    @patch("ccproxy.adapters.openai.adapter.OpenAIAdapter")
+    @patch("claude_code_proxy.adapters.openai.adapter.OpenAIAdapter")
     def test_transform_openai_to_anthropic_success(
         self, mock_adapter_class: Any, request_transformer: HTTPRequestTransformer
     ) -> None:
@@ -542,7 +542,7 @@ class TestHTTPRequestTransformer:
         assert result_data["model"] == "claude-3-5-sonnet-20241022"
         assert "max_tokens" in result_data
 
-    @patch("ccproxy.adapters.openai.adapter.OpenAIAdapter")
+    @patch("claude_code_proxy.adapters.openai.adapter.OpenAIAdapter")
     def test_transform_openai_to_anthropic_failure(
         self, mock_adapter_class: Any, request_transformer: HTTPRequestTransformer
     ) -> None:
@@ -911,7 +911,7 @@ class TestClaudeCodePrompt:
 
     def test_get_detected_system_field_with_app_state_minimal(self) -> None:
         """Test detected system field with app state in minimal mode."""
-        from ccproxy.models.detection import SystemPromptData
+        from claude_code_proxy.models.detection import SystemPromptData
 
         # Mock app state with detected system field (list format)
         mock_app_state = type("MockAppState", (), {})()
@@ -938,7 +938,7 @@ class TestClaudeCodePrompt:
 
     def test_get_detected_system_field_with_app_state_full(self) -> None:
         """Test detected system field with app state in full mode."""
-        from ccproxy.models.detection import SystemPromptData
+        from claude_code_proxy.models.detection import SystemPromptData
 
         # Mock app state with multiple detected system prompts
         mock_app_state = type("MockAppState", (), {})()
@@ -977,7 +977,7 @@ class TestClaudeCodePrompt:
 
     def test_get_detected_system_field_string_format(self) -> None:
         """Test detected system field with string format in minimal mode."""
-        from ccproxy.models.detection import SystemPromptData
+        from claude_code_proxy.models.detection import SystemPromptData
 
         # Mock app state with string system field
         mock_app_state = type("MockAppState", (), {})()

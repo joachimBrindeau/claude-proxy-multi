@@ -1,6 +1,6 @@
 # Test Fixtures Organization
 
-This directory contains organized test fixtures that provide clear separation between different mocking strategies used in the ccproxy test suite.
+This directory contains organized test fixtures that provide clear separation between different mocking strategies used in the claude-code-proxy test suite.
 
 ## Structure Overview
 

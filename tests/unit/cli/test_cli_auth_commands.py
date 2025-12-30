@@ -1,6 +1,6 @@
 """Tests for CLI authentication commands.
 
-This module tests the CLI authentication commands in ccproxy/cli/commands/auth.py,
+This module tests the CLI authentication commands in claude_code_proxy/cli/commands/auth.py,
 including validate, info, login, and renew commands with proper type safety.
 """
 
@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from ccproxy.auth.models import (
+from claude_code_proxy.auth.models import (
     AccountInfo,
     ClaudeCredentials,
     OAuthToken,
@@ -18,7 +18,7 @@ from ccproxy.auth.models import (
     UserProfile,
     ValidationResult,
 )
-from ccproxy.cli.commands.auth import (
+from claude_code_proxy.cli.commands.auth import (
     app,
     credential_info,
     get_credentials_manager,
@@ -27,7 +27,7 @@ from ccproxy.cli.commands.auth import (
     renew,
     validate_credentials,
 )
-from ccproxy.services.credentials.manager import CredentialsManager
+from claude_code_proxy.services.credentials.manager import CredentialsManager
 
 
 class TestAuthCLICommands:
@@ -107,7 +107,7 @@ class TestAuthCLICommands:
 class TestGetCredentialsManager(TestAuthCLICommands):
     """Test get_credentials_manager helper function."""
 
-    @patch("ccproxy.cli.commands.auth.get_settings")
+    @patch("claude_code_proxy.cli.commands.auth.get_settings")
     def test_get_credentials_manager_default_paths(
         self, mock_get_settings: MagicMock
     ) -> None:
@@ -115,13 +115,13 @@ class TestGetCredentialsManager(TestAuthCLICommands):
         mock_settings = MagicMock()
         mock_get_settings.return_value = mock_settings
 
-        with patch("ccproxy.cli.commands.auth.CredentialsManager") as mock_cm:
+        with patch("claude_code_proxy.cli.commands.auth.CredentialsManager") as mock_cm:
             manager = get_credentials_manager()
 
             mock_get_settings.assert_called_once()
             mock_cm.assert_called_once_with(config=mock_settings.auth)
 
-    @patch("ccproxy.cli.commands.auth.get_settings")
+    @patch("claude_code_proxy.cli.commands.auth.get_settings")
     def test_get_credentials_manager_custom_paths(
         self, mock_get_settings: MagicMock
     ) -> None:
@@ -130,7 +130,7 @@ class TestGetCredentialsManager(TestAuthCLICommands):
         mock_get_settings.return_value = mock_settings
         custom_paths = [Path("/custom/path/credentials.json")]
 
-        with patch("ccproxy.cli.commands.auth.CredentialsManager") as mock_cm:
+        with patch("claude_code_proxy.cli.commands.auth.CredentialsManager") as mock_cm:
             manager = get_credentials_manager(custom_paths)
 
             mock_get_settings.assert_called_once()
@@ -141,7 +141,7 @@ class TestGetCredentialsManager(TestAuthCLICommands):
 class TestGetDockerCredentialPaths(TestAuthCLICommands):
     """Test get_docker_credential_paths helper function."""
 
-    @patch("ccproxy.cli.commands.auth.get_claude_docker_home_dir")
+    @patch("claude_code_proxy.cli.commands.auth.get_claude_docker_home_dir")
     def test_get_docker_credential_paths(self, mock_get_docker_home: MagicMock) -> None:
         """Test Docker credential paths generation."""
         mock_get_docker_home.return_value = "/docker/home"
@@ -160,7 +160,7 @@ class TestGetDockerCredentialPaths(TestAuthCLICommands):
 class TestValidateCredentialsCommand(TestAuthCLICommands):
     """Test validate credentials CLI command."""
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_validate_credentials_valid(
         self,
         mock_get_manager: MagicMock,
@@ -178,7 +178,7 @@ class TestValidateCredentialsCommand(TestAuthCLICommands):
         assert "Valid Claude credentials found" in result.stdout
         mock_credentials_manager.validate.assert_called_once()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_validate_credentials_invalid(
         self,
         mock_get_manager: MagicMock,
@@ -196,7 +196,7 @@ class TestValidateCredentialsCommand(TestAuthCLICommands):
         assert "No credentials file found" in result.stdout
         mock_credentials_manager.validate.assert_called_once()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_validate_credentials_docker_flag(
         self,
         mock_get_manager: MagicMock,
@@ -222,7 +222,7 @@ class TestValidateCredentialsCommand(TestAuthCLICommands):
         assert custom_paths is not None
         assert any(".claude" in str(path) for path in custom_paths)
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_validate_credentials_custom_file(
         self,
         mock_get_manager: MagicMock,
@@ -248,7 +248,7 @@ class TestValidateCredentialsCommand(TestAuthCLICommands):
             custom_paths = call_args.kwargs.get("custom_paths")
         assert custom_paths == [Path(custom_file)]
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_validate_credentials_exception(
         self,
         mock_get_manager: MagicMock,
@@ -268,7 +268,7 @@ class TestValidateCredentialsCommand(TestAuthCLICommands):
 class TestCredentialInfoCommand(TestAuthCLICommands):
     """Test credential info CLI command."""
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_credential_info_success(
         self,
         mock_get_manager: MagicMock,
@@ -293,7 +293,7 @@ class TestCredentialInfoCommand(TestAuthCLICommands):
         assert "Test Organization" in result.stdout
         mock_credentials_manager.load.assert_called_once()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_credential_info_no_credentials(
         self,
         mock_get_manager: MagicMock,
@@ -310,7 +310,7 @@ class TestCredentialInfoCommand(TestAuthCLICommands):
         assert "No credential file found" in result.stdout
         mock_credentials_manager.load.assert_called_once()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_credential_info_docker_flag(
         self,
         mock_get_manager: MagicMock,
@@ -343,7 +343,7 @@ class TestCredentialInfoCommand(TestAuthCLICommands):
 class TestLoginCommand(TestAuthCLICommands):
     """Test login CLI command."""
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_success(
         self,
         mock_get_manager: MagicMock,
@@ -368,7 +368,7 @@ class TestLoginCommand(TestAuthCLICommands):
         assert "Successfully logged in to Claude!" in result.stdout
         mock_credentials_manager.login.assert_called_once()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_already_logged_in_cancel(
         self,
         mock_get_manager: MagicMock,
@@ -387,7 +387,7 @@ class TestLoginCommand(TestAuthCLICommands):
         assert "Login cancelled" in result.stdout
         mock_credentials_manager.login.assert_not_called()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_exception(
         self,
         mock_get_manager: MagicMock,
@@ -409,7 +409,7 @@ class TestLoginCommand(TestAuthCLICommands):
 class TestRenewCommand(TestAuthCLICommands):
     """Test renew CLI command."""
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_renew_command_success(
         self,
         mock_get_manager: MagicMock,
@@ -429,7 +429,7 @@ class TestRenewCommand(TestAuthCLICommands):
         assert "Successfully renewed credentials!" in result.stdout
         mock_credentials_manager.refresh_token.assert_called_once()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_renew_command_no_credentials(
         self,
         mock_get_manager: MagicMock,
@@ -447,7 +447,7 @@ class TestRenewCommand(TestAuthCLICommands):
         assert "No credentials found to renew" in result.stdout
         mock_credentials_manager.refresh_token.assert_not_called()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_renew_command_refresh_fails(
         self,
         mock_get_manager: MagicMock,
@@ -465,7 +465,7 @@ class TestRenewCommand(TestAuthCLICommands):
         assert result.exit_code == 1
         assert "Failed to renew credentials" in result.stdout
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_renew_command_docker_flag(
         self,
         mock_get_manager: MagicMock,
@@ -492,7 +492,7 @@ class TestRenewCommand(TestAuthCLICommands):
             custom_paths = call_args.kwargs.get("custom_paths")
         assert custom_paths is not None
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_renew_command_custom_file(
         self,
         mock_get_manager: MagicMock,
@@ -529,7 +529,7 @@ class TestAuthCLIIntegration(TestAuthCLICommands):
         assert app.info.name == "auth"
         assert app.info.help == "Authentication and credential management"
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_all_commands_available(
         self,
         mock_get_manager: MagicMock,

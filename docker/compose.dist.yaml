@@ -1,0 +1,41 @@
+# CCProxy - Distribution Configuration
+#
+# Quick Start:
+#   1. Copy this file: cp docker-compose.dist.yml docker-compose.yml
+#   2. Run: docker compose up -d
+#   3. Open: http://localhost:8000/accounts/
+#   4. Add your Claude accounts via OAuth
+#
+# The proxy is now ready to use at http://localhost:8000/api/v1/messages
+
+services:
+  claude-code-proxy:
+    image: ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
+    container_name: claude-code-proxy
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    environment:
+      # Server configuration
+      - SERVER__HOST=0.0.0.0
+      - SERVER__PORT=8000
+      - SERVER__LOG_LEVEL=INFO
+
+      # Multi-account rotation (enabled by default)
+      - CCPROXY_ACCOUNTS_PATH=/config/accounts.json
+      - CCPROXY_ROTATION_ENABLED=true
+      - CCPROXY_HOT_RELOAD=true
+    volumes:
+      # Persistent storage for OAuth credentials
+      # Accounts are managed via web UI at /accounts/
+      - claude-code-proxy-config:/config
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  claude-code-proxy-config:
+    name: claude-code-proxy-config

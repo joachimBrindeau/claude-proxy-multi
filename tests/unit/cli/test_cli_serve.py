@@ -1,4 +1,4 @@
-"""Tests for the ccproxy serve CLI command.
+"""Tests for the claude-code-proxy serve CLI command.
 
 This module tests the CLI serve command functionality including:
 - Command line argument parsing and validation
@@ -15,8 +15,8 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from ccproxy.cli.main import app as cli_app
-from ccproxy.config.settings import Settings
+from claude_code_proxy.cli.main import app as cli_app
+from claude_code_proxy.config.settings import Settings
 
 
 class TestServeCommand:
@@ -58,7 +58,7 @@ cli_path = "/usr/local/bin/claude"
     def test_serve_help_no_task_registration(self, runner: CliRunner) -> None:
         """Test that help display doesn't trigger task registration."""
         with patch(
-            "ccproxy.scheduler.manager._register_default_tasks"
+            "claude_code_proxy.scheduler.manager._register_default_tasks"
         ) as mock_register:
             result = runner.invoke(cli_app, ["serve", "--help"])
 
@@ -71,9 +71,9 @@ cli_path = "/usr/local/bin/claude"
     ) -> None:
         """Test serve command with port option."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -98,9 +98,9 @@ cli_path = "/usr/local/bin/claude"
     ) -> None:
         """Test serve command with host option."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -125,9 +125,9 @@ cli_path = "/usr/local/bin/claude"
     ) -> None:
         """Test serve command with configuration file."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -145,9 +145,9 @@ cli_path = "/usr/local/bin/claude"
     ) -> None:
         """Test serve command with auth token option."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -163,9 +163,9 @@ cli_path = "/usr/local/bin/claude"
     ) -> None:
         """Test serve command with reload option."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -190,9 +190,9 @@ cli_path = "/usr/local/bin/claude"
     ) -> None:
         """Test serve command with multiple options combined."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -236,9 +236,11 @@ cli_path = "/usr/local/bin/claude"
     ) -> None:
         """Test serve command with Docker option."""
         with (
-            patch("ccproxy.cli.commands.serve._run_docker_server") as mock_docker,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.cli.commands.serve._run_docker_server"
+            ) as mock_docker,
+            patch(
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_docker.return_value = None
@@ -319,9 +321,9 @@ class TestServeCommandOptions:
         """Test that option validation callbacks work properly."""
         # Test valid port validation
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -348,9 +350,9 @@ class TestServeCommandIntegration:
     ) -> None:
         """Test that tasks are only registered during actual server startup."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -367,9 +369,9 @@ class TestServeCommandIntegration:
     ) -> None:
         """Test that serve command properly integrates with uvicorn."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -432,8 +434,10 @@ class TestServeCommandEdgeCases:
 
     def test_serve_configuration_error_handling(self, runner: CliRunner) -> None:
         """Test that configuration errors are handled gracefully."""
-        with patch("ccproxy.config.settings.config_manager.load_settings") as mock_load:
-            from ccproxy.config.settings import ConfigurationError
+        with patch(
+            "claude_code_proxy.config.settings.config_manager.load_settings"
+        ) as mock_load:
+            from claude_code_proxy.config.settings import ConfigurationError
 
             mock_load.side_effect = ConfigurationError("Test configuration error")
 
@@ -447,9 +451,9 @@ class TestServeCommandEdgeCases:
     ) -> None:
         """Test serve command with log level option."""
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None
@@ -467,9 +471,9 @@ class TestServeCommandEdgeCases:
         log_file = tmp_path / "test.log"
 
         with (
-            patch("ccproxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
+            patch("claude_code_proxy.cli.commands.serve.uvicorn.run") as mock_uvicorn,
             patch(
-                "ccproxy.config.settings.config_manager.load_settings"
+                "claude_code_proxy.config.settings.config_manager.load_settings"
             ) as mock_load_settings,
         ):
             mock_uvicorn.return_value = None

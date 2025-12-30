@@ -9,15 +9,18 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from ccproxy.docker.adapter import DockerAdapter
-from ccproxy.docker.docker_path import DockerPath, DockerPathSet
-from ccproxy.docker.middleware import LoggerOutputMiddleware, create_logger_middleware
-from ccproxy.docker.models import DockerUserContext
-from ccproxy.docker.stream_process import (
+from claude_code_proxy.docker.adapter import DockerAdapter
+from claude_code_proxy.docker.docker_path import DockerPath, DockerPathSet
+from claude_code_proxy.docker.middleware import (
+    LoggerOutputMiddleware,
+    create_logger_middleware,
+)
+from claude_code_proxy.docker.models import DockerUserContext
+from claude_code_proxy.docker.stream_process import (
     DefaultOutputMiddleware,
     run_command,
 )
-from ccproxy.docker.validators import create_docker_error, validate_port_spec
+from claude_code_proxy.docker.validators import create_docker_error, validate_port_spec
 
 
 class TestDockerAdapter:
@@ -307,21 +310,21 @@ class TestDockerValidators:
 
     def test_validate_port_spec_invalid_format(self) -> None:
         """Test port spec validation with invalid format."""
-        from ccproxy.core.errors import DockerError
+        from claude_code_proxy.exceptions import DockerError
 
         with pytest.raises(DockerError, match="Invalid port specification"):
             validate_port_spec("invalid:port:spec:too:many")
 
     def test_validate_port_spec_invalid_port_number(self) -> None:
         """Test port spec validation with invalid port number."""
-        from ccproxy.core.errors import DockerError
+        from claude_code_proxy.exceptions import DockerError
 
         with pytest.raises(DockerError, match="Invalid port numbers"):
             validate_port_spec("99999:80")
 
     def test_validate_port_spec_invalid_port_zero(self) -> None:
         """Test port spec validation with zero port."""
-        from ccproxy.core.errors import DockerError
+        from claude_code_proxy.exceptions import DockerError
 
         with pytest.raises(DockerError, match="Invalid port numbers"):
             validate_port_spec("0:80")
@@ -437,7 +440,7 @@ class TestStreamProcess:
         """Test creation of chained middleware."""
         from structlog import get_logger
 
-        from ccproxy.docker.middleware import create_chained_docker_middleware
+        from claude_code_proxy.docker.middleware import create_chained_docker_middleware
 
         logger = get_logger("test")
         middleware1 = LoggerOutputMiddleware(logger)
@@ -448,7 +451,7 @@ class TestStreamProcess:
 
     async def test_middleware_process_chain(self) -> None:
         """Test middleware processing chain."""
-        from ccproxy.docker.stream_process import ChainedOutputMiddleware
+        from claude_code_proxy.docker.stream_process import ChainedOutputMiddleware
 
         middleware1 = DefaultOutputMiddleware()
         middleware2 = DefaultOutputMiddleware()

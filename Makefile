@@ -1,6 +1,6 @@
-.PHONY: help install dev-install clean test test-unit test-real-api test-watch test-fast test-file test-match test-coverage lint typecheck format check pre-commit ci build dashboard docker-build docker-run
+.PHONY: help install dev-install clean test test-unit test-real-api test-watch test-fast test-file test-match test-coverage lint typecheck format check pre-commit ci build dashboard docker-build docker-run security dead-code docstrings deps-check spell-check complexity pyright-check quality-all
 
-$(eval VERSION_DOCKER := $(shell uv run python3 scripts/format_version.py docker))
+$(eval VERSION_DOCKER := $(shell uv run python3 deploy/scripts/format_version.py docker))
 
 # Common variables
 UV_RUN := uv run
@@ -21,17 +21,29 @@ help:
 	@echo "  test-coverage - Run tests with detailed coverage report"
 	@echo ""
 	@echo "Code quality:"
-	@echo "  lint         - Run linting checks"
-	@echo "  typecheck    - Run type checking"
-	@echo "  format       - Format code"
-	@echo "  check        - Run all checks (lint + typecheck)"
+	@echo "  lint         - Run linting checks (ruff)"
+	@echo "  typecheck    - Run type checking (mypy)"
+	@echo "  pyright-check - Run type checking (pyright, stricter)"
+	@echo "  format       - Format code (ruff)"
+	@echo "  check        - Run all basic checks (lint + typecheck + format-check)"
 	@echo "  pre-commit   - Run pre-commit hooks (comprehensive checks + auto-fixes)"
 	@echo "  ci           - Run full CI pipeline (pre-commit + test)"
+	@echo ""
+	@echo "Advanced code quality:"
+	@echo "  security     - Run security scan (bandit)"
+	@echo "  dead-code    - Check for unused code (vulture)"
+	@echo "  docstrings   - Check docstring coverage (interrogate)"
+	@echo "  deps-check   - Check dependency issues (deptry)"
+	@echo "  spell-check  - Spell check code (codespell)"
+	@echo "  complexity   - Check code complexity (radon + xenon)"
+	@echo "  quality-all  - Run ALL quality checks at once"
 	@echo ""
 	@echo "Build and deployment:"
 	@echo "  build        - Build Python package (includes dashboard)"
 	@echo "  build-backend - Build Python package only (no dashboard)"
 	@echo "  build-dashboard - Build dashboard only"
+	@echo "  build-binary - Build standalone binary for current platform"
+	@echo "  test-binary  - Test the built binary"
 	@echo "  docker-build - Build Docker image"
 	@echo "  docker-run   - Run Docker container"
 	@echo ""
@@ -58,8 +70,7 @@ clean:
 	rm -rf *.egg-info/
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
-	rm -f .coverage
-	rm -f coverage.xml
+	rm -rf .coverage/
 	rm -rf node_modules/
 	rm -f pnpm-lock.yaml
 	# $(MAKE) -C dashboard clean
@@ -90,7 +101,7 @@ fix: format lint-fix
 test: check
 	@echo "Running all tests with coverage..."
 	@if [ ! -d "tests" ]; then echo "Error: tests/ directory not found. Create tests/ directory and add test files."; exit 1; fi
-	$(UV_RUN) pytest tests/ -v --cov=ccproxy --cov-report=term-missing
+	$(UV_RUN) pytest tests/ -v --cov=src/ccproxy --cov-report=term-missing
 
 # Run fast unit tests only (exclude tests marked with 'real_api')
 test-unit: check
@@ -111,7 +122,7 @@ test-watch:
 	@echo "Requires 'entr' tool: install with 'apt install entr' or 'brew install entr'"
 	@echo "Use Ctrl+C to stop watching"
 	@if command -v entr >/dev/null 2>&1; then \
-		find ccproxy tests -name "*.py" | entr -c sh -c 'make check && $(UV_RUN) pytest tests/ -v -m "not real_api" --tb=short'; \
+		find src/ccproxy tests -name "*.py" | entr -c sh -c 'make check && $(UV_RUN) pytest tests/ -v -m "not real_api" --tb=short'; \
 	else \
 		echo "Error: 'entr' not found. Install with 'apt install entr' or 'brew install entr'"; \
 		echo "Alternatively, use 'make test-unit' to run tests once"; \
@@ -128,8 +139,8 @@ test-fast: check
 test-coverage: check
 	@echo "Running tests with detailed coverage report..."
 	@if [ ! -d "tests" ]; then echo "Error: tests/ directory not found. Create tests/ directory and add test files."; exit 1; fi
-	$(UV_RUN) pytest tests/ -v --cov=ccproxy --cov-report=term-missing --cov-report=html
-	@echo "HTML coverage report generated in htmlcov/"
+	$(UV_RUN) pytest tests/ -v --cov=src/ccproxy --cov-report=term-missing --cov-report=html:.coverage/html
+	@echo "HTML coverage report generated in .coverage/html/"
 
 # Run specific test file (with quality checks)
 test-file: check
@@ -146,6 +157,43 @@ test-match: check
 # Code quality
 lint:
 	uv run ruff check .
+
+# Advanced code quality checks
+security:
+	@echo "Running security scan with bandit..."
+	uv run bandit -c pyproject.toml -r src/ccproxy -q
+
+dead-code:
+	@echo "Checking for dead code with vulture..."
+	uv run vulture src/ccproxy --min-confidence=80
+
+docstrings:
+	@echo "Checking docstring coverage..."
+	uv run interrogate src/ccproxy --config pyproject.toml
+
+deps-check:
+	@echo "Checking dependencies with deptry..."
+	uv run deptry .
+
+spell-check:
+	@echo "Spell checking with codespell..."
+	uv run codespell src/ccproxy --toml pyproject.toml
+
+complexity:
+	@echo "Checking code complexity with radon..."
+	uv run radon cc src/ccproxy -a -s
+	@echo ""
+	@echo "Checking complexity thresholds with xenon..."
+	uv run xenon src/ccproxy --max-absolute C --max-modules B --max-average A || true
+
+pyright-check:
+	@echo "Running pyright type checker..."
+	uv run pyright src/ccproxy
+
+# Run all code quality checks at once
+quality-all: lint typecheck security dead-code docstrings deps-check spell-check complexity
+	@echo ""
+	@echo "=== All code quality checks complete! ==="
 
 lint-fix: format
 	# fix F401 (unused import) errors
@@ -190,6 +238,32 @@ build-backend:
 build-dashboard:
 	$(MAKE) -C dashboard build
 
+build-binary:
+	@echo "Building standalone binary for current platform..."
+	uv pip install pyinstaller
+	uv run pyinstaller claude-code-proxy.spec
+	@echo ""
+	@echo "Binary built successfully!"
+	@ls -lh dist/claude-code-proxy-*
+	@echo ""
+	@echo "Test the binary with:"
+	@echo "  ./dist/claude-code-proxy-* --version"
+
+test-binary:
+	@echo "Testing standalone binary..."
+	@if [ -f dist/claude-code-proxy-darwin-universal2 ]; then \
+		chmod +x dist/claude-code-proxy-darwin-universal2 && \
+		./dist/claude-code-proxy-darwin-universal2 --version; \
+	elif [ -f dist/claude-code-proxy-linux-amd64 ]; then \
+		chmod +x dist/claude-code-proxy-linux-amd64 && \
+		./dist/claude-code-proxy-linux-amd64 --version; \
+	elif [ -f dist/claude-code-proxy-windows-amd64.exe ]; then \
+		./dist/claude-code-proxy-windows-amd64.exe --version; \
+	else \
+		echo "No binary found. Run 'make build-binary' first."; \
+		exit 1; \
+	fi
+
 # Dashboard delegation
 dashboard:
 	@echo "Dashboard commands:"
@@ -199,16 +273,16 @@ dashboard:
 
 # Docker targets
 docker-build:
-	docker build -t ghcr.io/caddyglow/ccproxy:$(VERSION_DOCKER) .
+	docker build -f docker/Dockerfile -t ccproxy:$(VERSION_DOCKER) .
 
 docker-run:
-	docker run --rm -p 8000:8000 ghcr.io/caddyglow/ccproxy:$(VERSION_DOCKER)
+	docker run --rm -p 8000:8000 ccproxy:$(VERSION_DOCKER)
 
 docker-compose-up:
-	docker-compose up --build
+	docker compose -f docker/compose.yaml up --build
 
 docker-compose-down:
-	docker-compose down
+	docker compose -f docker/compose.yaml down
 
 # Development server
 dev:

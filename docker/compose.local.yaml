@@ -1,0 +1,31 @@
+# CCProxy - Local Development Configuration
+# Run: docker compose -f docker/compose.local.yaml up --build
+
+services:
+  claude-code-proxy:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: claude-code-proxy:local
+    container_name: claude-code-proxy-local
+    hostname: claude-code-proxy
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    environment:
+      - SERVER__HOST=0.0.0.0
+      - SERVER__PORT=8000
+      - SERVER__LOG_LEVEL=DEBUG
+      # Multi-account rotation settings
+      - CCPROXY_ACCOUNTS_PATH=/config/accounts.json
+      - CCPROXY_ROTATION_ENABLED=true
+      - CCPROXY_HOT_RELOAD=true
+    volumes:
+      # Mount local runtime directory
+      - ../runtime:/config
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

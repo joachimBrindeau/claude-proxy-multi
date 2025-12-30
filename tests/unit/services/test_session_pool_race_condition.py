@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from claude_code_sdk import ClaudeCodeOptions
 
-from ccproxy.claude_sdk.session_client import SessionClient, SessionStatus
-from ccproxy.claude_sdk.session_pool import SessionPool
-from ccproxy.config.claude import SessionPoolSettings
+from claude_code_proxy.claude_sdk.session_client import SessionClient, SessionStatus
+from claude_code_proxy.claude_sdk.session_pool import SessionPool
+from claude_code_proxy.config.claude import SessionPoolSettings
 
 
 class TestSessionPoolRaceCondition:

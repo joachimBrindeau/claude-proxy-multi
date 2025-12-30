@@ -11,14 +11,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from ccproxy.auth.exceptions import CredentialsNotFoundError
-from ccproxy.auth.models import (
+from claude_code_proxy.auth.models import (
     ClaudeCredentials,
     OAuthToken,
     ValidationResult,
 )
-from ccproxy.cli.commands.auth import app
-from ccproxy.services.credentials.manager import CredentialsManager
+from claude_code_proxy.cli.commands.auth import app
+from claude_code_proxy.exceptions import CredentialsNotFoundError
+from claude_code_proxy.services.credentials.manager import CredentialsManager
 
 
 class TestLoginCommandCredentialsHandling:
@@ -74,7 +74,7 @@ class TestLoginCommandCredentialsHandling:
             credentials=None,
         )
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_no_existing_credentials(
         self,
         mock_get_manager: MagicMock,
@@ -108,7 +108,7 @@ class TestLoginCommandCredentialsHandling:
         # Verify that validate was called twice (once for check, once for final validation)
         assert mock_credentials_manager.validate.call_count == 2
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_credentials_not_found_then_login_success(
         self,
         mock_get_manager: MagicMock,
@@ -142,7 +142,7 @@ class TestLoginCommandCredentialsHandling:
         # Verify login was attempted
         mock_credentials_manager.login.assert_called_once()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_existing_valid_credentials_overwrite_yes(
         self,
         mock_get_manager: MagicMock,
@@ -175,7 +175,7 @@ class TestLoginCommandCredentialsHandling:
         # Verify login was called after user confirmed overwrite
         mock_credentials_manager.login.assert_called_once()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_existing_valid_credentials_overwrite_no(
         self,
         mock_get_manager: MagicMock,
@@ -197,7 +197,7 @@ class TestLoginCommandCredentialsHandling:
         # Verify login was NOT called
         mock_credentials_manager.login.assert_not_called()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_credentials_not_found_with_docker_flag(
         self,
         mock_get_manager: MagicMock,
@@ -230,7 +230,7 @@ class TestLoginCommandCredentialsHandling:
         assert custom_paths is not None
         assert any(".claude" in str(path) for path in custom_paths)
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_credentials_not_found_with_custom_file(
         self,
         mock_get_manager: MagicMock,
@@ -263,7 +263,7 @@ class TestLoginCommandCredentialsHandling:
             custom_paths = call_args.kwargs.get("custom_paths")
         assert custom_paths == [Path(custom_file)]
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_other_exception_during_validation(
         self,
         mock_get_manager: MagicMock,
@@ -285,7 +285,7 @@ class TestLoginCommandCredentialsHandling:
         # Login should not be called due to the exception
         mock_credentials_manager.login.assert_not_called()
 
-    @patch("ccproxy.cli.commands.auth.get_credentials_manager")
+    @patch("claude_code_proxy.cli.commands.auth.get_credentials_manager")
     def test_login_command_login_fails_after_credentials_not_found(
         self,
         mock_get_manager: MagicMock,

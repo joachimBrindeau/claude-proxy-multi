@@ -22,13 +22,11 @@ build/
 
 # Testing & Coverage
 .pytest_cache/
-.benchmarks/
-.coverage
-htmlcov/
-coverage.xml
+.coverage/
 *.lcov
 .tox/
 .nox/
+.playwright-mcp/
 
 # Type checking & Linting
 .mypy_cache/
@@ -83,31 +81,32 @@ credentials.json
 *.key
 secrets.*
 
-# Local config directory (keep README and examples)
-config/accounts.json
-config/.credentials.json
-config/projects/
-config/shell-snapshots/
-config/statsig/
-config/telemetry/
-config/todos/
-config/debug/
-!config/README.md
-!config/*.example
+# Runtime data directory (keep README and examples)
+runtime/accounts.json
+runtime/.credentials.json
+runtime/projects/
+runtime/shell-snapshots/
+runtime/todos/
+runtime/debug/
+!runtime/README.md
+!runtime/*.example
 
 # Project specific
 .aider*
 **/.claude/settings.local.json
-_version.py
+src/ccproxy/_version.py
 *.bak
 .serena
 workspace/
 data/home
-ccproxy/static/dashboard/
-*.wal
-*.duckdb
+
+# Claude & SpecKit (protected directories)
+.claude/
+specs/
+.specify/
 
 # Temporary
 tmp/
 temp/
 *.tmp
+config/

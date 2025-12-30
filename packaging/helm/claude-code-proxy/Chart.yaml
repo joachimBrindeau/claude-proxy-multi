@@ -1,0 +1,49 @@
+apiVersion: v2
+name: claude-code-proxy
+description: High-performance Claude Code multi-account proxy server with Anthropic API compatibility
+type: application
+
+# Chart version (this is the chart version, not the app version)
+version: 0.1.0
+
+# Application version (this should match the Docker image tag)
+appVersion: "0.1.7"
+
+keywords:
+  - claude
+  - anthropic
+  - ai
+  - proxy
+  - multi-account
+  - oauth
+  - fastapi
+
+maintainers:
+  - name: joachimbrindeau
+    email: joachim.brindeau@gmail.com
+    url: https://github.com/joachimbrindeau
+
+sources:
+  - https://github.com/joachimbrindeau/claude-proxy-multi
+
+home: https://github.com/joachimbrindeau/claude-proxy-multi
+icon: https://raw.githubusercontent.com/joachimbrindeau/claude-proxy-multi/main/docs/assets/logo.png
+
+annotations:
+  # Artifact Hub annotations
+  artifacthub.io/category: integration-delivery
+  artifacthub.io/license: MIT
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://github.com/joachimbrindeau/claude-proxy-multi/tree/main/docs
+    - name: Docker Hub
+      url: https://ghcr.io/joachimbrindeau/claude-proxy-multi
+  artifacthub.io/maintainers: |
+    - name: joachimbrindeau
+      email: joachim.brindeau@gmail.com
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/cert-manager/cert-manager
+  artifacthub.io/operator: "false"
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial Helm chart release

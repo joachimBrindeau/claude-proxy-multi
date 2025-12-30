@@ -1,0 +1,53 @@
+# CCProxy - Claude Code Proxy with Multi-Account Rotation
+# Builds from source - full codebase at development/expand/core/claude-proxy-multi
+# Deployed via symlink at deployment/services/claude-code-proxy
+
+services:
+  claude-code-proxy:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: claude-code-proxy:local
+    container_name: claude-code-proxy
+    hostname: claude-code-proxy
+    restart: unless-stopped
+    ports:
+      - '8000'
+    environment:
+      - SERVER__HOST=0.0.0.0
+      - SERVER__PORT=8000
+      - SERVER__LOG_LEVEL=INFO
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      # Multi-account rotation settings
+      - CCPROXY_ACCOUNTS_PATH=/config/accounts.json
+      - CCPROXY_ROTATION_ENABLED=true
+      - CCPROXY_HOT_RELOAD=true
+    volumes:
+      # Mount config directory for accounts.json and credentials
+      - ${CCPROXY_CONFIG_DIR:-~/.claude}:/config
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - 'traefik.http.routers.claude-code-proxy-http.rule=Host(`${CCPROXY_HOST:-localhost}`)'
+      - traefik.http.routers.claude-code-proxy-http.entrypoints=http
+      - traefik.http.routers.claude-code-proxy-http.middlewares=redirect-to-https
+      - 'traefik.http.routers.claude-code-proxy.rule=Host(`${CCPROXY_HOST:-localhost}`)'
+      - traefik.http.routers.claude-code-proxy.entrypoints=https
+      - traefik.http.routers.claude-code-proxy.tls=true
+      - traefik.http.routers.claude-code-proxy.tls.certresolver=letsencrypt
+      - traefik.http.services.claude-code-proxy.loadbalancer.server.port=8000
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true

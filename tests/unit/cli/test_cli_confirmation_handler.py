@@ -10,13 +10,15 @@ import httpx
 import pytest
 import typer
 
-from ccproxy.api.services.permission_service import PermissionRequest
-from ccproxy.api.ui.terminal_permission_handler import TerminalPermissionHandler
-from ccproxy.cli.commands.permission_handler import (
+from claude_code_proxy.api.services.permission_service import PermissionRequest
+from claude_code_proxy.api.ui.terminal_permission_handler import (
+    TerminalPermissionHandler,
+)
+from claude_code_proxy.cli.commands.permission_handler import (
     SSEConfirmationHandler,
     connect,
 )
-from ccproxy.config.settings import Settings
+from claude_code_proxy.config.settings import Settings
 
 
 @pytest.fixture
@@ -439,8 +441,8 @@ data: {invalid json}
 class TestCLICommand:
     """Test the CLI command function."""
 
-    @patch("ccproxy.cli.commands.permission_handler.get_settings")
-    @patch("ccproxy.cli.commands.permission_handler.asyncio.run")
+    @patch("claude_code_proxy.cli.commands.permission_handler.get_settings")
+    @patch("claude_code_proxy.cli.commands.permission_handler.asyncio.run")
     def test_connect_command_default_url(
         self,
         mock_asyncio_run: Mock,
@@ -460,8 +462,8 @@ class TestCLICommand:
         # Verify asyncio.run was called
         mock_asyncio_run.assert_called_once()
 
-    @patch("ccproxy.cli.commands.permission_handler.get_settings")
-    @patch("ccproxy.cli.commands.permission_handler.asyncio.run")
+    @patch("claude_code_proxy.cli.commands.permission_handler.get_settings")
+    @patch("claude_code_proxy.cli.commands.permission_handler.asyncio.run")
     def test_connect_command_custom_url(
         self,
         mock_asyncio_run: Mock,
@@ -477,8 +479,8 @@ class TestCLICommand:
         # Verify asyncio.run was called
         mock_asyncio_run.assert_called_once()
 
-    @patch("ccproxy.cli.commands.permission_handler.get_settings")
-    @patch("ccproxy.cli.commands.permission_handler.asyncio.run")
+    @patch("claude_code_proxy.cli.commands.permission_handler.get_settings")
+    @patch("claude_code_proxy.cli.commands.permission_handler.asyncio.run")
     def test_connect_command_keyboard_interrupt(
         self,
         mock_asyncio_run: Mock,
@@ -498,9 +500,9 @@ class TestCLICommand:
         # Should not raise error
         connect(api_url=None, no_ui=False)
 
-    @patch("ccproxy.cli.commands.permission_handler.get_settings")
-    @patch("ccproxy.cli.commands.permission_handler.asyncio.run")
-    @patch("ccproxy.cli.commands.permission_handler.logger")
+    @patch("claude_code_proxy.cli.commands.permission_handler.get_settings")
+    @patch("claude_code_proxy.cli.commands.permission_handler.asyncio.run")
+    @patch("claude_code_proxy.cli.commands.permission_handler.logger")
     def test_connect_command_general_error(
         self,
         mock_logger: Mock,

@@ -89,6 +89,7 @@ repos:
         args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
+        exclude: ^packaging/helm/.*\.yaml$
       - id: check-toml
       - id: check-json
       - id: check-merge-conflict
@@ -105,13 +106,50 @@ repos:
         exclude: ^tests/(fixtures|factories|helpers)/
 
   # Security checks
-  # - repo: https://github.com/PyCQA/bandit
-  #   rev: 1.7.10
-  #   hooks:
-  #     - id: bandit
-  #       name: bandit security check
-  #       args: [-c, pyproject.toml]
-  #       additional_dependencies: ["bandit[toml]"]
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        name: bandit security check
+        args: [-c, pyproject.toml, -r, src/claude_code_proxy]
+        additional_dependencies: ["bandit[toml]"]
+
+  # Spell checking
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        name: codespell
+        additional_dependencies: ["tomli"]
+        args: [--toml, pyproject.toml, --ignore-words-list=datas]
+
+  # Docstring coverage check
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        name: interrogate docstring coverage
+        args: [--config=pyproject.toml]
+        pass_filenames: false
+
+  # Dead code detection (local hook using installed vulture)
+  - repo: local
+    hooks:
+      - id: vulture
+        name: vulture dead code
+        entry: uv run vulture
+        language: system
+        types: [python]
+        args: [src/claude_code_proxy, --min-confidence=80]
+        pass_filenames: false
+
+      - id: deptry
+        name: deptry dependency check
+        entry: uv run deptry
+        language: system
+        types: [python]
+        args: [.]
+        pass_filenames: false
 
 # Configuration
 ci:
@@ -128,4 +166,4 @@ ci:
 # Note: Tests are intentionally not run in pre-commit hooks as they can be slow
 # Run tests manually with: make test or make ci
 # The CI pipeline will run the full test suite including:
-# - uv run pytest -v --cov=ccproxy --cov-report=xml --cov-report=term-missing
+# - uv run pytest -v --cov=claude_code_proxy --cov-report=xml --cov-report=term-missing

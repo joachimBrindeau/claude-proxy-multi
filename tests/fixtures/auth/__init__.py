@@ -1,4 +1,4 @@
-"""Authentication fixtures for ccproxy tests.
+"""Authentication fixtures for claude-code-proxy tests.
 
 This module provides composable authentication fixtures that support all auth modes
 without requiring test skips. The fixtures are organized into:

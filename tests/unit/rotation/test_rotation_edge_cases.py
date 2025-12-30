@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from ccproxy.rotation.pool import AccountState, RotationPool
+from claude_code_proxy.rotation.pool import AccountState, RotationPool
 
 
 @pytest.fixture

@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
-from ccproxy.config.settings import Settings
+from claude_code_proxy.config.settings import Settings
 from tests.factories import FastAPIAppFactory, FastAPIClientFactory
 
 
@@ -157,7 +157,7 @@ def test_factory_error_handling(test_settings: Settings) -> None:
 @pytest.mark.unit
 def test_custom_dependency_overrides(test_settings: Settings) -> None:
     """Test that custom dependency overrides work correctly."""
-    from ccproxy.config.settings import get_settings
+    from claude_code_proxy.config.settings import get_settings
 
     # Create a custom override
     def custom_override():
