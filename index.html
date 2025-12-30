@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Code Proxy - Multi-Account API Proxy for Claude Code CLI</title>
     <meta name="description" content="Bypass Claude Code rate limits with multi-account rotation. The best Claude Code rate limit solution to avoid Anthropic rate limiting and scale your AI development workflow.">
-    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, bypass claude code rate limits, claude code rate limit solution, avoid anthropic rate limiting, claude docker container, containerized ai proxy, kubernetes claude deployment, reduce claude api costs, optimize ai spending, claude usage optimization">
+    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, bypass claude code rate limits, claude code rate limit solution, avoid anthropic rate limiting, claude docker container, containerized ai proxy, kubernetes claude deployment, reduce claude api costs, optimize ai spending, claude usage optimization, claude load balancer, ai api load balancing, distribute claude requests">
     <meta name="author" content="Joachim Brindeau">
     <meta name="robots" content="index, follow">
 
@@ -245,6 +245,17 @@
             color: var(--text-secondary);
             font-size: 15px;
         }
+
+        .rate-limit-section { padding: 80px 0; background: var(--bg-secondary); }
+        .rate-limit-content { max-width: 800px; margin: 0 auto; }
+        .rate-limit-content h2 { font-size: 2rem; font-weight: 700; margin-bottom: 24px; }
+        .rate-limit-content > p { color: var(--text-secondary); margin-bottom: 20px; font-size: 1.1rem; }
+        .solution-box { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin: 32px 0; }
+        .solution-box h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 16px; color: var(--accent); }
+        .solution-box p { color: var(--text-secondary); margin-bottom: 16px; }
+        .solution-box ul { list-style: none; padding: 0; }
+        .solution-box li { padding: 8px 0 8px 24px; position: relative; color: var(--text-secondary); }
+        .solution-box li::before { content: ""; position: absolute; left: 0; top: 16px; width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
 
         .use-cases {
             padding: 80px 0;
@@ -562,6 +573,29 @@
             </div>
         </div>
     </section>
+    <section class="rate-limit-section" id="rate-limits">
+        <div class="container">
+            <div class="rate-limit-content">
+                <h2>How to Bypass Claude Code Rate Limits</h2>
+                <p>If you're a heavy Claude Code user, you've likely encountered the frustrating "rate limit exceeded" message. Anthropic implements strict rate limiting to manage API capacity, which can interrupt your development workflow at critical moments.</p>
+                <p>The most effective <strong>Claude Code rate limit solution</strong> is to distribute your requests across multiple accounts. This approach lets you maintain continuous access to Claude's capabilities without waiting for rate limit windows to reset.</p>
+                <div class="solution-box">
+                    <h3>The Multi-Account Approach</h3>
+                    <p>Claude Code Proxy provides a reliable way to <strong>bypass Claude Code rate limits</strong> by automatically rotating between multiple Anthropic accounts. Here's how it helps you <strong>avoid Anthropic rate limiting</strong>:</p>
+                    <ul>
+                        <li>Automatically detects when an account approaches its rate limit threshold</li>
+                        <li>Seamlessly switches to the next available account with remaining capacity</li>
+                        <li>Tracks rate limit headers in real-time to optimize account selection</li>
+                        <li>Balances load across accounts to maximize total available throughput</li>
+                        <li>Queues requests during peak usage to prevent dropped connections</li>
+                    </ul>
+                </div>
+                <p>Unlike manual account switching or simple API key rotation, this <strong>Claude Code rate limit solution</strong> operates transparently. Your Claude Code CLI continues to work exactly as before - the proxy handles all the complexity of managing multiple accounts and their respective limits.</p>
+                <p>Whether you're running long coding sessions, operating in a team environment, or integrating Claude Code into CI/CD pipelines, this approach provides a sustainable way to scale your usage without hitting Anthropic's rate limits.</p>
+            </div>
+        </div>
+    </section>
+
     <section class="use-cases">
         <div class="container">
             <h2 class="section-title">Use Cases</h2>
