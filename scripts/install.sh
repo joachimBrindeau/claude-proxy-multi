@@ -13,7 +13,7 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Configuration
-COMPOSE_URL="https://raw.githubusercontent.com/joachimbrindeau/claude-proxy-multi/main/docker/compose.dist.yaml"
+COMPOSE_URL="https://raw.githubusercontent.com/joachimbrindeau/ccproxy-api/main/docker/compose.dist.yaml"
 DATA_DIR="./data"
 COMPOSE_FILE="docker-compose.yml"
 HEALTH_ENDPOINT="http://localhost:8000/health"
@@ -243,7 +243,7 @@ echo "  Restart service: $COMPOSE_CMD restart"
 echo "  Check status:    $COMPOSE_CMD ps"
 echo ""
 echo -e "${BOLD}Documentation:${NC}"
-echo "  https://github.com/joachimbrindeau/claude-proxy-multi"
+echo "  https://github.com/joachimbrindeau/ccproxy-api"
 echo ""
 
 # Try to open browser
