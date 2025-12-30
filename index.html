@@ -3,36 +3,523 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Claude Proxy Multi - Installation</title>
+    <title>Claude Code Proxy - Multi-Account API Proxy for Claude Code CLI</title>
+    <meta name="description" content="Run Claude Code CLI across multiple Anthropic accounts with automatic rotation. Avoid rate limits, manage team usage, and scale your AI-powered development workflow.">
+    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools">
+    <meta name="author" content="Joachim Brindeau">
+    <meta name="robots" content="index, follow">
+
+    <meta property="og:title" content="Claude Code Proxy - Multi-Account API Proxy">
+    <meta property="og:description" content="Scale your Claude Code usage across multiple accounts with automatic rotation and load balancing.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://joachimbrindeau.github.io/claude-proxy-multi/">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Claude Code Proxy">
+    <meta name="twitter:description" content="Multi-account proxy for Claude Code CLI with automatic rotation.">
+
+    <link rel="canonical" href="https://joachimbrindeau.github.io/claude-proxy-multi/">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-        h1 { color: #6366f1; }
-        pre { background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; }
-        code { color: #22c55e; }
-        .method { margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #6366f1; }
+        :root {
+            --bg: #fafafa;
+            --bg-secondary: #ffffff;
+            --text: #18181b;
+            --text-secondary: #52525b;
+            --accent: #2563eb;
+            --accent-light: #3b82f6;
+            --border: #e4e4e7;
+            --code-bg: #18181b;
+            --code-text: #e4e4e7;
+            --success: #22c55e;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #09090b;
+                --bg-secondary: #18181b;
+                --text: #fafafa;
+                --text-secondary: #a1a1aa;
+                --border: #27272a;
+                --code-bg: #0a0a0a;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        header {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 5vw, 3.5rem);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-light);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-secondary);
+        }
+
+        .install-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            margin: 60px 0;
+        }
+
+        .install-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .install-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        .copy-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .copy-btn:hover {
+            border-color: var(--text-secondary);
+            color: var(--text);
+        }
+
+        .code-block {
+            background: var(--code-bg);
+            border-radius: 10px;
+            padding: 20px 24px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--code-text);
+        }
+
+        .features {
+            padding: 80px 0;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 0 auto 60px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
+        }
+
+        .feature-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--accent);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        .use-cases {
+            padding: 80px 0;
+            background: var(--bg-secondary);
+        }
+
+        .use-cases-list {
+            display: grid;
+            gap: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .use-case {
+            display: grid;
+            grid-template-columns: 60px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .use-case-number {
+            width: 60px;
+            height: 60px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .use-case h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .use-case p {
+            color: var(--text-secondary);
+        }
+
+        .install-methods {
+            padding: 80px 0;
+        }
+
+        .methods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .method-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .method-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .method-card .tag {
+            font-size: 12px;
+            color: var(--success);
+            font-weight: 500;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .method-card code {
+            display: block;
+            background: var(--code-bg);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        footer {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        footer p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        footer a {
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 640px) {
+            header {
+                padding: 60px 0 40px;
+            }
+
+            .use-case {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .use-case-number {
+                width: 48px;
+                height: 48px;
+                font-size: 1.25rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>Claude Proxy Multi</h1>
-    <p>Multi-account Claude Code proxy with automatic rotation</p>
-    
-    <div class="method">
-        <h2>Docker (Recommended)</h2>
-        <pre><code>curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash</code></pre>
+    <div class="container">
+        <header>
+            <span class="badge">Open Source</span>
+            <h1>Claude Code Proxy</h1>
+            <p class="subtitle">Run Claude Code CLI across multiple accounts with automatic rotation. Scale your AI development without hitting rate limits.</p>
+            <div class="cta-group">
+                <a href="#install" class="btn btn-primary">Get Started</a>
+                <a href="https://github.com/joachimbrindeau/claude-proxy-multi" class="btn btn-secondary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    GitHub
+                </a>
+            </div>
+        </header>
     </div>
-    
-    <div class="method">
-        <h2>Homebrew</h2>
-        <pre><code>brew tap joachimbrindeau/claude-code-proxy
-brew install claude-code-proxy</code></pre>
+
+    <div class="container">
+        <div class="install-section" id="install">
+            <div class="install-header">
+                <span class="install-title">Quick Install</span>
+                <button class="copy-btn" onclick="copyToClipboard()">Copy</button>
+            </div>
+            <div class="code-block">
+                <code id="install-cmd">curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash</code>
+            </div>
+        </div>
     </div>
-    
-    <div class="method">
-        <h2>Helm</h2>
-        <pre><code>helm repo add ccproxy https://joachimbrindeau.github.io/claude-proxy-multi/charts
-helm install ccproxy ccproxy/claude-code-proxy</code></pre>
-    </div>
-    
-    <p><a href="https://github.com/joachimbrindeau/claude-proxy-multi">GitHub Repository</a></p>
+
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">Built for developers</h2>
+            <p class="section-subtitle">Everything you need to scale Claude Code across your team or personal workflow.</p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Automatic Rotation</h3>
+                    <p>Seamlessly rotate between multiple Anthropic accounts to distribute API usage and avoid rate limits.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <h3>OAuth Integration</h3>
+                    <p>Add accounts through a simple web UI. No manual token management required.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Usage Tracking</h3>
+                    <p>Monitor token usage across accounts. Know exactly how your AI budget is being spent.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Hot Reload</h3>
+                    <p>Add or remove accounts on the fly. No restarts needed.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🐳</div>
+                    <h3>Docker Ready</h3>
+                    <p>Deploy anywhere with a single command. Works with Docker, Kubernetes, or bare metal.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Drop-in Replacement</h3>
+                    <p>Works with existing Claude Code CLI. Just point to the proxy and you're done.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="use-cases">
+        <div class="container">
+            <h2 class="section-title">Use Cases</h2>
+            <p class="section-subtitle">Why developers choose Claude Code Proxy.</p>
+
+            <div class="use-cases-list">
+                <div class="use-case">
+                    <div class="use-case-number">1</div>
+                    <div>
+                        <h3>Bypass Rate Limits</h3>
+                        <p>Heavy Claude Code users often hit API rate limits. Distribute requests across multiple accounts to maintain uninterrupted coding sessions.</p>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-number">2</div>
+                    <div>
+                        <h3>Team Sharing</h3>
+                        <p>Share Claude access across your team without sharing credentials. Each developer connects to the proxy, which manages account allocation.</p>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-number">3</div>
+                    <div>
+                        <h3>Cost Optimization</h3>
+                        <p>Pool multiple free tier accounts or distribute paid usage across accounts with different billing cycles.</p>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-number">4</div>
+                    <div>
+                        <h3>CI/CD Integration</h3>
+                        <p>Run Claude Code in your CI pipeline without worrying about rate limits during peak build times.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="install-methods">
+        <div class="container">
+            <h2 class="section-title">Installation Options</h2>
+            <p class="section-subtitle">Choose your preferred deployment method.</p>
+
+            <div class="methods-grid">
+                <div class="method-card">
+                    <h3>Docker</h3>
+                    <span class="tag">Recommended</span>
+                    <code>curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash</code>
+                </div>
+                <div class="method-card">
+                    <h3>Homebrew</h3>
+                    <span class="tag">macOS / Linux</span>
+                    <code>brew tap joachimbrindeau/claude-code-proxy
+brew install claude-code-proxy</code>
+                </div>
+                <div class="method-card">
+                    <h3>Helm</h3>
+                    <span class="tag">Kubernetes</span>
+                    <code>helm repo add ccproxy https://joachimbrindeau.github.io/claude-proxy-multi/charts
+helm install ccproxy ccproxy/claude-code-proxy</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>
+                <a href="https://github.com/joachimbrindeau/claude-proxy-multi">GitHub</a> ·
+                <a href="https://github.com/joachimbrindeau/claude-proxy-multi/issues">Issues</a> ·
+                MIT License
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        function copyToClipboard() {
+            const cmd = document.getElementById('install-cmd').textContent;
+            navigator.clipboard.writeText(cmd).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 2000);
+            });
+        }
+    </script>
 </body>
 </html>
