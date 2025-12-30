@@ -378,7 +378,7 @@ auth_token = "your-secret-token"
 ```bash
 # One command to start
 docker run -d -p 8000:8000 -v claude-code-proxy-config:/config \
-  --name claude-code-proxy ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
+  --name claude-code-proxy ghcr.io/joachimbrindeau/claude-proxy-multi:latest
 
 # Open http://localhost:8000 to add accounts via web UI
 ```
@@ -389,7 +389,7 @@ docker run -d -p 8000:8000 -v claude-code-proxy-config:/config \
 # docker/compose.yaml (or your own compose file)
 services:
   claude-code-proxy:
-    image: ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
+    image: ghcr.io/joachimbrindeau/claude-proxy-multi:latest
     ports:
       - "8000:8000"
     volumes:

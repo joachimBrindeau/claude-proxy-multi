@@ -10,7 +10,7 @@
 
 services:
   claude-code-proxy:
-    image: ghcr.io/joachimbrindeau/claude-code-proxy-multi:latest
+    image: ghcr.io/joachimbrindeau/claude-proxy-multi:latest
     container_name: claude-code-proxy
     restart: unless-stopped
     ports:
