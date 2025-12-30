@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Code Proxy - Multi-Account API Proxy for Claude Code CLI</title>
-    <meta name="description" content="Run Claude Code CLI across multiple Anthropic accounts with automatic rotation. Avoid rate limits, manage team usage, and scale your AI-powered development workflow.">
-    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, enterprise claude deployment, claude for teams, organization ai proxy">
+    <meta name="description" content="Bypass Claude Code rate limits with multi-account rotation. The best Claude Code rate limit solution to avoid Anthropic rate limiting and scale your AI development workflow.">
+    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, bypass claude code rate limits, claude code rate limit solution, avoid anthropic rate limiting">
     <meta name="author" content="Joachim Brindeau">
     <meta name="robots" content="index, follow">
 
@@ -246,9 +246,74 @@
             font-size: 15px;
         }
 
-        .use-cases {
+        .rate-limit-section {
             padding: 80px 0;
             background: var(--bg-secondary);
+        }
+
+        .rate-limit-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .rate-limit-content h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+        }
+
+        .rate-limit-content > p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        .solution-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
+            margin: 32px 0;
+        }
+
+        .solution-box h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--accent);
+        }
+
+        .solution-box p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .solution-box ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .solution-box li {
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+            color: var(--text-secondary);
+        }
+
+        .solution-box li::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 16px;
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+        }
+
+        .use-cases {
+            padding: 80px 0;
         }
 
         .use-cases-list {
@@ -268,7 +333,7 @@
         .use-case-number {
             width: 60px;
             height: 60px;
-            background: var(--bg);
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: 12px;
             display: flex;
@@ -286,6 +351,50 @@
         }
 
         .use-case p {
+            color: var(--text-secondary);
+        }
+
+        .how-it-works {
+            padding: 80px 0;
+            background: var(--bg-secondary);
+        }
+
+        .architecture {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .arch-content h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .arch-content > p {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            font-size: 1.05rem;
+        }
+
+        .arch-features {
+            display: grid;
+            gap: 24px;
+        }
+
+        .arch-feature {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .arch-feature h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .arch-feature p {
             color: var(--text-secondary);
         }
 
@@ -350,87 +459,6 @@
             text-decoration: underline;
         }
 
-
-        .enterprise {
-            padding: 80px 0;
-        }
-
-        .enterprise-intro {
-            max-width: 800px;
-            margin: 0 auto 48px;
-            text-align: center;
-        }
-
-        .enterprise-intro p {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-            line-height: 1.7;
-        }
-
-        .enterprise-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 24px;
-        }
-
-        .enterprise-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 32px;
-        }
-
-        .enterprise-card h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-
-        .enterprise-card p {
-            color: var(--text-secondary);
-            font-size: 15px;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-
-        .enterprise-card ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .enterprise-card li {
-            color: var(--text-secondary);
-            font-size: 14px;
-            padding: 8px 0;
-            padding-left: 24px;
-            position: relative;
-        }
-
-        .enterprise-card li::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 16px;
-            height: 16px;
-            background: var(--success);
-            border-radius: 50%;
-            opacity: 0.2;
-        }
-
-        .enterprise-card li::after {
-            content: "";
-            position: absolute;
-            left: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 6px;
-            height: 6px;
-            background: var(--success);
-            border-radius: 50%;
-        }
-
         @media (max-width: 640px) {
             header {
                 padding: 60px 0 40px;
@@ -484,34 +512,99 @@
 
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
+                    <div class="feature-icon">&#9889;</div>
                     <h3>Automatic Rotation</h3>
                     <p>Seamlessly rotate between multiple Anthropic accounts to distribute API usage and avoid rate limits.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🔐</div>
+                    <div class="feature-icon">&#128274;</div>
                     <h3>OAuth Integration</h3>
                     <p>Add accounts through a simple web UI. No manual token management required.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">📊</div>
+                    <div class="feature-icon">&#128202;</div>
                     <h3>Usage Tracking</h3>
                     <p>Monitor token usage across accounts. Know exactly how your AI budget is being spent.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🔄</div>
+                    <div class="feature-icon">&#128260;</div>
                     <h3>Hot Reload</h3>
                     <p>Add or remove accounts on the fly. No restarts needed.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🐳</div>
+                    <div class="feature-icon">&#128051;</div>
                     <h3>Docker Ready</h3>
                     <p>Deploy anywhere with a single command. Works with Docker, Kubernetes, or bare metal.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
+                    <div class="feature-icon">&#128737;</div>
                     <h3>Drop-in Replacement</h3>
                     <p>Works with existing Claude Code CLI. Just point to the proxy and you're done.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="rate-limit-section" id="rate-limits">
+        <div class="container">
+            <div class="rate-limit-content">
+                <h2>How to Bypass Claude Code Rate Limits</h2>
+                <p>If you're a heavy Claude Code user, you've likely encountered the frustrating "rate limit exceeded" message. Anthropic implements strict rate limiting to manage API capacity, which can interrupt your development workflow at critical moments.</p>
+
+                <p>The most effective <strong>Claude Code rate limit solution</strong> is to distribute your requests across multiple accounts. This approach lets you maintain continuous access to Claude's capabilities without waiting for rate limit windows to reset.</p>
+
+                <div class="solution-box">
+                    <h3>The Multi-Account Approach</h3>
+                    <p>Claude Code Proxy provides a reliable way to <strong>bypass Claude Code rate limits</strong> by automatically rotating between multiple Anthropic accounts. Here's how it helps you <strong>avoid Anthropic rate limiting</strong>:</p>
+                    <ul>
+                        <li>Automatically detects when an account approaches its rate limit threshold</li>
+                        <li>Seamlessly switches to the next available account with remaining capacity</li>
+                        <li>Tracks rate limit headers in real-time to optimize account selection</li>
+                        <li>Balances load across accounts to maximize total available throughput</li>
+                        <li>Queues requests during peak usage to prevent dropped connections</li>
+                    </ul>
+                </div>
+
+                <p>Unlike manual account switching or simple API key rotation, this <strong>Claude Code rate limit solution</strong> operates transparently. Your Claude Code CLI continues to work exactly as before - the proxy handles all the complexity of managing multiple accounts and their respective limits.</p>
+
+                <p>Whether you're running long coding sessions, operating in a team environment, or integrating Claude Code into CI/CD pipelines, this approach provides a sustainable way to scale your usage without hitting Anthropic's rate limits.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="use-cases">
+        <div class="container">
+            <h2 class="section-title">Use Cases</h2>
+            <p class="section-subtitle">Why developers choose Claude Code Proxy.</p>
+
+            <div class="use-cases-list">
+                <div class="use-case">
+                    <div class="use-case-number">1</div>
+                    <div>
+                        <h3>Heavy Development Sessions</h3>
+                        <p>Power users frequently hit API rate limits during intensive coding sessions. Distribute requests across multiple accounts to maintain uninterrupted access to Claude's AI assistance.</p>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-number">2</div>
+                    <div>
+                        <h3>Team Sharing</h3>
+                        <p>Share Claude access across your team without sharing credentials. Each developer connects to the proxy, which manages account allocation and prevents any single account from being overloaded.</p>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-number">3</div>
+                    <div>
+                        <h3>Cost Optimization</h3>
+                        <p>Pool multiple free tier accounts or distribute paid usage across accounts with different billing cycles to maximize your AI development budget.</p>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-number">4</div>
+                    <div>
+                        <h3>CI/CD Integration</h3>
+                        <p>Run Claude Code in your CI pipeline without worrying about rate limits during peak build times. The proxy ensures consistent availability for automated workflows.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -541,89 +634,6 @@
                             <p>Run your Claude code proxy server locally, on your own infrastructure, or in the cloud. Your API keys and conversation data never touch third-party servers. Full control, full privacy.</p>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="use-cases">
-        <div class="container">
-            <h2 class="section-title">Use Cases</h2>
-            <p class="section-subtitle">Why developers choose Claude Code Proxy.</p>
-
-            <div class="use-cases-list">
-                <div class="use-case">
-                    <div class="use-case-number">1</div>
-                    <div>
-                        <h3>Bypass Rate Limits</h3>
-                        <p>Heavy Claude Code users often hit API rate limits. Distribute requests across multiple accounts to maintain uninterrupted coding sessions.</p>
-                    </div>
-                </div>
-                <div class="use-case">
-                    <div class="use-case-number">2</div>
-                    <div>
-                        <h3>Team Sharing</h3>
-                        <p>Share Claude access across your team without sharing credentials. Each developer connects to the proxy, which manages account allocation.</p>
-                    </div>
-                </div>
-                <div class="use-case">
-                    <div class="use-case-number">3</div>
-                    <div>
-                        <h3>Cost Optimization</h3>
-                        <p>Pool multiple free tier accounts or distribute paid usage across accounts with different billing cycles.</p>
-                    </div>
-                </div>
-                <div class="use-case">
-                    <div class="use-case-number">4</div>
-                    <div>
-                        <h3>CI/CD Integration</h3>
-                        <p>Run Claude Code in your CI pipeline without worrying about rate limits during peak build times.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-
-    <section class="enterprise">
-        <div class="container">
-            <h2 class="section-title">Enterprise Claude Deployment</h2>
-            <p class="section-subtitle">Scalable AI infrastructure for organizations of all sizes.</p>
-
-            <div class="enterprise-intro">
-                <p>Whether you're a startup with a growing engineering team or an enterprise organization deploying Claude for teams at scale, Claude Code Proxy provides the infrastructure you need. Our organization AI proxy solution gives you centralized control, usage visibility, and seamless scaling without the complexity of managing individual accounts.</p>
-            </div>
-
-            <div class="enterprise-grid">
-                <div class="enterprise-card">
-                    <h3>Claude for Teams</h3>
-                    <p>Empower your entire development team with shared Claude access. No more individual account management or credential sharing.</p>
-                    <ul>
-                        <li>Single proxy endpoint for all team members</li>
-                        <li>Per-developer usage tracking and analytics</li>
-                        <li>Automatic load balancing across accounts</li>
-                        <li>Zero configuration for end users</li>
-                    </ul>
-                </div>
-                <div class="enterprise-card">
-                    <h3>Organization AI Proxy</h3>
-                    <p>Deploy a centralized AI proxy that your entire organization can rely on. Built for scale, security, and compliance.</p>
-                    <ul>
-                        <li>Self-hosted on your infrastructure</li>
-                        <li>API keys never leave your network</li>
-                        <li>Audit logs for all API requests</li>
-                        <li>Role-based access control ready</li>
-                    </ul>
-                </div>
-                <div class="enterprise-card">
-                    <h3>Enterprise Claude Deployment</h3>
-                    <p>Production-ready deployment options designed for enterprise requirements. From Docker to Kubernetes, we've got you covered.</p>
-                    <ul>
-                        <li>Helm charts for Kubernetes clusters</li>
-                        <li>High availability configurations</li>
-                        <li>Horizontal scaling support</li>
-                        <li>Prometheus metrics integration</li>
-                    </ul>
                 </div>
             </div>
         </div>
