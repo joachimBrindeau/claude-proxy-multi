@@ -100,7 +100,7 @@ Expected response:
 curl http://current-installation/api/accounts > accounts.json
 
 # 2. Install Docker version
-curl -fsSL https://get.claude-code-proxy.dev | bash
+curl -fsSL https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash
 
 # 3. Wait for service to start
 until curl -f http://localhost:8000/health; do sleep 2; done

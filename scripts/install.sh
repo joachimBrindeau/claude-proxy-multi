@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code Proxy - Docker Installer
-# Usage: curl -fsSL https://get.claude-code-proxy.dev | bash
+# Usage: curl -fsSL https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash
 
 set -euo pipefail
 

@@ -27,7 +27,7 @@ jobs:
           cp scripts/install.sh gh-pages-deploy/index
 
           # Add CNAME for custom domain
-          echo "get.claude-code-proxy.dev" > gh-pages-deploy/CNAME
+          echo "joachimbrindeau.github.io/ccproxy-api/install.sh" > gh-pages-deploy/CNAME
 
           # Make index executable
           chmod +x gh-pages-deploy/index
@@ -36,18 +36,18 @@ jobs:
           cat > gh-pages-deploy/README.md << 'EOF'
           # Claude Code Proxy Installer
 
-          This branch contains the installer script hosted at https://get.claude-code-proxy.dev
+          This branch contains the installer script hosted at https://joachimbrindeau.github.io/ccproxy-api/install.sh
 
           ## Installation
 
           ```bash
-          curl https://get.claude-code-proxy.dev | bash
+          curl https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash
           ```
 
           Or with options:
 
           ```bash
-          curl https://get.claude-code-proxy.dev | bash -s -- --help
+          curl https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash -s -- --help
           ```
 
           ## Source
@@ -76,7 +76,7 @@ jobs:
           echo "✅ Installer deployed to GitHub Pages"
           echo ""
           echo "The installer will be available at:"
-          echo "  https://get.claude-code-proxy.dev"
+          echo "  https://joachimbrindeau.github.io/ccproxy-api/install.sh"
           echo ""
           echo "Note: DNS and SSL may take up to 24 hours to propagate"
           echo "      See docs/development/github-pages-setup.md for setup instructions"
