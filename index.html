@@ -6,10 +6,10 @@
     <title>Claude Code Proxy - Multi-Account API Proxy for Claude Code CLI</title>
 <<<<<<< HEAD
     <meta name="description" content="Run Claude Code CLI across multiple Anthropic accounts with automatic rotation. Avoid rate limits, manage team usage, and scale your AI-powered development workflow.">
-    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, claude api proxy, anthropic api gateway, claude code proxy server">
+    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, claude docker container, containerized ai proxy, kubernetes claude deployment, claude api proxy, anthropic api gateway">
 =======
     <meta name="description" content="Bypass Claude Code rate limits with multi-account rotation. The best Claude Code rate limit solution to avoid Anthropic rate limiting and scale your AI development workflow.">
-    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, bypass claude code rate limits, claude code rate limit solution, avoid anthropic rate limiting">
+    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, claude docker container, containerized ai proxy, kubernetes claude deployment, claude api proxy, anthropic api gateway">
 >>>>>>> e03b0d6 (feat(seo): add rate limit bypass content)
     <meta name="author" content="Joachim Brindeau">
     <meta name="robots" content="index, follow">
@@ -542,6 +542,50 @@
             .use-case-number { width: 48px; height: 48px; font-size: 1.25rem; }
 >>>>>>> e03b0d6 (feat(seo): add rate limit bypass content)
         }
+
+        .container-deployment {
+            padding: 80px 0;
+            background: var(--bg-secondary);
+        }
+
+        .deployment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+            margin-top: 48px;
+        }
+
+        .deployment-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
+        }
+
+        .deployment-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .deployment-card p {
+            color: var(--text-secondary);
+            font-size: 15px;
+            line-height: 1.7;
+            margin-bottom: 16px;
+        }
+
+        .deployment-card code {
+            display: block;
+            background: var(--code-bg);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -765,6 +809,36 @@
                     </div>
                 </div>
 >>>>>>> e03b0d6 (feat(seo): add rate limit bypass content)
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="container-deployment">
+        <div class="container">
+            <h2 class="section-title">Container Deployment</h2>
+            <p class="section-subtitle">Deploy Claude Code Proxy anywhere with production-ready container solutions.</p>
+
+            <div class="deployment-grid">
+                <div class="deployment-card">
+                    <h3>Claude Docker Container</h3>
+                    <p>Run Claude Code Proxy as a Claude Docker container with minimal configuration. The containerized solution includes all dependencies, automatic health checks, and seamless integration with your existing Docker infrastructure. Perfect for local development or single-server deployments.</p>
+                    <code>docker run -d -p 8080:8080 \
+  -v ~/.ccproxy:/data \
+  ghcr.io/joachimbrindeau/claude-proxy</code>
+                </div>
+                <div class="deployment-card">
+                    <h3>Containerized AI Proxy</h3>
+                    <p>Our containerized AI proxy architecture ensures consistent deployments across environments. Whether running in Docker Compose for development or Docker Swarm for production, the container handles account rotation, rate limiting, and request routing automatically.</p>
+                    <code>docker-compose up -d</code>
+                </div>
+                <div class="deployment-card">
+                    <h3>Kubernetes Claude Deployment</h3>
+                    <p>For enterprise-scale Kubernetes Claude deployment, use our Helm chart. The chart includes configurable replicas, horizontal pod autoscaling, persistent storage for account data, and Ingress configuration for external access.</p>
+                    <code>helm install claude-proxy ccproxy/claude-code-proxy \
+  --set replicas=3 \
+  --set ingress.enabled=true</code>
+                </div>
             </div>
         </div>
     </section>
