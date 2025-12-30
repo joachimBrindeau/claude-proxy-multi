@@ -16,7 +16,7 @@ env:
 jobs:
   build-docker:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
