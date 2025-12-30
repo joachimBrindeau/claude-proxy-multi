@@ -1,0 +1,12 @@
+apiVersion: v1
+entries:
+  claude-code-proxy:
+  - apiVersion: v2
+    appVersion: 0.2.0
+    created: "2024-12-30T00:00:00Z"
+    description: Multi-account Claude Code proxy with automatic rotation
+    name: claude-code-proxy
+    urls:
+    - https://github.com/joachimbrindeau/claude-proxy-multi/releases/download/v0.2.0/claude-code-proxy-0.2.0.tgz
+    version: 0.2.0
+generated: "2024-12-30T00:00:00Z"

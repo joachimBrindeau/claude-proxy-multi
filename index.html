@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Proxy Multi - Installation</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        h1 { color: #6366f1; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; }
+        code { color: #22c55e; }
+        .method { margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #6366f1; }
+    </style>
+</head>
+<body>
+    <h1>Claude Proxy Multi</h1>
+    <p>Multi-account Claude Code proxy with automatic rotation</p>
+    
+    <div class="method">
+        <h2>Docker (Recommended)</h2>
+        <pre><code>curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash</code></pre>
+    </div>
+    
+    <div class="method">
+        <h2>Homebrew</h2>
+        <pre><code>brew tap joachimbrindeau/claude-code-proxy
+brew install claude-code-proxy</code></pre>
+    </div>
+    
+    <div class="method">
+        <h2>Helm</h2>
+        <pre><code>helm repo add ccproxy https://joachimbrindeau.github.io/claude-proxy-multi/charts
+helm install ccproxy ccproxy/claude-code-proxy</code></pre>
+    </div>
+    
+    <p><a href="https://github.com/joachimbrindeau/claude-proxy-multi">GitHub Repository</a></p>
+</body>
+</html>
