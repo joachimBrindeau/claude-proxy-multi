@@ -42,7 +42,7 @@ def setup_error_handlers(app: FastAPI) -> None:
     logger.debug("error_handlers_setup_start")
 
     @app.exception_handler(CCProxyError)
-    async def ccproxy_error_handler(
+    async def claude_code_proxy_error_handler(
         request: Request, exc: CCProxyError
     ) -> JSONResponse:
         """Handle all CCProxyError subclasses using their built-in attributes."""

@@ -19,7 +19,7 @@ from claude_code_proxy.auth.oauth.constants import (
 def _get_default_storage_paths() -> list[Path]:
     """Get default storage paths"""
     return [
-        Path("~/.config/ccproxy/credentials.json"),
+        Path("~/.config/claude-code-proxy/credentials.json"),
         Path("~/.claude/.credentials.json"),
         Path("~/.config/claude/.credentials.json"),
     ]

@@ -18,14 +18,14 @@ def _get_default_storage_paths() -> list[str]:
     if os.getenv("CCPROXY_TEST_MODE") == "true":
         # Use a test-specific location that won't pollute real credentials
         return [
-            "/tmp/ccproxy-test/.config/claude/.credentials.json",
-            "/tmp/ccproxy-test/.claude/.credentials.json",
+            "/tmp/claude-code-proxy-test/.config/claude/.credentials.json",
+            "/tmp/claude-code-proxy-test/.claude/.credentials.json",
         ]
 
     return [
         "~/.config/claude/.credentials.json",  # Alternative legacy location
         "~/.claude/.credentials.json",  # Legacy location
-        "~/.config/ccproxy/credentials.json",  # location in app config
+        "~/.config/claude-code-proxy/credentials.json",  # location in app config
     ]
 
 

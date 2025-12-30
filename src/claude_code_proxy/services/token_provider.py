@@ -111,7 +111,7 @@ class TokenProvider:
 
                 raise HTTPException(
                     status_code=401,
-                    detail="No valid OAuth credentials found. Please run 'ccproxy auth login'.",
+                    detail="No valid OAuth credentials found. Please run 'claude-code-proxy auth login'.",
                 )
 
             logger.debug("oauth_token_retrieved")

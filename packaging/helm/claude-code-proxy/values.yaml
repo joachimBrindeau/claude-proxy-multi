@@ -1,0 +1,287 @@
+# Default values for claude-code-proxy
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Number of replicas for the deployment
+replicaCount: 1
+
+image:
+  # Container registry
+  registry: ghcr.io
+  # Image repository
+  repository: joachimbrindeau/claude-proxy-multi
+  # Image pull policy
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+
+# Override the name of the chart
+nameOverride: ""
+# Override the full name of the resources
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+# Pod labels
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+
+service:
+  # Service type (ClusterIP, NodePort, LoadBalancer)
+  type: ClusterIP
+  # Service port
+  port: 8000
+  # Target port on the container
+  targetPort: 8000
+  # NodePort (only for NodePort service type)
+  nodePort: null
+  # Annotations for the service
+  annotations: {}
+
+ingress:
+  # Enable ingress
+  enabled: false
+  # Ingress class name
+  className: ""
+  # Ingress annotations
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  # Ingress hosts configuration
+  hosts:
+    - host: claude-proxy.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  # TLS configuration
+  tls: []
+  #  - secretName: claude-proxy-tls
+  #    hosts:
+  #      - claude-proxy.example.com
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+# Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+# Startup probe configuration
+startupProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 0
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Node selector for pod assignment
+nodeSelector: {}
+
+# Tolerations for pod assignment
+tolerations: []
+
+# Affinity rules for pod assignment
+affinity: {}
+
+# Persistent volume claim for /data directory
+persistence:
+  # Enable persistence
+  enabled: true
+  # Storage class name
+  storageClass: ""
+  # Access mode
+  accessMode: ReadWriteOnce
+  # Size of the volume
+  size: 1Gi
+  # Existing claim name (if not creating a new one)
+  existingClaim: ""
+  # Annotations for the PVC
+  annotations: {}
+
+# Environment variables for the application
+env:
+  # Server configuration
+  server:
+    host: "0.0.0.0"
+    port: 8000
+    logLevel: INFO
+
+  # Multi-account rotation configuration
+  rotation:
+    # Path to accounts.json file (set to /data/accounts.json for persistence)
+    accountsPath: "/data/accounts.json"
+    # Enable/disable multi-account rotation
+    enabled: true
+    # Enable/disable hot reload of accounts.json changes
+    hotReload: true
+
+  # OAuth configuration
+  oauth:
+    # Custom OAuth redirect URI (for remote deployments)
+    # redirectUri: "http://localhost:54545/callback"
+
+  # Capacity checking
+  capacityCheck:
+    # URL for capacity check requests
+    # url: "http://localhost:8000/api/v1/messages"
+    # Model to use for capacity check requests
+    model: "claude-sonnet-4-20250514"
+
+  # Debugging & Logging
+  debug:
+    # Enable verbose API logging
+    verboseApi: false
+    # Enable verbose streaming logging
+    verboseStreaming: false
+    # Enable request logging to files
+    logRequests: false
+    # Directory for request log files
+    # requestLogDir: "/tmp/ccproxy/requests"
+
+# Additional environment variables from secrets or configmaps
+extraEnv: []
+# - name: ANTHROPIC_API_KEY
+#   valueFrom:
+#     secretKeyRef:
+#       name: claude-secrets
+#       key: api-key
+
+# Additional volumes to mount
+extraVolumes: []
+# - name: custom-config
+#   configMap:
+#     name: my-config
+
+# Additional volume mounts
+extraVolumeMounts: []
+# - name: custom-config
+#   mountPath: /config
+
+# Init containers
+initContainers: []
+# - name: init-accounts
+#   image: busybox:latest
+#   command: ['sh', '-c', 'echo "{}" > /data/accounts.json']
+#   volumeMounts:
+#   - name: data
+#     mountPath: /data
+
+# Additional containers (sidecars)
+extraContainers: []
+
+# Pod lifecycle hooks
+lifecycle: {}
+# preStop:
+#   exec:
+#     command: ["/bin/sh", "-c", "sleep 15"]
+
+# Priority class name
+priorityClassName: ""
+
+# Termination grace period in seconds
+terminationGracePeriodSeconds: 30
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Network policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+
+# Metrics and monitoring
+metrics:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    annotations: {}
+
+# Extra manifests to deploy as part of the chart
+extraManifests: []
+# - apiVersion: v1
+#   kind: ConfigMap
+#   metadata:
+#     name: example-cm
+#   data:
+#     key: value

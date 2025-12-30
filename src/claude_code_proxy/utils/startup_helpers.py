@@ -73,19 +73,19 @@ async def validate_claude_authentication_startup(
         elif validation.expired:
             logger.warning(
                 "claude_token_expired",
-                message="Claude authentication token has expired. Please run 'ccproxy auth login' to refresh.",
+                message="Claude authentication token has expired. Please run 'claude-code-proxy auth login' to refresh.",
                 credentials_path=str(validation.path) if validation.path else None,
             )
         else:
             logger.warning(
                 "claude_token_invalid",
-                message="Claude authentication token is invalid. Please run 'ccproxy auth login'.",
+                message="Claude authentication token is invalid. Please run 'claude-code-proxy auth login'.",
                 credentials_path=str(validation.path) if validation.path else None,
             )
     except CredentialsNotFoundError:
         logger.warning(
             "claude_token_not_found",
-            message="No Claude authentication credentials found. Please run 'ccproxy auth login' to authenticate.",
+            message="No Claude authentication credentials found. Please run 'claude-code-proxy auth login' to authenticate.",
             searched_paths=settings.auth.storage.storage_paths,
         )
     # Catch credential-related errors (storage issues, validation failures, etc.)
@@ -365,11 +365,11 @@ async def initialize_permission_service_startup(
                 logger.debug(
                     "permission_handler_configured",
                     handler_type="external_sse",
-                    message="Terminal permission handler disabled - use 'ccproxy permission-handler connect' to handle permissions",
+                    message="Terminal permission handler disabled - use 'claude-code-proxy permission-handler connect' to handle permissions",
                 )
                 logger.warning(
                     "permission_handler_required",
-                    message="Start external handler with: ccproxy permission-handler connect",
+                    message="Start external handler with: claude-code-proxy permission-handler connect",
                 )
 
             # Start the permission service

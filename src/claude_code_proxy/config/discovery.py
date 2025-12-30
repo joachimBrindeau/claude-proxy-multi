@@ -9,7 +9,7 @@ def find_toml_config_file() -> Path | None:
     Searches in the following order:
     1. .claude_code_proxy.toml in current directory
     2. claude_code_proxy.toml in git repository root (if in a git repo)
-    3. config.toml in user config directory/ccproxy/ (platform-specific)
+    3. config.toml in user config directory/claude-code-proxy/ (platform-specific)
     """
     # Check current directory first
     candidates = [
@@ -28,7 +28,7 @@ def find_toml_config_file() -> Path | None:
         )
 
     # Check XDG config directory
-    config_dir = get_ccproxy_config_dir()
+    config_dir = get_claude_code_proxy_config_dir()
     candidates.append(config_dir / "config.toml")
 
     # Return first existing file
@@ -60,11 +60,11 @@ def find_git_root(path: Path | None = None) -> Path | None:
         return None
 
 
-def get_ccproxy_config_dir() -> Path:
-    """Get the ccproxy configuration directory.
+def get_claude_code_proxy_config_dir() -> Path:
+    """Get the claude-code-proxy configuration directory.
 
     Returns:
-        Path to the ccproxy configuration directory within user config directory.
+        Path to the claude-code-proxy configuration directory within user config directory.
     """
     return get_xdg_config_home() / "claude_code_proxy"
 
@@ -82,15 +82,15 @@ def get_claude_docker_home_dir() -> Path:
     """Get the Claude Docker home directory.
 
     Returns:
-        Path to the Claude Docker home directory within ccproxy config directory.
+        Path to the Claude Docker home directory within claude-code-proxy config directory.
     """
-    return get_ccproxy_config_dir() / "home"
+    return get_claude_code_proxy_config_dir() / "home"
 
 
-def get_ccproxy_cache_dir() -> Path:
-    """Get the ccproxy cache directory.
+def get_claude_code_proxy_cache_dir() -> Path:
+    """Get the claude-code-proxy cache directory.
 
     Returns:
-        Path to the ccproxy cache directory within user cache directory.
+        Path to the claude-code-proxy cache directory within user cache directory.
     """
     return get_xdg_cache_home() / "claude_code_proxy"

@@ -24,6 +24,7 @@ from claude_code_proxy.api.middleware.request_content_logging import (
 )
 from claude_code_proxy.api.middleware.request_id import RequestIDMiddleware
 from claude_code_proxy.api.middleware.server_header import ServerHeaderMiddleware
+from claude_code_proxy.api.routes.accounts import router as accounts_router
 from claude_code_proxy.api.routes.claude import router as claude_router
 from claude_code_proxy.api.routes.health import router as health_router
 from claude_code_proxy.api.routes.mcp import setup_mcp
@@ -220,6 +221,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Include health router (always enabled)
     app.include_router(health_router, tags=["health"])
+
+    # Include accounts export/import router
+    app.include_router(accounts_router, tags=["accounts"])
 
     # Include rotation status router for account monitoring
     app.include_router(status_router, tags=["rotation-status"])

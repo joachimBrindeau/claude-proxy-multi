@@ -59,7 +59,7 @@ class TestConfigList:
         # Should show at least some configuration sections
         assert "Configuration" in result.output
 
-    @patch("ccproxy.cli.commands.config.commands.get_settings")
+    @patch("claude_code_proxy.cli.commands.config.commands.get_settings")
     def test_config_list_error_handling(
         self, mock_get_settings: Any, cli_runner: CliRunner
     ) -> None:
@@ -78,7 +78,7 @@ class TestConfigInit:
     ) -> None:
         """Test config init with TOML format."""
         with patch(
-            "ccproxy.config.discovery.get_ccproxy_config_dir",
+            "claude_code_proxy.config.discovery.get_claude_code_proxy_config_dir",
             return_value=temp_config_dir,
         ):
             result = cli_runner.invoke(app, ["init"])
@@ -149,7 +149,7 @@ class TestGenerateToken:
         config_file = temp_config_dir / "test.toml"
 
         with patch(
-            "ccproxy.config.discovery.find_toml_config_file",
+            "claude_code_proxy.config.discovery.find_toml_config_file",
             return_value=config_file,
         ):
             result = cli_runner.invoke(app, ["generate-token", "--save"])
@@ -207,11 +207,11 @@ class TestConfigSchema:
         """Test basic schema generation."""
         with (
             patch(
-                "ccproxy.cli.commands.config.schema_commands.generate_schema_files",
+                "claude_code_proxy.cli.commands.config.schema_commands.generate_schema_files",
                 return_value=[temp_config_dir / "schema.json"],
             ),
             patch(
-                "ccproxy.cli.commands.config.schema_commands.generate_taplo_config",
+                "claude_code_proxy.cli.commands.config.schema_commands.generate_taplo_config",
                 return_value=temp_config_dir / ".taplo.toml",
             ),
         ):
@@ -226,11 +226,11 @@ class TestConfigSchema:
         """Test schema generation with custom output directory."""
         with (
             patch(
-                "ccproxy.cli.commands.config.schema_commands.generate_schema_files",
+                "claude_code_proxy.cli.commands.config.schema_commands.generate_schema_files",
                 return_value=[temp_config_dir / "schema.json"],
             ),
             patch(
-                "ccproxy.cli.commands.config.schema_commands.generate_taplo_config",
+                "claude_code_proxy.cli.commands.config.schema_commands.generate_taplo_config",
                 return_value=temp_config_dir / ".taplo.toml",
             ),
         ):
@@ -242,7 +242,7 @@ class TestConfigSchema:
     def test_config_schema_error_handling(self, cli_runner: CliRunner) -> None:
         """Test schema generation error handling."""
         with patch(
-            "ccproxy.cli.commands.config.schema_commands.generate_schema_files",
+            "claude_code_proxy.cli.commands.config.schema_commands.generate_schema_files",
             side_effect=Exception("Schema generation failed"),
         ):
             result = cli_runner.invoke(app, ["schema"])
@@ -258,7 +258,7 @@ class TestConfigValidate:
     ) -> None:
         """Test validating a valid config file."""
         with patch(
-            "ccproxy.cli.commands.config.schema_commands.validate_config_with_schema",
+            "claude_code_proxy.cli.commands.config.schema_commands.validate_config_with_schema",
             return_value=True,
         ):
             result = cli_runner.invoke(app, ["validate", str(sample_toml_config)])
@@ -270,7 +270,7 @@ class TestConfigValidate:
     ) -> None:
         """Test validating an invalid config file."""
         with patch(
-            "ccproxy.cli.commands.config.schema_commands.validate_config_with_schema",
+            "claude_code_proxy.cli.commands.config.schema_commands.validate_config_with_schema",
             return_value=False,
         ):
             result = cli_runner.invoke(app, ["validate", str(sample_toml_config)])
@@ -288,7 +288,7 @@ class TestConfigValidate:
     ) -> None:
         """Test validation with import error."""
         with patch(
-            "ccproxy.cli.commands.config.schema_commands.validate_config_with_schema",
+            "claude_code_proxy.cli.commands.config.schema_commands.validate_config_with_schema",
             side_effect=ImportError("Missing dependency"),
         ):
             result = cli_runner.invoke(app, ["validate", str(sample_toml_config)])
@@ -300,7 +300,7 @@ class TestConfigValidate:
     ) -> None:
         """Test validation with general error."""
         with patch(
-            "ccproxy.cli.commands.config.schema_commands.validate_config_with_schema",
+            "claude_code_proxy.cli.commands.config.schema_commands.validate_config_with_schema",
             side_effect=ValueError("Validation error"),
         ):
             result = cli_runner.invoke(app, ["validate", str(sample_toml_config)])

@@ -201,6 +201,56 @@ claude-code-proxy
 curl http://localhost:8000/status
 ```
 
+### Cloud Deployment (One-Click)
+
+Deploy to your preferred cloud platform with persistent storage:
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/claude-code-proxy?referralCode=joachim)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/joachimbrindeau/claude-proxy-multi)
+
+**Fly.io**: `flyctl launch --config packaging/cloud/fly.toml`
+
+> All cloud deployments include persistent storage for OAuth credentials and automatic account rotation.
+
+---
+
+## 📦 Installation Methods
+
+Choose the installation method that fits your environment:
+
+| Method | Best For | Install Time | Auto-Start | Commands |
+|--------|----------|--------------|------------|----------|
+| **[Docker](docs/installation/docker.md)** | Quick setup, cross-platform | ~60 seconds | ✅ Yes | `curl -fsSL https://get.claude-code-proxy.dev \| bash` |
+| **[Homebrew](docs/installation/homebrew.md)** | macOS developers | ~2 minutes | ✅ Service | `brew install joachimbrindeau/claude-code-proxy/claude-code-proxy` |
+| **[Cloud](docs/installation/cloud.md)** | Production deployments | ~3-5 minutes | ✅ Auto-scale | Click deploy button above |
+| **[Windows](docs/installation/windows.md)** | Windows environments | ~3 minutes | ✅ Service | `choco install claude-code-proxy` |
+| **[Linux/Snap](docs/installation/linux.md)** | Ubuntu/Debian servers | ~2 minutes | ✅ Daemon | `sudo snap install claude-code-proxy` |
+| **[Kubernetes](docs/installation/kubernetes.md)** | Enterprise/K8s clusters | ~5 minutes | ✅ Deployment | `helm install claude-code-proxy/claude-code-proxy` |
+| **[Binary](docs/installation/binaries.md)** | No dependencies needed | ~1 minute | ❌ Manual | Download from releases |
+
+### Feature Comparison
+
+| Feature | Docker | Homebrew | Cloud | Windows | Linux | Kubernetes | Binary |
+|---------|--------|----------|-------|---------|-------|------------|--------|
+| **Platform** | Any with Docker | macOS | Cloud | Windows 10+ | Ubuntu/Debian | Any K8s | Any |
+| **Dependencies** | Docker only | None (managed) | None | None (managed) | None (managed) | Helm | None |
+| **Persistence** | Volume | Filesystem | Volume | Registry | Filesystem | PVC | Filesystem |
+| **Updates** | `docker pull` | `brew upgrade` | Auto/Git-based | `choco upgrade` | `snap refresh` | `helm upgrade` | Manual |
+| **Resource Usage** | Medium | Low | Varies | Low | Low | Varies | Low |
+| **Isolation** | Container | Native | Container | Native | Snap sandbox | Container | Native |
+| **Multi-instance** | ✅ Easy | ⚠️ Manual | ✅ Auto-scale | ⚠️ Manual | ❌ Single | ✅ Replicas | ✅ Easy |
+| **Production Ready** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ⚠️ Basic |
+
+**Quick recommendations**:
+- 🚀 **Quick testing**: Docker (60-second install)
+- 🍎 **macOS development**: Homebrew (native integration)
+- ☁️ **Production hosting**: Cloud platforms (auto-scaling)
+- 🪟 **Windows workstations**: Chocolatey (service management)
+- 🐧 **Linux servers**: Snap (automatic updates)
+- ☸️ **Enterprise/DevOps**: Kubernetes (orchestration)
+- 📦 **Air-gapped/offline**: Standalone binaries
+
 ---
 
 ## 🔄 Multi-Account Rotation

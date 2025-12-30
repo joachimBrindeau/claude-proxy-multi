@@ -78,7 +78,7 @@ def patch_confirmation_service(test_func: Callable[..., Any]) -> Callable[..., A
         self: Any, test_client: TestClient, mock_confirmation_service: Any
     ) -> Any:
         with patch(
-            "ccproxy.api.routes.permissions.get_permission_service"
+            "claude_code_proxy.api.routes.permissions.get_permission_service"
         ) as mock_get_service:
             mock_get_service.return_value = mock_confirmation_service
             return test_func(self, test_client, mock_confirmation_service)
@@ -279,7 +279,7 @@ class TestSSEEventGenerator:
 
         # Patch get_permission_service at module level
         with patch(
-            "ccproxy.api.routes.permissions.get_permission_service"
+            "claude_code_proxy.api.routes.permissions.get_permission_service"
         ) as mock_get_service:
             mock_get_service.return_value = mock_confirmation_service
 
@@ -325,7 +325,7 @@ class TestSSEEventGenerator:
 
         # Patch get_permission_service
         with patch(
-            "ccproxy.api.routes.permissions.get_permission_service"
+            "claude_code_proxy.api.routes.permissions.get_permission_service"
         ) as mock_get_service:
             mock_get_service.return_value = mock_confirmation_service
 
@@ -383,7 +383,7 @@ class TestSSEEventGenerator:
 
         # Patch get_permission_service
         with patch(
-            "ccproxy.api.routes.permissions.get_permission_service"
+            "claude_code_proxy.api.routes.permissions.get_permission_service"
         ) as mock_get_service:
             mock_get_service.return_value = mock_confirmation_service
 
@@ -427,7 +427,7 @@ class TestSSEEventGenerator:
 
         # Patch get_permission_service
         with patch(
-            "ccproxy.api.routes.permissions.get_permission_service"
+            "claude_code_proxy.api.routes.permissions.get_permission_service"
         ) as mock_get_service:
             mock_get_service.return_value = mock_confirmation_service
 
@@ -460,7 +460,7 @@ class TestSSEEventGenerator:
 
         # Patch get_permission_service
         with patch(
-            "ccproxy.api.routes.permissions.get_permission_service"
+            "claude_code_proxy.api.routes.permissions.get_permission_service"
         ) as mock_get_service:
             mock_get_service.return_value = mock_confirmation_service
 

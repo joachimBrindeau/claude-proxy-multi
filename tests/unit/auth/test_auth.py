@@ -378,7 +378,7 @@ class TestOAuth2Flow:
         # Mock pending flow state
         with (
             patch(
-                "ccproxy.auth.oauth.routes._pending_flows",
+                "claude_code_proxy.auth.oauth.routes._pending_flows",
                 {
                     state: {
                         "code_verifier": "test-verifier",
@@ -390,7 +390,8 @@ class TestOAuth2Flow:
                 },
             ),
             patch(
-                "ccproxy.auth.oauth.routes._exchange_code_for_tokens", return_value=True
+                "claude_code_proxy.auth.oauth.routes._exchange_code_for_tokens",
+                return_value=True,
             ),
         ):
             response = client.get(f"/oauth/callback?code={code}&state={state}")
@@ -404,7 +405,7 @@ class TestOAuth2Flow:
 
         # Mock pending flow state
         with patch(
-            "ccproxy.auth.oauth.routes._pending_flows",
+            "claude_code_proxy.auth.oauth.routes._pending_flows",
             {
                 state: {
                     "code_verifier": "test-verifier",
@@ -435,7 +436,7 @@ class TestOAuth2Flow:
         state = "invalid-state"
 
         # Empty pending flows
-        with patch("ccproxy.auth.oauth.routes._pending_flows", {}):
+        with patch("claude_code_proxy.auth.oauth.routes._pending_flows", {}):
             response = client.get(f"/oauth/callback?code={code}&state={state}")
 
         assert response.status_code == 400
@@ -449,7 +450,7 @@ class TestOAuth2Flow:
 
         # Mock pending flow state
         with patch(
-            "ccproxy.auth.oauth.routes._pending_flows",
+            "claude_code_proxy.auth.oauth.routes._pending_flows",
             {
                 state: {
                     "code_verifier": "test-verifier",
@@ -475,7 +476,7 @@ class TestOAuth2Flow:
         # Mock pending flow state
         with (
             patch(
-                "ccproxy.auth.oauth.routes._pending_flows",
+                "claude_code_proxy.auth.oauth.routes._pending_flows",
                 {
                     state: {
                         "code_verifier": "test-verifier",
@@ -487,7 +488,7 @@ class TestOAuth2Flow:
                 },
             ),
             patch(
-                "ccproxy.auth.oauth.routes._exchange_code_for_tokens",
+                "claude_code_proxy.auth.oauth.routes._exchange_code_for_tokens",
                 return_value=False,
             ),
         ):
@@ -496,7 +497,7 @@ class TestOAuth2Flow:
         assert response.status_code == 500
         assert "Failed to exchange authorization code for tokens" in response.text
 
-    @patch("ccproxy.auth.oauth.routes._exchange_code_for_tokens")
+    @patch("claude_code_proxy.auth.oauth.routes._exchange_code_for_tokens")
     def test_oauth_callback_exception_handling(
         self, mock_exchange: MagicMock, client: TestClient
     ) -> None:
@@ -509,7 +510,7 @@ class TestOAuth2Flow:
 
         # Mock pending flow state
         with patch(
-            "ccproxy.auth.oauth.routes._pending_flows",
+            "claude_code_proxy.auth.oauth.routes._pending_flows",
             {
                 state: {
                     "code_verifier": "test-verifier",

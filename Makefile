@@ -42,6 +42,8 @@ help:
 	@echo "  build        - Build Python package (includes dashboard)"
 	@echo "  build-backend - Build Python package only (no dashboard)"
 	@echo "  build-dashboard - Build dashboard only"
+	@echo "  build-binary - Build standalone binary for current platform"
+	@echo "  test-binary  - Test the built binary"
 	@echo "  docker-build - Build Docker image"
 	@echo "  docker-run   - Run Docker container"
 	@echo ""
@@ -235,6 +237,32 @@ build-backend:
 
 build-dashboard:
 	$(MAKE) -C dashboard build
+
+build-binary:
+	@echo "Building standalone binary for current platform..."
+	uv pip install pyinstaller
+	uv run pyinstaller claude-code-proxy.spec
+	@echo ""
+	@echo "Binary built successfully!"
+	@ls -lh dist/claude-code-proxy-*
+	@echo ""
+	@echo "Test the binary with:"
+	@echo "  ./dist/claude-code-proxy-* --version"
+
+test-binary:
+	@echo "Testing standalone binary..."
+	@if [ -f dist/claude-code-proxy-darwin-universal2 ]; then \
+		chmod +x dist/claude-code-proxy-darwin-universal2 && \
+		./dist/claude-code-proxy-darwin-universal2 --version; \
+	elif [ -f dist/claude-code-proxy-linux-amd64 ]; then \
+		chmod +x dist/claude-code-proxy-linux-amd64 && \
+		./dist/claude-code-proxy-linux-amd64 --version; \
+	elif [ -f dist/claude-code-proxy-windows-amd64.exe ]; then \
+		./dist/claude-code-proxy-windows-amd64.exe --version; \
+	else \
+		echo "No binary found. Run 'make build-binary' first."; \
+		exit 1; \
+	fi
 
 # Dashboard delegation
 dashboard:

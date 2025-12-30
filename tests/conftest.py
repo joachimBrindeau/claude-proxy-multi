@@ -1,6 +1,6 @@
-"""Shared test fixtures and configuration for ccproxy tests.
+"""Shared test fixtures and configuration for claude-code-proxy tests.
 
-This module provides minimal, focused fixtures for testing the ccproxy application.
+This module provides minimal, focused fixtures for testing the claude-code-proxy application.
 All fixtures have proper type hints and are designed to work with real components
 while mocking only external services.
 """

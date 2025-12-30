@@ -203,7 +203,7 @@ class TestCredentialsManagerValidation:
         expected_message = "No credentials found. Please login first."
         assert str(exc_info.value) == expected_message
 
-    @patch("ccproxy.services.credentials.manager.logger")
+    @patch("claude_code_proxy.services.credentials.manager.logger")
     async def test_validate_no_credentials_logging(
         self,
         mock_logger: MagicMock,

@@ -160,7 +160,7 @@ class DockerSettings(BaseModel):
     """Docker configuration settings for running Claude commands in containers."""
 
     docker_image: str = Field(
-        default=f"ccproxy:{format_version(__version__, level='docker')}",
+        default=f"claude-code-proxy:{format_version(__version__, level='docker')}",
         description="Docker image to use for Claude commands",
     )
 

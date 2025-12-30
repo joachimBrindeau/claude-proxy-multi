@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
-from packaging import version as pkg_version
 
 from claude_code_proxy.utils.version_checker import (
     VersionCheckState,
@@ -18,6 +17,7 @@ from claude_code_proxy.utils.version_checker import (
     load_check_state,
     save_check_state,
 )
+from packaging import version as pkg_version
 
 
 class TestVersionCheckState:
@@ -136,7 +136,10 @@ class TestGitHubVersionFetching:
             assert result == "1.2.3"
             mock_client.get.assert_called_once()
             call_args = mock_client.get.call_args
-            assert "repos/CaddyGlow/ccproxy-api/releases/latest" in call_args[0][0]
+            assert (
+                "repos/joachimbrindeau/claude-code-proxy/releases/latest"
+                in call_args[0][0]
+            )
 
     @pytest.mark.asyncio
     async def test_fetch_latest_github_version_no_v_prefix(self) -> None:
@@ -295,7 +298,7 @@ class TestStateManagement:
 
         assert isinstance(path, Path)
         assert path.name == "version_check.json"
-        assert "ccproxy" in str(path)
+        assert "claude-code-proxy" in str(path)
 
 
 # Integration test for realistic scenario

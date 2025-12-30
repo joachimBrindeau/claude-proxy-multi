@@ -1,4 +1,4 @@
-"""Multi-account rotation module for ccproxy.
+"""Multi-account rotation module for claude-code-proxy.
 
 This module provides automatic rotation between multiple Claude accounts
 with rate limit failover and proactive token refresh.

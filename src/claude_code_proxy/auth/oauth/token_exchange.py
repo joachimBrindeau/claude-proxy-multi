@@ -1,10 +1,10 @@
 """Shared OAuth token exchange utilities.
 
 Centralizes OAuth 2.0 token exchange logic to avoid duplication across:
-- ccproxy/ui/accounts.py (sync)
-- ccproxy/auth/oauth/routes.py (async)
-- ccproxy/services/credentials/oauth_client.py (async)
-- ccproxy/rotation/refresh.py (async)
+- claude_code_proxy/ui/accounts.py (sync)
+- claude_code_proxy/auth/oauth/routes.py (async)
+- claude_code_proxy/services/credentials/oauth_client.py (async)
+- claude_code_proxy/rotation/refresh.py (async)
 
 All token exchanges use JSON body format (application/json) as required
 by Anthropic's OAuth API (not the standard OAuth 2.0 form-encoded format).

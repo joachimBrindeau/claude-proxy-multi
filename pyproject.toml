@@ -57,7 +57,8 @@ version-file = "src/claude_code_proxy/_version.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/claude_code_proxy"]
 include = [
-    "src/claude_code_proxy/data/*.json"
+    "src/claude_code_proxy/data/*.json",
+    "src/claude_code_proxy/py.typed",
 ]
 
 [project.scripts]
@@ -106,6 +107,8 @@ dev = [
   "anthropic>=0.57.1",
   "textual-dev>=1.7.0",
   "httpx>=0.28.1",
+  # Binary building
+  "pyinstaller>=6.0.0",
 ]
 security = [
   "keyring>=25.0.0", # Optional keyring support for secure credential storage

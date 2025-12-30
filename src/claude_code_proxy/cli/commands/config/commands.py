@@ -236,7 +236,7 @@ def config_init(
         None,
         "--output-dir",
         "-o",
-        help="Output directory for example config files (default: user config directory/ccproxy)",
+        help="Output directory for example config files (default: user config directory/claude-code-proxy)",
     ),
     force: bool = typer.Option(
         False,
@@ -250,8 +250,8 @@ def config_init(
     and documentation comments.
 
     Examples:
-        ccproxy config init                      # Create TOML config in default location
-        ccproxy config init --output-dir ./config  # Create in specific directory
+        claude-code-proxy config init                      # Create TOML config in default location
+        claude-code-proxy config init --output-dir ./config  # Create in specific directory
     """
     # Validate format
     if format != "toml":
@@ -265,11 +265,11 @@ def config_init(
     toolkit = get_rich_toolkit()
 
     try:
-        from claude_code_proxy.config.discovery import get_ccproxy_config_dir
+        from claude_code_proxy.config.discovery import get_claude_code_proxy_config_dir
 
         # Determine output directory
         if output_dir is None:
-            output_dir = get_ccproxy_config_dir()
+            output_dir = get_claude_code_proxy_config_dir()
 
         # Create output directory if it doesn't exist
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -295,11 +295,11 @@ def config_init(
         )
         toolkit.print_line()
         toolkit.print("To use this configuration:", tag="info")
-        toolkit.print(f"  ccproxy --config {output_file} api", tag="command")
+        toolkit.print(f"  claude-code-proxy --config {output_file} api", tag="command")
         toolkit.print_line()
         toolkit.print("Or set the CONFIG_FILE environment variable:", tag="info")
         toolkit.print(f"  export CONFIG_FILE={output_file}", tag="command")
-        toolkit.print("  ccproxy api", tag="command")
+        toolkit.print("  claude-code-proxy api", tag="command")
 
     except (OSError, PermissionError) as e:
         # File system errors when creating configuration files
@@ -319,7 +319,7 @@ def generate_token(
         None,
         "--config-file",
         "-c",
-        help="Configuration file to update (default: auto-detect or create .ccproxy.toml)",
+        help="Configuration file to update (default: auto-detect or create .claude-code-proxy.toml)",
     ),
     force: bool = typer.Option(
         False,
@@ -335,10 +335,10 @@ def generate_token(
     Use --save to write the token to a TOML configuration file.
 
     Examples:
-        ccproxy config generate-token                    # Generate and display token
-        ccproxy config generate-token --save             # Generate and save to config
-        ccproxy config generate-token --save --config-file custom.toml  # Save to TOML config
-        ccproxy config generate-token --save --force     # Overwrite existing token
+        claude-code-proxy config generate-token                    # Generate and display token
+        claude-code-proxy config generate-token --save             # Generate and save to config
+        claude-code-proxy config generate-token --save --config-file custom.toml  # Save to TOML config
+        claude-code-proxy config generate-token --save --force     # Overwrite existing token
     """
     toolkit = get_rich_toolkit()
 
@@ -417,7 +417,7 @@ def generate_token(
 
                 if config_file is None:
                     # Create default config file in current directory
-                    config_file = Path(".ccproxy.toml")
+                    config_file = Path(".claude-code-proxy.toml")
 
             console.print(
                 f"[bold]Saving token to configuration file:[/bold] {config_file}"
@@ -470,11 +470,11 @@ def generate_token(
             console.print(f"[green]✓[/green] Token saved to {config_file}")
             console.print()
             console.print("[bold]To use this configuration:[/bold]")
-            console.print(f"[cyan]ccproxy --config {config_file} api[/cyan]")
+            console.print(f"[cyan]claude-code-proxy --config {config_file} api[/cyan]")
             console.print()
             console.print("[dim]Or set CONFIG_FILE environment variable:[/dim]")
             console.print(f"[cyan]export CONFIG_FILE={config_file}[/cyan]")
-            console.print("[cyan]ccproxy api[/cyan]")
+            console.print("[cyan]claude-code-proxy api[/cyan]")
 
     except (OSError, PermissionError) as e:
         # File system errors when generating or saving token
@@ -543,7 +543,7 @@ def _write_toml_config_with_comments(
     """Write configuration data to a TOML file with comments and proper formatting."""
     with config_file.open("w", encoding="utf-8") as f:
         f.write("# CCProxy API Configuration\n")
-        f.write("# This file configures the ccproxy server settings\n")
+        f.write("# This file configures the claude-code-proxy server settings\n")
         f.write("# Most settings are commented out with their default values\n")
         f.write("# Uncomment and modify as needed\n\n")
 
@@ -663,7 +663,7 @@ def _write_toml_config(config_file: Path, config_data: dict[str, Any]) -> None:
     try:
         with config_file.open("w", encoding="utf-8") as f:
             f.write("# CCProxy API Configuration\n")
-            f.write("# Generated by ccproxy config generate-token\n\n")
+            f.write("# Generated by claude-code-proxy config generate-token\n\n")
             toml_content = tomli_w.dumps(config_data)
             f.write(toml_content)
     except (OSError, PermissionError, TypeError, ValueError) as e:

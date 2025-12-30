@@ -28,8 +28,8 @@ def config_schema(
     taplo configuration for enhanced TOML editor support.
 
     Examples:
-        ccproxy config schema                         # Generate schema files and taplo config in current directory
-        ccproxy config schema --output-dir ./schemas # Generate in specific directory
+        claude-code-proxy config schema                         # Generate schema files and taplo config in current directory
+        claude-code-proxy config schema --output-dir ./schemas # Generate in specific directory
     """
     toolkit = get_rich_toolkit()
 
@@ -57,7 +57,7 @@ def config_schema(
         toolkit.print("To use in VS Code:", tag="info")
         toolkit.print("1. Install the 'Even Better TOML' extension", tag="info")
         toolkit.print(
-            "2. The schema will be automatically applied to ccproxy TOML files",
+            "2. The schema will be automatically applied to claude-code-proxy TOML files",
             tag="info",
         )
         toolkit.print_line()
@@ -85,9 +85,9 @@ def config_validate(
     the JSON Schema to ensure it follows the correct structure and data types.
 
     Examples:
-        ccproxy config validate config.toml  # Validate a TOML config
-        ccproxy config validate config.yaml  # Validate a YAML config
-        ccproxy config validate config.json  # Validate a JSON config
+        claude-code-proxy config validate config.toml  # Validate a TOML config
+        claude-code-proxy config validate config.yaml  # Validate a YAML config
+        claude-code-proxy config validate config.json  # Validate a JSON config
     """
     toolkit = get_rich_toolkit()
 

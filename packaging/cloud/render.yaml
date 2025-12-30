@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: claude-code-proxy
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: SERVER__HOST
+        value: 0.0.0.0
+      - key: SERVER__LOG_LEVEL
+        value: INFO
+      - key: CCPROXY_ACCOUNTS_PATH
+        value: /data/accounts.json
+      - key: CCPROXY_ROTATION_ENABLED
+        value: true
+      - key: CCPROXY_HOT_RELOAD
+        value: true
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - src/**
+        - Dockerfile
+        - pyproject.toml
+        - docker/**
+    disk:
+      name: claude-code-proxy-data
+      mountPath: /data
+      sizeGB: 1

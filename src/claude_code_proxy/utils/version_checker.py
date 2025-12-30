@@ -1,4 +1,4 @@
-"""Version checking utilities for ccproxy."""
+"""Version checking utilities for claude-code-proxy."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ import aiofiles
 import httpx
 import orjson
 import structlog
-from packaging import version as pkg_version
 from pydantic import BaseModel
 
 from claude_code_proxy._version import __version__
-from claude_code_proxy.config.discovery import get_ccproxy_config_dir
+from claude_code_proxy.config.discovery import get_claude_code_proxy_config_dir
+from packaging import version as pkg_version
 
 
 logger = structlog.get_logger(__name__)
@@ -34,9 +34,11 @@ async def fetch_latest_github_version() -> str | None:
     Returns:
         Latest version string or None if unable to fetch
     """
-    url = "https://api.github.com/repos/CaddyGlow/ccproxy-api/releases/latest"
+    url = (
+        "https://api.github.com/repos/joachimbrindeau/claude-code-proxy/releases/latest"
+    )
     headers = {
-        "User-Agent": f"ccproxy-api/{__version__}",
+        "User-Agent": f"claude-code-proxy/{__version__}",
         "Accept": "application/vnd.github.v3+json",
     }
 
@@ -80,7 +82,7 @@ async def fetch_latest_github_version() -> str | None:
 
 def get_current_version() -> str:
     """
-    Get the current version of ccproxy.
+    Get the current version of claude-code-proxy.
 
     Returns:
         Current version string
@@ -188,9 +190,9 @@ def get_version_check_state_path() -> Path:
     Get the path to the version check state file.
 
     Returns:
-        Path to version_check.json in ccproxy config directory
+        Path to version_check.json in claude-code-proxy config directory
     """
-    return get_ccproxy_config_dir() / "version_check.json"
+    return get_claude_code_proxy_config_dir() / "version_check.json"
 
 
 __all__ = [

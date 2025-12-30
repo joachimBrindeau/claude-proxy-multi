@@ -208,7 +208,7 @@ def _run_local_server(settings: Settings, cli_overrides: dict[str, Any]) -> None
 
     reload_includes = None
     if settings.server.reload:
-        reload_includes = ["ccproxy", "pyproject.toml", "uv.lock"]
+        reload_includes = ["claude_code_proxy", "pyproject.toml", "uv.lock"]
 
     # Run uvicorn with our already configured logging
     uvicorn.run(
@@ -544,12 +544,12 @@ def api(
     which override values from configuration files and environment variables.
 
     Examples:
-        ccproxy serve
-        ccproxy serve --port 8080 --reload
-        ccproxy serve --docker
-        ccproxy serve --docker --docker-image custom:latest --port 8080
-        ccproxy serve --max-thinking-tokens 10000 --allowed-tools Read,Write,Bash
-        ccproxy serve --port 8080 --workers 4
+        claude-code-proxy serve
+        claude-code-proxy serve --port 8080 --reload
+        claude-code-proxy serve --docker
+        claude-code-proxy serve --docker --docker-image custom:latest --port 8080
+        claude-code-proxy serve --max-thinking-tokens 10000 --allowed-tools Read,Write,Bash
+        claude-code-proxy serve --port 8080 --workers 4
     """
     try:
         # Early logging - use basic print until logging is configured
@@ -808,12 +808,12 @@ def claude(
     found by the settings system or run from docker image.
 
     Examples:
-        ccproxy claude -- --version
-        ccproxy claude -- doctor
-        ccproxy claude -- config
-        ccproxy claude --docker -- --version
-        ccproxy claude --docker --docker-image custom:latest -- --version
-        ccproxy claude --docker --docker-env API_KEY=sk-... --docker-volume ./data:/data -- chat
+        claude-code-proxy claude -- --version
+        claude-code-proxy claude -- doctor
+        claude-code-proxy claude -- config
+        claude-code-proxy claude --docker -- --version
+        claude-code-proxy claude --docker --docker-image custom:latest -- --version
+        claude-code-proxy claude --docker --docker-env API_KEY=sk-... --docker-volume ./data:/data -- chat
     """
     # Handle None args case
     if args is None:

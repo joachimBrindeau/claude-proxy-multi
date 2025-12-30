@@ -1,4 +1,4 @@
-"""Common type aliases used across the ccproxy models."""
+"""Common type aliases used across the claude-code-proxy models."""
 
 from typing import Literal, TypeAlias
 

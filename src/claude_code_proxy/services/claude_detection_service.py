@@ -14,7 +14,7 @@ import orjson
 import structlog
 from fastapi import FastAPI, Request, Response
 
-from claude_code_proxy.config.discovery import get_ccproxy_cache_dir
+from claude_code_proxy.config.discovery import get_claude_code_proxy_cache_dir
 from claude_code_proxy.config.settings import Settings
 from claude_code_proxy.models.detection import (
     ClaudeCacheData,
@@ -32,7 +32,7 @@ class ClaudeDetectionService:
     def __init__(self, settings: Settings) -> None:
         """Initialize Claude detection service."""
         self.settings = settings
-        self.cache_dir = get_ccproxy_cache_dir()
+        self.cache_dir = get_claude_code_proxy_cache_dir()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._cached_data: ClaudeCacheData | None = None
 

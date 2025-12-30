@@ -1,0 +1,142 @@
+name: claude-code-proxy
+base: core22
+version: git
+summary: High-performance Claude Code multi-account proxy server
+description: |
+  Claude Code Proxy is a high-performance multi-account proxy server with
+  Anthropic API compatibility for managing multiple Claude accounts.
+
+  Features:
+  - Multi-account management with automatic rotation
+  - Anthropic API compatibility
+  - Web UI for account management
+  - Circuit breaker and rate limiting
+  - Health monitoring and metrics
+  - SSE streaming support
+
+  After installation, the service runs automatically as a daemon.
+  Access the web UI at http://localhost:8000/accounts
+
+grade: stable
+confinement: strict
+
+# Package metadata
+contact: https://github.com/joachimbrindeau/claude-proxy-multi/issues
+issues: https://github.com/joachimbrindeau/claude-proxy-multi/issues
+source-code: https://github.com/joachimbrindeau/claude-proxy-multi
+license: MIT
+
+# Architecture support
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+  - build-on: armhf
+
+apps:
+  # Main CLI command
+  claude-code-proxy:
+    command: bin/claude-code-proxy
+    plugs:
+      - network
+      - network-bind
+      - home
+
+  # API server daemon
+  daemon:
+    command: bin/claude-code-proxy-api api
+    daemon: simple
+    restart-condition: on-failure
+    restart-delay: 5s
+    plugs:
+      - network
+      - network-bind
+      - home
+    environment:
+      # Use snap-specific data directory
+      CLAUDE_CODE_PROXY_DATA_DIR: $SNAP_USER_COMMON/data
+      CLAUDE_CODE_PROXY_CONFIG_DIR: $SNAP_USER_COMMON/config
+      # Enable production mode
+      PYTHONOPTIMIZE: "1"
+      # Logging
+      LOG_LEVEL: INFO
+
+  # Permission management command
+  perm:
+    command: bin/claude-code-proxy-perm
+    plugs:
+      - network
+      - home
+
+parts:
+  claude-code-proxy:
+    plugin: python
+    source: https://github.com/joachimbrindeau/claude-proxy-multi.git
+    source-type: git
+
+    # Python configuration
+    python-packages:
+      - wheel
+      - setuptools
+
+    # Use pyproject.toml build system
+    build-environment:
+      - PYTHONOPTIMIZE: "1"
+
+    # Build dependencies
+    build-packages:
+      - git
+      - python3-dev
+      - build-essential
+      - libffi-dev
+      - libssl-dev
+
+    # Runtime dependencies
+    stage-packages:
+      - python3-venv
+      - libpython3.10
+      - libssl3
+      - ca-certificates
+
+    override-build: |
+      craftctl default
+
+      # Install the package with all dependencies
+      pip install --no-cache-dir .
+
+      # Ensure executables are in the right location
+      mkdir -p $CRAFT_PART_INSTALL/bin
+
+      # Copy entry points to bin/
+      for cmd in claude-code-proxy claude-code-proxy-api claude-code-proxy-perm; do
+        if [ -f "$CRAFT_PART_INSTALL/bin/$cmd" ]; then
+          chmod +x "$CRAFT_PART_INSTALL/bin/$cmd"
+        fi
+      done
+
+      # Create data directories
+      mkdir -p $CRAFT_PART_INSTALL/data
+      mkdir -p $CRAFT_PART_INSTALL/config
+
+    # Organize staged files
+    organize:
+      bin/*: bin/
+
+    # Prime (final package) configuration
+    prime:
+      - bin/*
+      - lib/python3.10/*
+      - usr/lib/*
+      - data
+      - config
+
+# Snap hooks for lifecycle management
+hooks:
+  install:
+    plugs:
+      - network
+      - home
+
+  configure:
+    plugs:
+      - network
+      - home

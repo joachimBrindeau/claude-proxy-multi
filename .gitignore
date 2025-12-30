@@ -109,3 +109,4 @@ specs/
 tmp/
 temp/
 *.tmp
+config/

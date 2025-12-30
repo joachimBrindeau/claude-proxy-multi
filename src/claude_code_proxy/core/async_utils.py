@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from cachetools import TTLCache
+
 from packaging.version import InvalidVersion, Version
 
 
@@ -42,7 +43,7 @@ def get_package_dir() -> Path:
     try:
         import importlib.util
 
-        # Get the path to the ccproxy package and resolve it
+        # Get the path to the claude-code-proxy package and resolve it
         spec = importlib.util.find_spec(get_root_package_name())
         if spec and spec.origin:
             package_dir = Path(spec.origin).parent.parent.resolve()
@@ -410,12 +411,12 @@ def generate_schema_files(output_dir: Path | None = None) -> list[Path]:
 
     # Generate schema for main Settings model
     schema = generate_json_schema()
-    main_schema_path = output_dir / "ccproxy-schema.json"
+    main_schema_path = output_dir / "claude-code-proxy-schema.json"
     save_schema_file(schema, main_schema_path)
     generated_files.append(main_schema_path)
 
     # Generate a combined schema file that can be used for complete config validation
-    combined_schema_path = output_dir / ".ccproxy-schema.json"
+    combined_schema_path = output_dir / ".claude-code-proxy-schema.json"
     save_schema_file(schema, combined_schema_path)
     generated_files.append(combined_schema_path)
 
@@ -447,15 +448,15 @@ def generate_taplo_config(output_dir: Path | None = None) -> Path:
 # This configuration enables schema validation and autocomplete in editors
 
 [[rule]]
-name = "ccproxy-config"
+name = "claude-code-proxy-config"
 include = [
     ".claude_code_proxy.toml",
     "claude_code_proxy.toml",
     "config.toml",
-    "**/ccproxy*.toml",
+    "**/claude-code-proxy*.toml",
     "**/config*.toml"
 ]
-schema = "ccproxy-schema.json"
+schema = "claude-code-proxy-schema.json"
 
 [formatting]
 # Standard TOML formatting options

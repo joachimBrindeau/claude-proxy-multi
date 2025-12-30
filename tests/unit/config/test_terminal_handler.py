@@ -47,7 +47,7 @@ class TestTerminalPermissionHandler:
         result = await terminal_handler.handle_permission(request)
         assert result is False
 
-    @patch("ccproxy.api.ui.terminal_permission_handler.ConfirmationApp")
+    @patch("claude_code_proxy.api.ui.terminal_permission_handler.ConfirmationApp")
     async def test_handle_permission_allowed(
         self,
         mock_app_class: Mock,
@@ -68,7 +68,7 @@ class TestTerminalPermissionHandler:
         assert mock_app_class.called
         assert mock_app.run_async.called
 
-    @patch("ccproxy.api.ui.terminal_permission_handler.ConfirmationApp")
+    @patch("claude_code_proxy.api.ui.terminal_permission_handler.ConfirmationApp")
     async def test_handle_permission_denied(
         self,
         mock_app_class: Mock,
@@ -89,7 +89,7 @@ class TestTerminalPermissionHandler:
         assert mock_app_class.called
         assert mock_app.run_async.called
 
-    @patch("ccproxy.api.ui.terminal_permission_handler.ConfirmationApp")
+    @patch("claude_code_proxy.api.ui.terminal_permission_handler.ConfirmationApp")
     async def test_handle_permission_keyboard_interrupt(
         self,
         mock_app_class: Mock,
@@ -106,7 +106,7 @@ class TestTerminalPermissionHandler:
         with pytest.raises(KeyboardInterrupt):
             await terminal_handler.handle_permission(sample_request)
 
-    @patch("ccproxy.api.ui.terminal_permission_handler.ConfirmationApp")
+    @patch("claude_code_proxy.api.ui.terminal_permission_handler.ConfirmationApp")
     async def test_handle_permission_error_handling(
         self,
         mock_app_class: Mock,
@@ -146,7 +146,7 @@ class TestTerminalPermissionHandler:
         terminal_handler.cancel_confirmation(sample_request.id, "test cancel")
 
         with patch(
-            "ccproxy.api.ui.terminal_permission_handler.ConfirmationApp"
+            "claude_code_proxy.api.ui.terminal_permission_handler.ConfirmationApp"
         ) as mock_app_class:
             mock_app = Mock()
             mock_app.run_async = AsyncMock(return_value=True)
@@ -185,7 +185,7 @@ class TestTerminalPermissionHandler:
     ) -> None:
         """Test that requests are queued and processed."""
         with patch(
-            "ccproxy.api.ui.terminal_permission_handler.ConfirmationApp"
+            "claude_code_proxy.api.ui.terminal_permission_handler.ConfirmationApp"
         ) as mock_app_class:
             mock_app = Mock()
             mock_app.run_async = AsyncMock(return_value=True)

@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     TOML configuration files are loaded in the following order:
     1. .claude_code_proxy.toml in current directory
     2. claude_code_proxy.toml in git repository root
-    3. config.toml in user config directory/ccproxy/ (platform-specific)
+    3. config.toml in user config directory/claude-code-proxy/ (platform-specific)
     """
 
     model_config = SettingsConfigDict(

@@ -112,7 +112,7 @@ class TestClaudeSDKClientStatelessQueries:
         options: ClaudeCodeOptions = ClaudeCodeOptions()
 
         with patch(
-            "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+            "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
             return_value=mock_sdk_client_instance,
         ):
             messages: list[Any] = []
@@ -143,7 +143,7 @@ class TestClaudeSDKClientStatelessQueries:
 
         with (
             patch(
-                "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+                "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client_cli_not_found,
             ),
             pytest.raises(ServiceUnavailableError) as exc_info,
@@ -170,7 +170,7 @@ class TestClaudeSDKClientStatelessQueries:
 
         with (
             patch(
-                "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+                "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client_cli_connection_error,
             ),
             pytest.raises(ServiceUnavailableError) as exc_info,
@@ -197,7 +197,7 @@ class TestClaudeSDKClientStatelessQueries:
 
         with (
             patch(
-                "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+                "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client_process_error,
             ),
             pytest.raises(CCProxyError) as exc_info,
@@ -225,7 +225,7 @@ class TestClaudeSDKClientStatelessQueries:
 
         with (
             patch(
-                "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+                "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client_json_decode_error,
             ),
             pytest.raises(CCProxyError) as exc_info,
@@ -253,7 +253,7 @@ class TestClaudeSDKClientStatelessQueries:
 
         with (
             patch(
-                "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+                "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client_unexpected_error,
             ),
             pytest.raises(CCProxyError) as exc_info,
@@ -293,7 +293,7 @@ class TestClaudeSDKClientStatelessQueries:
         mock_sdk_client.receive_response = unknown_message_response
 
         with patch(
-            "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+            "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
             return_value=mock_sdk_client,
         ):
             messages: list[Any] = []
@@ -335,7 +335,7 @@ class TestClaudeSDKClientStatelessQueries:
         # Mock the conversion to fail
         with (
             patch(
-                "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+                "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client,
             ),
             patch.object(
@@ -365,7 +365,7 @@ class TestClaudeSDKClientStatelessQueries:
         options: ClaudeCodeOptions = ClaudeCodeOptions()
 
         with patch(
-            "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
+            "claude_code_proxy.claude_sdk.client.ImportedClaudeSDKClient",
             return_value=mock_sdk_client_streaming,
         ):
             messages: list[Any] = []

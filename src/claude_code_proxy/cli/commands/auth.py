@@ -105,9 +105,9 @@ def validate_credentials(
     With --credential-file, validates the specified file directly.
 
     Examples:
-        ccproxy auth validate
-        ccproxy auth validate --docker
-        ccproxy auth validate --credential-file /path/to/credentials.json
+        claude-code-proxy auth validate
+        claude-code-proxy auth validate --docker
+        claude-code-proxy auth validate --credential-file /path/to/credentials.json
     """
     toolkit = get_rich_toolkit()
     toolkit.print("[bold cyan]Claude Credentials Validation[/bold cyan]", centered=True)
@@ -224,9 +224,9 @@ def credential_info(
     file location, token details, and subscription information.
 
     Examples:
-        ccproxy auth info
-        ccproxy auth info --docker
-        ccproxy auth info --credential-file /path/to/credentials.json
+        claude-code-proxy auth info
+        claude-code-proxy auth info --docker
+        claude-code-proxy auth info --credential-file /path/to/credentials.json
     """
     from claude_code_proxy.cli.commands.auth_credential_helpers import get_profile_sync
     from claude_code_proxy.cli.commands.auth_display_helpers import (
@@ -301,9 +301,9 @@ def login_command(
     and save the credentials locally.
 
     Examples:
-        ccproxy auth login
-        ccproxy auth login --docker
-        ccproxy auth login --credential-file /path/to/credentials.json
+        claude-code-proxy auth login
+        claude-code-proxy auth login --docker
+        claude-code-proxy auth login --credential-file /path/to/credentials.json
     """
     toolkit = get_rich_toolkit()
     toolkit.print("[bold cyan]Claude OAuth Login[/bold cyan]", centered=True)
@@ -326,7 +326,7 @@ def login_command(
                     "[yellow]You are already logged in with valid credentials.[/yellow]"
                 )
                 console.print(
-                    "Use [cyan]ccproxy auth info[/cyan] to view current credentials."
+                    "Use [cyan]claude-code-proxy auth info[/cyan] to view current credentials."
                 )
 
                 overwrite = typer.confirm(
@@ -413,9 +413,9 @@ def renew(
     Useful for testing or when you want to ensure you have the latest token.
 
     Examples:
-        ccproxy auth renew
-        ccproxy auth renew --docker
-        ccproxy auth renew --credential-file /path/to/credentials.json
+        claude-code-proxy auth renew
+        claude-code-proxy auth renew --docker
+        claude-code-proxy auth renew --credential-file /path/to/credentials.json
     """
     toolkit = get_rich_toolkit()
     toolkit.print("[bold cyan]Claude Credentials Renewal[/bold cyan]", centered=True)
@@ -439,7 +439,7 @@ def renew(
         if not validation_result.valid:
             toolkit.print("[red]✗[/red] No credentials found to renew", tag="error")
             console.print("\n[dim]Please login first:[/dim]")
-            console.print("[cyan]ccproxy auth login[/cyan]")
+            console.print("[cyan]claude-code-proxy auth login[/cyan]")
             raise typer.Exit(1)
 
         # Force refresh the token

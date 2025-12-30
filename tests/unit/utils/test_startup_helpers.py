@@ -60,7 +60,7 @@ class TestValidateAuthenticationStartup:
     ) -> None:
         """Test successful authentication validation with OAuth token."""
         with patch(
-            "ccproxy.utils.startup_helpers.CredentialsManager"
+            "claude_code_proxy.utils.startup_helpers.CredentialsManager"
         ) as MockCredentialsManager:
             # Setup mock validation response
             mock_validation = Mock()
@@ -83,7 +83,7 @@ class TestValidateAuthenticationStartup:
             mock_manager.validate.return_value = mock_validation
             MockCredentialsManager.return_value = mock_manager
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await validate_claude_authentication_startup(mock_app, mock_settings)
 
                 # Verify credentials manager was created and validated
@@ -102,7 +102,7 @@ class TestValidateAuthenticationStartup:
     ) -> None:
         """Test successful authentication validation without OAuth token."""
         with patch(
-            "ccproxy.utils.startup_helpers.CredentialsManager"
+            "claude_code_proxy.utils.startup_helpers.CredentialsManager"
         ) as MockCredentialsManager:
             # Setup mock validation response without OAuth
             mock_validation = Mock()
@@ -115,7 +115,7 @@ class TestValidateAuthenticationStartup:
             mock_manager.validate.return_value = mock_validation
             MockCredentialsManager.return_value = mock_manager
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await validate_claude_authentication_startup(mock_app, mock_settings)
 
                 # Verify debug log was called without OAuth info
@@ -128,7 +128,7 @@ class TestValidateAuthenticationStartup:
     ) -> None:
         """Test handling of expired authentication."""
         with patch(
-            "ccproxy.utils.startup_helpers.CredentialsManager"
+            "claude_code_proxy.utils.startup_helpers.CredentialsManager"
         ) as MockCredentialsManager:
             # Setup expired validation response
             mock_validation = Mock()
@@ -140,7 +140,7 @@ class TestValidateAuthenticationStartup:
             mock_manager.validate.return_value = mock_validation
             MockCredentialsManager.return_value = mock_manager
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await validate_claude_authentication_startup(mock_app, mock_settings)
 
                 # Verify warning was logged
@@ -154,7 +154,7 @@ class TestValidateAuthenticationStartup:
     ) -> None:
         """Test handling of invalid authentication."""
         with patch(
-            "ccproxy.utils.startup_helpers.CredentialsManager"
+            "claude_code_proxy.utils.startup_helpers.CredentialsManager"
         ) as MockCredentialsManager:
             # Setup invalid validation response
             mock_validation = Mock()
@@ -166,7 +166,7 @@ class TestValidateAuthenticationStartup:
             mock_manager.validate.return_value = mock_validation
             MockCredentialsManager.return_value = mock_manager
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await validate_claude_authentication_startup(mock_app, mock_settings)
 
                 # Verify warning was logged
@@ -179,13 +179,13 @@ class TestValidateAuthenticationStartup:
     ) -> None:
         """Test handling when credentials are not found."""
         with patch(
-            "ccproxy.utils.startup_helpers.CredentialsManager"
+            "claude_code_proxy.utils.startup_helpers.CredentialsManager"
         ) as MockCredentialsManager:
             mock_manager = AsyncMock()
             mock_manager.validate.side_effect = CredentialsNotFoundError("Not found")
             MockCredentialsManager.return_value = mock_manager
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await validate_claude_authentication_startup(mock_app, mock_settings)
 
                 # Verify warning was logged with searched paths
@@ -199,13 +199,13 @@ class TestValidateAuthenticationStartup:
     ) -> None:
         """Test handling of unexpected errors during validation."""
         with patch(
-            "ccproxy.utils.startup_helpers.CredentialsManager"
+            "claude_code_proxy.utils.startup_helpers.CredentialsManager"
         ) as MockCredentialsManager:
             mock_manager = AsyncMock()
             mock_manager.validate.side_effect = Exception("Unexpected error")
             MockCredentialsManager.return_value = mock_manager
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await validate_claude_authentication_startup(mock_app, mock_settings)
 
                 # Verify error was logged
@@ -233,7 +233,9 @@ class TestCheckClaudeCLIStartup:
         self, mock_app: FastAPI, mock_settings: Mock
     ) -> None:
         """Test successful Claude CLI detection."""
-        with patch("ccproxy.api.routes.health.get_claude_cli_info") as mock_get_info:
+        with patch(
+            "claude_code_proxy.api.routes.health.get_claude_cli_info"
+        ) as mock_get_info:
             # Setup mock CLI info response
             mock_info = Mock()
             mock_info.status = "available"
@@ -241,7 +243,7 @@ class TestCheckClaudeCLIStartup:
             mock_info.binary_path = "/usr/local/bin/claude"
             mock_get_info.return_value = mock_info
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await check_claude_cli_startup(mock_app, mock_settings)
 
                 # Verify info log was called
@@ -256,7 +258,9 @@ class TestCheckClaudeCLIStartup:
         self, mock_app: FastAPI, mock_settings: Mock
     ) -> None:
         """Test handling when Claude CLI is unavailable."""
-        with patch("ccproxy.api.routes.health.get_claude_cli_info") as mock_get_info:
+        with patch(
+            "claude_code_proxy.api.routes.health.get_claude_cli_info"
+        ) as mock_get_info:
             # Setup mock CLI info response for unavailable
             mock_info = Mock()
             mock_info.status = "not_found"
@@ -264,7 +268,7 @@ class TestCheckClaudeCLIStartup:
             mock_info.binary_path = None
             mock_get_info.return_value = mock_info
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await check_claude_cli_startup(mock_app, mock_settings)
 
                 # Verify warning log was called
@@ -278,10 +282,12 @@ class TestCheckClaudeCLIStartup:
         self, mock_app: FastAPI, mock_settings: Mock
     ) -> None:
         """Test handling of errors during Claude CLI check."""
-        with patch("ccproxy.api.routes.health.get_claude_cli_info") as mock_get_info:
+        with patch(
+            "claude_code_proxy.api.routes.health.get_claude_cli_info"
+        ) as mock_get_info:
             mock_get_info.side_effect = Exception("CLI check failed")
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await check_claude_cli_startup(mock_app, mock_settings)
 
                 # Verify error log was called
@@ -314,11 +320,13 @@ class TestSchedulerLifecycle:
         if hasattr(mock_app.state, "session_manager"):
             delattr(mock_app.state, "session_manager")
 
-        with patch("ccproxy.utils.startup_helpers.start_scheduler") as mock_start:
+        with patch(
+            "claude_code_proxy.utils.startup_helpers.start_scheduler"
+        ) as mock_start:
             mock_scheduler = AsyncMock()
             mock_start.return_value = mock_scheduler
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await setup_scheduler_startup(mock_app, mock_settings)
 
                 # Verify scheduler was started and stored
@@ -335,11 +343,13 @@ class TestSchedulerLifecycle:
         mock_session_manager = AsyncMock()
         mock_app.state.session_manager = mock_session_manager
 
-        with patch("ccproxy.utils.startup_helpers.start_scheduler") as mock_start:
+        with patch(
+            "claude_code_proxy.utils.startup_helpers.start_scheduler"
+        ) as mock_start:
             mock_scheduler = AsyncMock()
             mock_start.return_value = mock_scheduler
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await setup_scheduler_startup(mock_app, mock_settings)
 
                 # Verify task was added to scheduler
@@ -354,10 +364,12 @@ class TestSchedulerLifecycle:
         self, mock_app: FastAPI, mock_settings: Mock
     ) -> None:
         """Test error handling during scheduler startup."""
-        with patch("ccproxy.utils.startup_helpers.start_scheduler") as mock_start:
+        with patch(
+            "claude_code_proxy.utils.startup_helpers.start_scheduler"
+        ) as mock_start:
             mock_start.side_effect = SchedulerError("Scheduler start failed")
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await setup_scheduler_startup(mock_app, mock_settings)
 
                 # Verify error was logged
@@ -374,8 +386,10 @@ class TestSchedulerLifecycle:
         mock_app.state.scheduler = mock_scheduler
 
         with (
-            patch("ccproxy.utils.startup_helpers.stop_scheduler") as mock_stop,
-            patch("ccproxy.utils.startup_helpers.logger") as mock_logger,
+            patch(
+                "claude_code_proxy.utils.startup_helpers.stop_scheduler"
+            ) as mock_stop,
+            patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger,
         ):
             await setup_scheduler_shutdown(mock_app)
 
@@ -390,10 +404,12 @@ class TestSchedulerLifecycle:
         mock_scheduler = AsyncMock()
         mock_app.state.scheduler = mock_scheduler
 
-        with patch("ccproxy.utils.startup_helpers.stop_scheduler") as mock_stop:
+        with patch(
+            "claude_code_proxy.utils.startup_helpers.stop_scheduler"
+        ) as mock_stop:
             mock_stop.side_effect = SchedulerError("Stop failed")
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await setup_scheduler_shutdown(mock_app)
 
                 # Verify error was logged
@@ -418,7 +434,7 @@ class TestSessionManagerShutdown:
         mock_session_manager = AsyncMock()
         mock_app.state.session_manager = mock_session_manager
 
-        with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+        with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
             await setup_session_manager_shutdown(mock_app)
 
             # Verify session manager was shut down
@@ -435,7 +451,7 @@ class TestSessionManagerShutdown:
         if hasattr(mock_app.state, "session_manager"):
             delattr(mock_app.state, "session_manager")
 
-        with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+        with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
             await setup_session_manager_shutdown(mock_app)
 
             # Verify no logs were called
@@ -448,7 +464,7 @@ class TestSessionManagerShutdown:
         mock_session_manager.shutdown.side_effect = Exception("Shutdown failed")
         mock_app.state.session_manager = mock_session_manager
 
-        with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+        with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
             await setup_session_manager_shutdown(mock_app)
 
             # Verify error was logged
@@ -472,11 +488,11 @@ class TestFlushStreamingBatchesShutdown:
     async def test_flush_streaming_batches_success(self, mock_app: FastAPI) -> None:
         """Test successful streaming batches flushing."""
         with patch(
-            "ccproxy.utils.simple_request_logger.flush_all_streaming_batches"
+            "claude_code_proxy.utils.simple_request_logger.flush_all_streaming_batches"
         ) as mock_flush:
             mock_flush.return_value = None  # Async function returns None
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await flush_streaming_batches_shutdown(mock_app)
 
                 # Verify flush function was called
@@ -488,11 +504,11 @@ class TestFlushStreamingBatchesShutdown:
     async def test_flush_streaming_batches_error(self, mock_app: FastAPI) -> None:
         """Test error handling during streaming batches flushing."""
         with patch(
-            "ccproxy.utils.simple_request_logger.flush_all_streaming_batches"
+            "claude_code_proxy.utils.simple_request_logger.flush_all_streaming_batches"
         ) as mock_flush:
             mock_flush.side_effect = Exception("Flush failed")
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await flush_streaming_batches_shutdown(mock_app)
 
                 # Verify error was logged
@@ -524,7 +540,7 @@ class TestClaudeDetectionStartup:
     ) -> None:
         """Test successful Claude detection initialization."""
         with patch(
-            "ccproxy.utils.startup_helpers.ClaudeDetectionService"
+            "claude_code_proxy.utils.startup_helpers.ClaudeDetectionService"
         ) as MockService:
             mock_service = Mock()
             mock_claude_data = Mock()
@@ -534,7 +550,7 @@ class TestClaudeDetectionStartup:
             mock_service.initialize_detection = AsyncMock(return_value=mock_claude_data)
             MockService.return_value = mock_service
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await initialize_claude_detection_startup(mock_app, mock_settings)
 
                 # Verify service was created and initialized
@@ -550,7 +566,7 @@ class TestClaudeDetectionStartup:
     ) -> None:
         """Test error handling with fallback during Claude detection."""
         with patch(
-            "ccproxy.utils.startup_helpers.ClaudeDetectionService"
+            "claude_code_proxy.utils.startup_helpers.ClaudeDetectionService"
         ) as MockService:
             # First service instance fails
             mock_service_failed = Mock()
@@ -565,7 +581,7 @@ class TestClaudeDetectionStartup:
 
             MockService.side_effect = [mock_service_failed, mock_service_fallback]
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await initialize_claude_detection_startup(mock_app, mock_settings)
 
                 # Verify error was logged
@@ -606,10 +622,14 @@ class TestClaudeSDKStartup:
         """Test successful Claude SDK initialization with session pool."""
         with (
             patch(
-                "ccproxy.utils.startup_helpers.CredentialsAuthManager"
+                "claude_code_proxy.utils.startup_helpers.CredentialsAuthManager"
             ) as MockAuthManager,
-            patch("ccproxy.utils.startup_helpers.ClaudeSDKService") as MockSDKService,
-            patch("ccproxy.claude_sdk.manager.SessionManager") as MockSessionManager,
+            patch(
+                "claude_code_proxy.utils.startup_helpers.ClaudeSDKService"
+            ) as MockSDKService,
+            patch(
+                "claude_code_proxy.claude_sdk.manager.SessionManager"
+            ) as MockSessionManager,
         ):
             # Setup mocks
             mock_auth_manager = Mock()
@@ -621,7 +641,7 @@ class TestClaudeSDKStartup:
             mock_claude_service = Mock()
             MockSDKService.return_value = mock_claude_service
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await initialize_claude_sdk_startup(mock_app, mock_settings)
 
                 # Verify session manager was created and started
@@ -647,9 +667,11 @@ class TestClaudeSDKStartup:
 
         with (
             patch(
-                "ccproxy.utils.startup_helpers.CredentialsAuthManager"
+                "claude_code_proxy.utils.startup_helpers.CredentialsAuthManager"
             ) as MockAuthManager,
-            patch("ccproxy.utils.startup_helpers.ClaudeSDKService") as MockSDKService,
+            patch(
+                "claude_code_proxy.utils.startup_helpers.ClaudeSDKService"
+            ) as MockSDKService,
         ):
             # Setup mocks
             mock_auth_manager = Mock()
@@ -670,11 +692,11 @@ class TestClaudeSDKStartup:
     ) -> None:
         """Test error handling during Claude SDK initialization."""
         with patch(
-            "ccproxy.utils.startup_helpers.CredentialsAuthManager"
+            "claude_code_proxy.utils.startup_helpers.CredentialsAuthManager"
         ) as MockAuthManager:
             MockAuthManager.side_effect = Exception("Auth manager failed")
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await initialize_claude_sdk_startup(mock_app, mock_settings)
 
                 # Verify error was logged
@@ -722,13 +744,13 @@ class TestPermissionServiceLifecycle:
     ) -> None:
         """Test successful permission service initialization."""
         with patch(
-            "ccproxy.api.services.permission_service.get_permission_service"
+            "claude_code_proxy.api.services.permission_service.get_permission_service"
         ) as mock_get_service:
             mock_permission_service = AsyncMock()
             mock_permission_service._timeout_seconds = 30
             mock_get_service.return_value = mock_permission_service
 
-            with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+            with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
                 await initialize_permission_service_startup(
                     mock_app, mock_settings_enabled
                 )
@@ -741,7 +763,7 @@ class TestPermissionServiceLifecycle:
         self, mock_app: FastAPI, mock_settings_disabled: Mock
     ) -> None:
         """Test when permission service is disabled."""
-        with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+        with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
             await initialize_permission_service_startup(
                 mock_app, mock_settings_disabled
             )
@@ -759,7 +781,7 @@ class TestPermissionServiceLifecycle:
         mock_permission_service = AsyncMock()
         mock_app.state.permission_service = mock_permission_service
 
-        with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+        with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
             await setup_permission_service_shutdown(mock_app, mock_settings_enabled)
 
             # Verify service was stopped
@@ -774,7 +796,7 @@ class TestPermissionServiceLifecycle:
         """Test shutdown when permission service is disabled."""
         mock_app.state.permission_service = AsyncMock()  # Present but disabled
 
-        with patch("ccproxy.utils.startup_helpers.logger") as mock_logger:
+        with patch("claude_code_proxy.utils.startup_helpers.logger") as mock_logger:
             await setup_permission_service_shutdown(mock_app, mock_settings_disabled)
 
             # Verify no logs were called (early return due to disabled setting)

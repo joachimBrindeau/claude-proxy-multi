@@ -89,6 +89,7 @@ repos:
         args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
+        exclude: ^packaging/helm/.*\.yaml$
       - id: check-toml
       - id: check-json
       - id: check-merge-conflict
@@ -120,7 +121,7 @@ repos:
       - id: codespell
         name: codespell
         additional_dependencies: ["tomli"]
-        args: [--toml, pyproject.toml]
+        args: [--toml, pyproject.toml, --ignore-words-list=datas]
 
   # Docstring coverage check
   - repo: https://github.com/econchick/interrogate

@@ -6,8 +6,8 @@ import sys
 
 
 # Force reload to get latest changes
-if "ccproxy.core.http_transformers" in sys.modules:
-    importlib.reload(sys.modules["ccproxy.core.http_transformers"])
+if "claude_code_proxy.core.http_transformers" in sys.modules:
+    importlib.reload(sys.modules["claude_code_proxy.core.http_transformers"])
 
 from claude_code_proxy.core.http_transformers import HTTPRequestTransformer
 

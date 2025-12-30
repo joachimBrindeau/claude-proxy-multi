@@ -107,6 +107,45 @@
             {% include 'partials/accounts_table.html' %}
         </div>
 
+        <!-- Migration Section -->
+        <div class="bg-white rounded-2xl shadow-card border border-slate-200/60 p-6 mb-8">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-lg font-semibold text-slate-900">Account Migration</h2>
+                    <p class="text-sm text-slate-500">Export or import accounts between installations</p>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <!-- Export Button -->
+                <button type="button" id="export-btn" onclick="exportAccounts()"
+                        class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-all duration-150">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Export Accounts
+                </button>
+
+                <!-- Import Button -->
+                <button type="button" id="import-btn" onclick="document.getElementById('import-file').click()"
+                        class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all duration-150 shadow-soft">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-12" />
+                    </svg>
+                    Import Accounts
+                </button>
+                <input type="file" id="import-file" accept=".json,application/json" class="hidden" onchange="importAccounts(event)">
+            </div>
+
+            <!-- Status Message for Import/Export -->
+            <div id="migration-status" class="hidden mt-4 px-4 py-3 rounded-xl text-sm"></div>
+        </div>
+
         <!-- OAuth Flow Section -->
         {% if show_oauth %}
         <div id="oauth-section" class="bg-white rounded-2xl shadow-card border border-slate-200/60 p-6 mb-8 fade-in">
@@ -285,6 +324,149 @@
                     window.location.href = '/accounts/start/' + encodeURIComponent(name);
                 }
             });
+        }
+
+        // Export accounts to JSON file
+        async function exportAccounts() {
+            const exportBtn = document.getElementById('export-btn');
+            const originalContent = exportBtn.innerHTML;
+
+            try {
+                // Show loading state
+                exportBtn.disabled = true;
+                exportBtn.innerHTML = `
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Exporting...
+                `;
+
+                const response = await fetch('/api/accounts');
+                if (!response.ok) {
+                    throw new Error('Failed to export accounts');
+                }
+
+                const data = await response.json();
+
+                // Create blob and download
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `claude-code-proxy-accounts-${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showMigrationStatus('Accounts exported successfully', 'success');
+            } catch (error) {
+                showMigrationStatus('Export failed: ' + error.message, 'error');
+            } finally {
+                // Restore button state
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = originalContent;
+            }
+        }
+
+        // Import accounts from JSON file
+        async function importAccounts(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const importBtn = document.getElementById('import-btn');
+            const originalContent = importBtn.innerHTML;
+
+            try {
+                // Show loading state
+                importBtn.disabled = true;
+                importBtn.innerHTML = `
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Importing...
+                `;
+
+                // Read and parse file
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                // Send to import endpoint
+                const response = await fetch('/api/accounts/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMigrationStatus(
+                        `Import complete: ${result.imported} imported, ${result.updated} updated, ${result.skipped} skipped`,
+                        'success'
+                    );
+
+                    // Refresh accounts table after 1.5 seconds
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showMigrationStatus(result.message || 'Import failed', 'error');
+                }
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    showMigrationStatus('Invalid JSON file format', 'error');
+                } else {
+                    showMigrationStatus('Import failed: ' + error.message, 'error');
+                }
+            } finally {
+                // Restore button state and clear file input
+                importBtn.disabled = false;
+                importBtn.innerHTML = originalContent;
+                event.target.value = '';
+            }
+        }
+
+        // Show migration status message
+        function showMigrationStatus(message, type) {
+            const statusDiv = document.getElementById('migration-status');
+            statusDiv.classList.remove('hidden');
+
+            // Set color based on type
+            if (type === 'success') {
+                statusDiv.className = 'mt-4 px-4 py-3 rounded-xl text-sm bg-emerald-50 text-emerald-800 border border-emerald-100 flex items-start gap-3';
+                statusDiv.innerHTML = `
+                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>${message}</span>
+                `;
+            } else if (type === 'error') {
+                statusDiv.className = 'mt-4 px-4 py-3 rounded-xl text-sm bg-red-50 text-red-800 border border-red-100 flex items-start gap-3';
+                statusDiv.innerHTML = `
+                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>${message}</span>
+                `;
+            } else {
+                statusDiv.className = 'mt-4 px-4 py-3 rounded-xl text-sm bg-sky-50 text-sky-800 border border-sky-100 flex items-start gap-3';
+                statusDiv.innerHTML = `
+                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>${message}</span>
+                `;
+            }
+
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.classList.add('hidden');
+                }, 5000);
+            }
         }
     </script>
 </body>

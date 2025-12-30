@@ -2,12 +2,12 @@
 """Local OAuth callback proxy for Claude account management.
 
 This script runs a local HTTP server that catches OAuth callbacks from Claude
-and forwards them to your remote ccproxy server.
+and forwards them to your remote claude-code-proxy server.
 
 Usage:
     python oauth_proxy.py [SERVER_URL]
 
-    SERVER_URL: Your ccproxy server URL (default: http://localhost:8000)
+    SERVER_URL: Your claude-code-proxy server URL (default: http://localhost:8000)
 
 Example:
     # Using default server

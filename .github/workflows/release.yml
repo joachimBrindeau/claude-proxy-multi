@@ -14,6 +14,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  BINARY_PREFIX: claude-code-proxy
 
 jobs:
   test:
@@ -35,6 +36,64 @@ jobs:
       - name: Run tests
         run: make ci
         continue-on-error: ${{ github.event.inputs.force_release == 'true' }}
+
+  build-binaries:
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform_suffix: darwin-universal2
+          - os: ubuntu-latest
+            platform_suffix: linux-amd64
+          - os: windows-latest
+            platform_suffix: windows-amd64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Install PyInstaller
+        run: uv pip install pyinstaller
+
+      - name: Build binary
+        run: uv run pyinstaller claude-code-proxy.spec
+
+      - name: Set binary path
+        id: binary
+        shell: bash
+        run: |
+          BINARY_NAME="${{ env.BINARY_PREFIX }}-${{ matrix.platform_suffix }}"
+          echo "name=${BINARY_NAME}" >> $GITHUB_OUTPUT
+          echo "path=dist/${BINARY_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Test binary
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            "${{ steps.binary.outputs.path }}" --version
+          else
+            chmod +x "${{ steps.binary.outputs.path }}"
+            "${{ steps.binary.outputs.path }}" --version
+          fi
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}
+          path: ${{ steps.binary.outputs.path }}
+          retention-days: 30
 
   build-package:
     needs: test
@@ -127,12 +186,14 @@ jobs:
           push-to-registry: true
 
   create-release:
-    needs: [build-package, build-release-docker]
+    needs: [build-package, build-binaries, build-release-docker]
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
 
     permissions:
       id-token: write
       contents: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -142,10 +203,228 @@ jobs:
           name: python-package
           path: dist/
 
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: binaries/
+          merge-multiple: true
+
+      - name: Organize release assets
+        run: |
+          mkdir -p release-assets
+          cp dist/* release-assets/
+          cp binaries/* release-assets/
+          ls -la release-assets/
+
+      - name: Generate checksums
+        run: |
+          cd release-assets
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: release-assets/*
           generate_release_notes: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    needs: [build-package]
+    runs-on: macos-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew formula
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          # Tap the repository
+          brew tap joachimbrindeau/claude-code-proxy
+
+          # Update formula with new version
+          brew bump-formula-pr \
+            --no-browse \
+            --no-audit \
+            --no-fork \
+            joachimbrindeau/claude-code-proxy/claude-code-proxy \
+            --url "https://files.pythonhosted.org/packages/source/c/claude-code-proxy/claude-code-proxy-${{ steps.get_version.outputs.VERSION }}.tar.gz"
+
+  # ============================================================================
+  # Helm Chart Release
+  # ============================================================================
+
+  release-helm-chart:
+    needs: [build-release-docker]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update Chart version
+        run: |
+          cd packaging/helm/claude-code-proxy
+          # Update both chart version and appVersion
+          sed -i "s/^version: .*/version: ${{ steps.get_version.outputs.VERSION }}/" Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${{ steps.get_version.outputs.VERSION }}\"/" Chart.yaml
+
+      - name: Lint Helm chart
+        run: |
+          helm lint packaging/helm/claude-code-proxy
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p .cr-release-packages
+          helm package packaging/helm/claude-code-proxy --destination .cr-release-packages
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          charts_dir: packaging/helm
+          skip_packaging: true
+          packages_with_index: true
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+  # ============================================================================
+  # Chocolatey Package (Windows)
+  # ============================================================================
+
+  build-chocolatey:
+    needs: [build-package]
+    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Update package version in nuspec
+        shell: pwsh
+        run: |
+          $nuspecPath = "packaging/chocolatey/claude-code-proxy.nuspec"
+          $content = Get-Content $nuspecPath -Raw
+          $content = $content -replace '<version>.*?</version>', "<version>${{ steps.get_version.outputs.VERSION }}</version>"
+          Set-Content -Path $nuspecPath -Value $content
+
+      - name: Install Chocolatey
+        shell: pwsh
+        run: |
+          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+            iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          }
+
+      - name: Build Chocolatey package
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco pack claude-code-proxy.nuspec
+
+      - name: Test Chocolatey package
+        shell: pwsh
+        run: |
+          $nupkg = Get-ChildItem -Path packaging/chocolatey -Filter "claude-code-proxy.${{ steps.get_version.outputs.VERSION }}.nupkg"
+          if (-not $nupkg) {
+            throw "Package file not found"
+          }
+          Write-Host "✓ Package built successfully: $($nupkg.Name)"
+
+      - name: Publish to Chocolatey Community Repository
+        if: success()
+        shell: pwsh
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+        run: |
+          cd packaging/chocolatey
+          choco push claude-code-proxy.${{ steps.get_version.outputs.VERSION }}.nupkg --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
+
+      - name: Upload package artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chocolatey-package
+          path: packaging/chocolatey/*.nupkg
+          retention-days: 30
+
+  # ============================================================================
+  # Snap Package (Linux)
+  # ============================================================================
+
+  build-snap:
+    needs: [build-package]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for version detection
+
+      - name: Build snap package
+        uses: snapcore/action-build@v1
+        id: build
+
+      - name: Upload snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-package
+          path: ${{ steps.build.outputs.snap }}
+          retention-days: 30
+
+      - name: Publish to Snap Store (stable channel)
+        if: success()
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+
+      - name: Publish to Snap Store (edge channel)
+        if: success() && contains(github.ref, 'beta')
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: edge

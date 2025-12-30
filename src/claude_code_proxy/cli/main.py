@@ -21,7 +21,7 @@ def version_callback(value: bool) -> None:
     """Print version and exit."""
     if value:
         toolkit = get_rich_toolkit()
-        toolkit.print(f"ccproxy {__version__}", tag="version")
+        toolkit.print(f"claude-code-proxy {__version__}", tag="version")
         raise typer.Exit()
 
 

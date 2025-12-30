@@ -517,7 +517,7 @@ class TestHTTPRequestTransformer:
         result = request_transformer._is_openai_request(path, body)
         assert result is False
 
-    @patch("ccproxy.adapters.openai.adapter.OpenAIAdapter")
+    @patch("claude_code_proxy.adapters.openai.adapter.OpenAIAdapter")
     def test_transform_openai_to_anthropic_success(
         self, mock_adapter_class: Any, request_transformer: HTTPRequestTransformer
     ) -> None:
@@ -542,7 +542,7 @@ class TestHTTPRequestTransformer:
         assert result_data["model"] == "claude-3-5-sonnet-20241022"
         assert "max_tokens" in result_data
 
-    @patch("ccproxy.adapters.openai.adapter.OpenAIAdapter")
+    @patch("claude_code_proxy.adapters.openai.adapter.OpenAIAdapter")
     def test_transform_openai_to_anthropic_failure(
         self, mock_adapter_class: Any, request_transformer: HTTPRequestTransformer
     ) -> None:

@@ -151,7 +151,7 @@ def create_docker_configuration(
     image, volumes, environment, command, user_context, additional_args = (
         _create_docker_adapter_from_settings(
             settings,
-            command=["ccproxy", "serve"],
+            command=["claude-code-proxy", "serve"],
             docker_image=docker_image,
             docker_env=[f"{k}={v}" for k, v in docker_env_dict.items()],
             docker_volume=docker_volume,

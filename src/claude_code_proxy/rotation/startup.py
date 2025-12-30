@@ -1,6 +1,6 @@
 """Startup and shutdown helpers for rotation components.
 
-Integrates with ccproxy's lifecycle management.
+Integrates with claude-code-proxy's lifecycle management.
 """
 
 from __future__ import annotations

@@ -425,18 +425,6 @@ class DockerError(CCProxyError):
         )
 
 
-# ============================================================================
-# Legacy Aliases (for backwards compatibility - will be removed)
-# ============================================================================
-
-# These aliases maintain backwards compatibility during migration
-# TODO: Remove these aliases after updating all imports
-
-ProxyError = CCProxyError  # Old name from ccproxy/core/errors.py
-ClaudeProxyError = CCProxyError  # Old name from ccproxy/core/errors.py
-PermissionError = InsufficientPermissionsError  # Renamed to avoid builtin conflict
-
-
 __all__ = [
     # Enums
     "ErrorType",
@@ -486,8 +474,4 @@ __all__ = [
     "SchedulerShutdownError",
     # Docker
     "DockerError",
-    # Legacy aliases (deprecated)
-    "ProxyError",
-    "ClaudeProxyError",
-    "PermissionError",
 ]

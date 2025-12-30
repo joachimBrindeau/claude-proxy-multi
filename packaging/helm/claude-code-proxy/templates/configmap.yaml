@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "claude-code-proxy.fullname" . }}
+  labels:
+    {{- include "claude-code-proxy.labels" . | nindent 4 }}
+data:
+  # Server configuration
+  SERVER__HOST: {{ .Values.env.server.host | quote }}
+  SERVER__PORT: {{ .Values.env.server.port | quote }}
+  SERVER__LOG_LEVEL: {{ .Values.env.server.logLevel | quote }}
+
+  # Multi-account rotation
+  CCPROXY_ACCOUNTS_PATH: {{ .Values.env.rotation.accountsPath | quote }}
+  CCPROXY_ROTATION_ENABLED: {{ .Values.env.rotation.enabled | quote }}
+  CCPROXY_HOT_RELOAD: {{ .Values.env.rotation.hotReload | quote }}
+
+  # Capacity check
+  {{- if .Values.env.capacityCheck.url }}
+  CCPROXY_CAPACITY_CHECK_URL: {{ .Values.env.capacityCheck.url | quote }}
+  {{- end }}
+  {{- if .Values.env.capacityCheck.model }}
+  CCPROXY_CAPACITY_CHECK_MODEL: {{ .Values.env.capacityCheck.model | quote }}
+  {{- end }}
+
+  # OAuth
+  {{- if .Values.env.oauth.redirectUri }}
+  CCPROXY_OAUTH_REDIRECT_URI: {{ .Values.env.oauth.redirectUri | quote }}
+  {{- end }}
+
+  # Debug
+  CCPROXY_VERBOSE_API: {{ .Values.env.debug.verboseApi | quote }}
+  CCPROXY_VERBOSE_STREAMING: {{ .Values.env.debug.verboseStreaming | quote }}
+  CCPROXY_LOG_REQUESTS: {{ .Values.env.debug.logRequests | quote }}
+  {{- if .Values.env.debug.requestLogDir }}
+  CCPROXY_REQUEST_LOG_DIR: {{ .Values.env.debug.requestLogDir | quote }}
+  {{- end }}
