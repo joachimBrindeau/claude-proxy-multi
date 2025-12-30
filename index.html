@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Code Proxy - Multi-Account API Proxy for Claude Code CLI</title>
     <meta name="description" content="Run Claude Code CLI across multiple Anthropic accounts with automatic rotation. Avoid rate limits, manage team usage, and scale your AI-powered development workflow.">
-    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, claude api proxy, anthropic api gateway, claude code proxy server">
+    <meta name="keywords" content="Claude, Claude Code, API proxy, Anthropic, AI coding assistant, rate limiting, multi-account, developer tools, enterprise claude deployment, claude for teams, organization ai proxy">
     <meta name="author" content="Joachim Brindeau">
     <meta name="robots" content="index, follow">
 
@@ -350,6 +350,87 @@
             text-decoration: underline;
         }
 
+
+        .enterprise {
+            padding: 80px 0;
+        }
+
+        .enterprise-intro {
+            max-width: 800px;
+            margin: 0 auto 48px;
+            text-align: center;
+        }
+
+        .enterprise-intro p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            line-height: 1.7;
+        }
+
+        .enterprise-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .enterprise-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+        }
+
+        .enterprise-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .enterprise-card p {
+            color: var(--text-secondary);
+            font-size: 15px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .enterprise-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .enterprise-card li {
+            color: var(--text-secondary);
+            font-size: 14px;
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .enterprise-card li::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            background: var(--success);
+            border-radius: 50%;
+            opacity: 0.2;
+        }
+
+        .enterprise-card li::after {
+            content: "";
+            position: absolute;
+            left: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+        }
+
         @media (max-width: 640px) {
             header {
                 padding: 60px 0 40px;
@@ -498,6 +579,51 @@
                         <h3>CI/CD Integration</h3>
                         <p>Run Claude Code in your CI pipeline without worrying about rate limits during peak build times.</p>
                     </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <section class="enterprise">
+        <div class="container">
+            <h2 class="section-title">Enterprise Claude Deployment</h2>
+            <p class="section-subtitle">Scalable AI infrastructure for organizations of all sizes.</p>
+
+            <div class="enterprise-intro">
+                <p>Whether you're a startup with a growing engineering team or an enterprise organization deploying Claude for teams at scale, Claude Code Proxy provides the infrastructure you need. Our organization AI proxy solution gives you centralized control, usage visibility, and seamless scaling without the complexity of managing individual accounts.</p>
+            </div>
+
+            <div class="enterprise-grid">
+                <div class="enterprise-card">
+                    <h3>Claude for Teams</h3>
+                    <p>Empower your entire development team with shared Claude access. No more individual account management or credential sharing.</p>
+                    <ul>
+                        <li>Single proxy endpoint for all team members</li>
+                        <li>Per-developer usage tracking and analytics</li>
+                        <li>Automatic load balancing across accounts</li>
+                        <li>Zero configuration for end users</li>
+                    </ul>
+                </div>
+                <div class="enterprise-card">
+                    <h3>Organization AI Proxy</h3>
+                    <p>Deploy a centralized AI proxy that your entire organization can rely on. Built for scale, security, and compliance.</p>
+                    <ul>
+                        <li>Self-hosted on your infrastructure</li>
+                        <li>API keys never leave your network</li>
+                        <li>Audit logs for all API requests</li>
+                        <li>Role-based access control ready</li>
+                    </ul>
+                </div>
+                <div class="enterprise-card">
+                    <h3>Enterprise Claude Deployment</h3>
+                    <p>Production-ready deployment options designed for enterprise requirements. From Docker to Kubernetes, we've got you covered.</p>
+                    <ul>
+                        <li>Helm charts for Kubernetes clusters</li>
+                        <li>High availability configurations</li>
+                        <li>Horizontal scaling support</li>
+                        <li>Prometheus metrics integration</li>
+                    </ul>
                 </div>
             </div>
         </div>
