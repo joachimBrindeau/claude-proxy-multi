@@ -51,24 +51,30 @@ source = "vcs"
 
 
 [tool.hatch.build.hooks.vcs]
-version-file = "ccproxy/_version.py"
+version-file = "src/ccproxy/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["ccproxy"]
+packages = ["src/ccproxy"]
 include = [
-    "ccproxy/data/*.json"
+    "src/ccproxy/data/*.json"
 ]
 
 [project.scripts]
-# ccproxy = "ccproxy.cli:app"
 ccproxy = "ccproxy.cli:main"
 ccproxy-api = "ccproxy.cli:main"
 ccproxy-perm = "ccproxy.cli.commands.permission:main"
 
 [dependency-groups]
 dev = [
+  # Type checking
   "mypy>=1.16.1",
+  "pyright>=1.1.400",
+  "types-pyyaml>=6.0.12.20250516",
+  "types-aiofiles>=24.0.0",
+  "types-python-dateutil>=2.9.0.20251115",
+  # Linting and formatting
   "ruff>=0.12.2",
+  # Testing
   "pytest>=7.0.0",
   "pytest-asyncio>=0.23.0",
   "pytest-cov>=4.0.0",
@@ -78,21 +84,27 @@ dev = [
   "pytest-xdist>=3.5.0",
   "pytest-html>=4.1.0",
   "pytest-benchmark>=4.0.0",
-  "tox>=4.27.0",
-  "pre-commit>=4.2.0",
-  "anthropic>=0.57.1",
-  "textual-dev>=1.7.0",
   "pytest-httpx>=0.35.0",
-  "types-pyyaml>=6.0.12.20250516",
-  "types-aiofiles>=24.0.0",
+  "tox>=4.27.0",
+  # Pre-commit and CI
+  "pre-commit>=4.2.0",
+  # Security scanning
   "bandit>=1.9.2",
   "safety>=3.7.0",
+  "pip-audit>=2.10.0",
+  # Code quality analysis
   "vulture>=2.14",
   "radon>=6.0.1",
-  "pip-audit>=2.10.0",
+  "xenon>=0.9.3",
+  "interrogate>=1.7.0",
+  "deptry>=0.23.0",
+  "codespell>=2.4.1",
+  # Dependency management
   "pip-licenses>=5.5.0",
+  # SDK and utilities
+  "anthropic>=0.57.1",
+  "textual-dev>=1.7.0",
   "httpx>=0.28.1",
-  "types-python-dateutil>=2.9.0.20251115",
 ]
 security = [
   "keyring>=25.0.0", # Optional keyring support for secure credential storage
@@ -100,11 +112,12 @@ security = [
 schema = ["pydantic>=2.8.0", "check-jsonschema>=0.33.2"]
 
 [tool.coverage.run]
-source = ["ccproxy", "tests"]
-include = ["ccproxy/*", "tests/*"]
+data_file = ".coverage/coverage"
+source = ["src/ccproxy", "tests"]
+include = ["src/ccproxy/*", "tests/*"]
 omit = [
-  "ccproxy/_version.py",
-  "ccproxy/__main__.py",
+  "src/ccproxy/_version.py",
+  "src/ccproxy/__main__.py",
   "tests/conftest.py",
   "*/migrations/*",
   "*/__pycache__/*",
@@ -137,11 +150,11 @@ exclude_lines = [
 ]
 
 [tool.coverage.html]
-directory = "htmlcov"
+directory = ".coverage/html"
 title = "CCProxy Coverage Report"
 
 [tool.coverage.xml]
-output = "coverage.xml"
+output = ".coverage/coverage.xml"
 
 [tool.ruff]
 target-version = "py311"
@@ -298,11 +311,11 @@ addopts = [
   "--disable-warnings",
   "--tb=short",
   "-v",
-  "--cov=ccproxy",
+  "--cov=src/ccproxy",
   "--cov=tests",
   "--cov-report=term-missing",
-  "--cov-report=html:htmlcov",
-  "--cov-report=xml",
+  "--cov-report=html:.coverage/html",
+  "--cov-report=xml:.coverage/coverage.xml",
   "--cov-branch",
   # "--cov-fail-under=80",
 ]
@@ -370,11 +383,68 @@ timeout_method = "thread"
 [tool.bandit]
 exclude_dirs = ["tests", "docs", "scripts", "examples"]
 skips = [
-  "B101",
-  "B601",
-  "B110",
-  "B113",
-] # Skip assert_used, shell_injection_possible, try_except_pass, request_without_timeout
+  "B101",  # assert_used - asserts are fine in application code
+  "B110",  # try_except_pass - sometimes needed for optional features
+  "B113",  # request_without_timeout - httpx has timeouts by default
+  "B105",  # hardcoded_password_string - too many false positives (URLs, token types)
+  "B311",  # random for non-crypto - used for jitter timing, not security
+  "B404",  # subprocess import - needed for git/claude detection
+  "B603",  # subprocess_without_shell - safer than shell=True
+  "B606",  # start_process_with_no_shell - safer than using shell
+  "B607",  # start_process_with_partial_path - system commands
+  "B108",  # hardcoded_tmp_directory - test mode paths
+]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+include = ["src/ccproxy"]
+exclude = ["**/__pycache__", ".venv", "tests", "examples", "scripts"]
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-module = true
+ignore-nested-functions = true
+ignore-nested-classes = true
+fail-under = 40
+exclude = ["tests", "docs", "scripts", "examples", ".venv"]
+verbose = 0
+quiet = false
+color = true
+
+[tool.deptry]
+exclude = ["tests", "docs", "scripts", "examples", ".venv"]
+ignore = ["DEP002", "DEP003"]  # Ignore missing/transitive deps warnings for now
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["textual", "rich_toolkit"]  # These are correctly installed
+DEP002 = ["tomli"]  # Conditional dependency for Python < 3.11
+
+[tool.codespell]
+skip = ".git,.venv,venv,*.lock,*.json,htmlcov,*.xml,*.html"
+ignore-words-list = "crate,ot,te,nd"
+check-filenames = true
+check-hidden = false
+
+[tool.xenon]
+max-absolute = "B"
+max-modules = "B"
+max-average = "A"
+exclude = ["tests", ".venv"]
+
+[tool.vulture]
+min_confidence = 80
+exclude = ["tests/", ".venv/", "examples/"]
+ignore_names = ["visit_*", "do_*", "setUp", "tearDown"]
 
 [tool.tox]
 legacy_tox_ini = """
@@ -394,6 +464,7 @@ legacy_tox_ini = """
   """
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["ccproxy*"]
 
 [tool.uv]

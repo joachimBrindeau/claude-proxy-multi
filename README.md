@@ -336,7 +336,7 @@ docker run -d -p 8000:8000 -v ccproxy-config:/config \
 **Docker Compose:**
 
 ```yaml
-# docker-compose.yml
+# docker/compose.yaml (or your own compose file)
 services:
   ccproxy:
     image: ghcr.io/joachimbrindeau/ccproxy-multi:latest

@@ -26,7 +26,7 @@ from claude_code_sdk import (
 )
 
 from ccproxy.claude_sdk.client import ClaudeSDKClient
-from ccproxy.core.errors import ClaudeProxyError, ServiceUnavailableError
+from ccproxy.exceptions import CCProxyError, ServiceUnavailableError
 from ccproxy.models import claude_sdk as sdk_models
 
 
@@ -200,7 +200,7 @@ class TestClaudeSDKClientStatelessQueries:
                 "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client_process_error,
             ),
-            pytest.raises(ClaudeProxyError) as exc_info,
+            pytest.raises(CCProxyError) as exc_info,
         ):
             # Create a proper SDKMessage for the test
             from ccproxy.models.claude_sdk import create_sdk_message
@@ -228,7 +228,7 @@ class TestClaudeSDKClientStatelessQueries:
                 "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client_json_decode_error,
             ),
-            pytest.raises(ClaudeProxyError) as exc_info,
+            pytest.raises(CCProxyError) as exc_info,
         ):
             # Create a proper SDKMessage for the test
             from ccproxy.models.claude_sdk import create_sdk_message
@@ -256,7 +256,7 @@ class TestClaudeSDKClientStatelessQueries:
                 "ccproxy.claude_sdk.client.ImportedClaudeSDKClient",
                 return_value=mock_sdk_client_unexpected_error,
             ),
-            pytest.raises(ClaudeProxyError) as exc_info,
+            pytest.raises(CCProxyError) as exc_info,
         ):
             # Create a proper SDKMessage for the test
             from ccproxy.models.claude_sdk import create_sdk_message

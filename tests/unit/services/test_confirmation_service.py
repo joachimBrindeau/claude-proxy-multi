@@ -9,7 +9,7 @@ from ccproxy.api.services.permission_service import (
     PermissionService,
     get_permission_service,
 )
-from ccproxy.core.errors import (
+from ccproxy.exceptions import (
     PermissionNotFoundError,
 )
 from ccproxy.models.permissions import (

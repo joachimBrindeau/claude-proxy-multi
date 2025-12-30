@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ccproxy.auth.exceptions import CredentialsNotFoundError
 from ccproxy.auth.models import ClaudeCredentials, OAuthToken, ValidationResult
 from ccproxy.config.auth import AuthSettings
+from ccproxy.exceptions import CredentialsNotFoundError
 from ccproxy.services.credentials.manager import CredentialsManager
 
 

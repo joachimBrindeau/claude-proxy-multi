@@ -16,9 +16,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import FastAPI
 
-from ccproxy.auth.exceptions import CredentialsNotFoundError
 from ccproxy.config.settings import Settings
-from ccproxy.scheduler.errors import SchedulerError
+from ccproxy.exceptions import CredentialsNotFoundError, SchedulerError
 from ccproxy.utils.startup_helpers import (
     check_claude_cli_startup,
     flush_streaming_batches_shutdown,

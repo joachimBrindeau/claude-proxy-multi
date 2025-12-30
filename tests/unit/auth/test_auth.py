@@ -21,7 +21,14 @@ from ccproxy.auth.dependencies import (
     get_access_token,
     require_auth,
 )
-from ccproxy.auth.exceptions import (
+from ccproxy.auth.manager import AuthManager
+from ccproxy.auth.models import (
+    AccountInfo,
+    ClaudeCredentials,
+    OAuthToken,
+    UserProfile,
+)
+from ccproxy.exceptions import (
     AuthenticationError,
     AuthenticationRequiredError,
     CredentialsError,
@@ -32,13 +39,6 @@ from ccproxy.auth.exceptions import (
     OAuthError,
     OAuthLoginError,
     OAuthTokenRefreshError,
-)
-from ccproxy.auth.manager import AuthManager
-from ccproxy.auth.models import (
-    AccountInfo,
-    ClaudeCredentials,
-    OAuthToken,
-    UserProfile,
 )
 from ccproxy.services.credentials.manager import CredentialsManager
 

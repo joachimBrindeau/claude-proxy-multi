@@ -17,7 +17,7 @@ from claude_code_sdk import (
     ToolUseBlock,
 )
 
-from ccproxy.core.errors import ClaudeProxyError
+from ccproxy.exceptions import CCProxyError
 from ccproxy.models.messages import MessageResponse, TextContentBlock
 from ccproxy.models.requests import Usage
 
@@ -36,7 +36,7 @@ def mock_internal_claude_sdk_service() -> AsyncMock:
     async def mock_create_completion(*args: Any, **kwargs: Any) -> MessageResponse:
         model = kwargs.get("model", "")
         if model not in SUPPORTED_MODELS:
-            raise ClaudeProxyError(
+            raise CCProxyError(
                 message=f"Unsupported model: {model}",
                 error_type="invalid_request_error",
                 status_code=400,
@@ -84,7 +84,7 @@ def mock_internal_claude_sdk_service_unavailable() -> AsyncMock:
     mock_service = AsyncMock()
 
     async def mock_create_completion_error(*args: Any, **kwargs: Any) -> None:
-        raise ClaudeProxyError(
+        raise CCProxyError(
             message="Claude SDK service is currently unavailable",
             error_type="service_unavailable",
             status_code=503,
@@ -150,7 +150,7 @@ def mock_internal_claude_sdk_service_streaming() -> AsyncMock:
         ]
         model = kwargs.get("model", "")
         if model not in SUPPORTED_MODELS:
-            raise ClaudeProxyError(
+            raise CCProxyError(
                 message=f"Unsupported model: {model}",
                 error_type="invalid_request_error",
                 status_code=400,

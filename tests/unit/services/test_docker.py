@@ -307,21 +307,21 @@ class TestDockerValidators:
 
     def test_validate_port_spec_invalid_format(self) -> None:
         """Test port spec validation with invalid format."""
-        from ccproxy.core.errors import DockerError
+        from ccproxy.exceptions import DockerError
 
         with pytest.raises(DockerError, match="Invalid port specification"):
             validate_port_spec("invalid:port:spec:too:many")
 
     def test_validate_port_spec_invalid_port_number(self) -> None:
         """Test port spec validation with invalid port number."""
-        from ccproxy.core.errors import DockerError
+        from ccproxy.exceptions import DockerError
 
         with pytest.raises(DockerError, match="Invalid port numbers"):
             validate_port_spec("99999:80")
 
     def test_validate_port_spec_invalid_port_zero(self) -> None:
         """Test port spec validation with zero port."""
-        from ccproxy.core.errors import DockerError
+        from ccproxy.exceptions import DockerError
 
         with pytest.raises(DockerError, match="Invalid port numbers"):
             validate_port_spec("0:80")

@@ -11,13 +11,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from ccproxy.auth.exceptions import CredentialsNotFoundError
 from ccproxy.auth.models import (
     ClaudeCredentials,
     OAuthToken,
     ValidationResult,
 )
 from ccproxy.cli.commands.auth import app
+from ccproxy.exceptions import CredentialsNotFoundError
 from ccproxy.services.credentials.manager import CredentialsManager
 
 
