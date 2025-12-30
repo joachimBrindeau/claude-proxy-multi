@@ -6,7 +6,7 @@ Install Claude Code Proxy using Docker for the quickest and easiest setup.
 
 **One-line installation**:
 ```bash
-curl -fsSL https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash
+curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash
 ```
 
 That's it! The installer will:
@@ -41,7 +41,7 @@ That's it! The installer will:
 The installer script handles everything automatically:
 
 ```bash
-curl -fsSL https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash
+curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash
 ```
 
 **What it does**:

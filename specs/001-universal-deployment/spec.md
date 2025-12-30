@@ -9,7 +9,7 @@
 
 ### Session 2025-12-30
 
-- Q: How should the installer endpoint at https://joachimbrindeau.github.io/ccproxy-api/install.sh be hosted and managed? → A: GitHub Pages with custom domain (joachimbrindeau.github.io/ccproxy-api/install.sh CNAME to joachimbrindeau.github.io/claude-code-proxy/install.sh) - zero cost, automatic deployment via GitHub Actions
+- Q: How should the installer endpoint at https://joachimbrindeau.github.io/claude-proxy-multi/install.sh be hosted and managed? → A: GitHub Pages with custom domain (joachimbrindeau.github.io/claude-proxy-multi/install.sh CNAME to joachimbrindeau.github.io/claude-code-proxy/install.sh) - zero cost, automatic deployment via GitHub Actions
 - Q: What format should OAuth credentials use for export/import between installation methods? → A: Web UI buttons on /accounts/ page for export (browser download API) and import (browser file upload API) of accounts.json file - uses standard browser APIs to minimize custom code
 
 ## User Scenarios & Testing *(mandatory)*
@@ -24,7 +24,7 @@ A developer wants to try Claude Code Proxy immediately without installing anythi
 
 **Acceptance Scenarios**:
 
-1. **Given** a developer has Docker installed, **When** they run `curl -fsSL https://joachimbrindeau.github.io/ccproxy-api/install.sh | sh`, **Then** the installer detects Docker, downloads the compose file, starts the service, and opens their browser to the accounts page
+1. **Given** a developer has Docker installed, **When** they run `curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | sh`, **Then** the installer detects Docker, downloads the compose file, starts the service, and opens their browser to the accounts page
 2. **Given** a developer does NOT have Docker installed on macOS, **When** they run the installer, **Then** the system offers to install Docker via Homebrew automatically
 3. **Given** a developer does NOT have Docker installed on Linux, **When** they run the installer, **Then** the system provides clear instructions for installing Docker on their distribution
 4. **Given** Claude Code Proxy is already running via Docker, **When** they run the installer again, **Then** the system detects the existing installation and offers to upgrade or restart
@@ -153,7 +153,7 @@ A user without Docker, package managers, or cloud access wants to download a sin
 
 #### Installation & Distribution
 - **FR-001**: System MUST provide a Docker-based installer script at `scripts/install.sh` that detects Docker installation, downloads compose.dist.yaml, starts the service, and opens the browser to the accounts page
-- **FR-002**: System MUST provide a publicly accessible installer endpoint at `https://joachimbrindeau.github.io/ccproxy-api/install.sh` that serves the Docker installer script via curl. The endpoint MUST be hosted on GitHub Pages with a custom domain CNAME pointing to joachimbrindeau.github.io/claude-code-proxy/install.sh, deployed automatically via GitHub Actions
+- **FR-002**: System MUST provide a publicly accessible installer endpoint at `https://joachimbrindeau.github.io/claude-proxy-multi/install.sh` that serves the Docker installer script via curl. The endpoint MUST be hosted on GitHub Pages with a custom domain CNAME pointing to joachimbrindeau.github.io/claude-code-proxy/install.sh, deployed automatically via GitHub Actions
 - **FR-003**: System MUST provide a Homebrew formula in a dedicated tap repository (`joachimbrindeau/homebrew-tap`) that installs Claude Code Proxy with all dependencies using standard Homebrew practices
 - **FR-004**: System MUST provide cloud deployment configurations for Railway (`railway.json`), Render (`render.yaml`), and Fly.io (`fly.toml`) that include persistent storage mounting for OAuth credentials
 - **FR-005**: System MUST provide a Chocolatey package specification (`.nuspec`) that installs Claude Code Proxy on Windows with automatic Windows Service registration
@@ -176,7 +176,7 @@ A user without Docker, package managers, or cloud access wants to download a sin
 - **FR-018**: GitHub Actions MUST build standalone binaries for all 4 platforms (darwin-arm64, darwin-amd64, linux-amd64, windows-amd64) and attach them to GitHub releases
 - **FR-019**: GitHub Actions MUST update Homebrew formula with new release versions and SHA256 checksums automatically using existing Homebrew tap automation
 - **FR-020**: GitHub Actions MUST package and publish Helm charts to GitHub Pages-based chart repository using `helm package` and `helm repo index` commands
-- **FR-021**: GitHub Actions MUST deploy the installer script to GitHub Pages automatically on commits to main branch, making it accessible at https://joachimbrindeau.github.io/ccproxy-api/install.sh via CNAME configuration
+- **FR-021**: GitHub Actions MUST deploy the installer script to GitHub Pages automatically on commits to main branch, making it accessible at https://joachimbrindeau.github.io/claude-proxy-multi/install.sh via CNAME configuration
 
 #### User Experience
 - **FR-022**: Docker installer MUST automatically open the user's default browser to `http://localhost:8000/accounts/` upon successful service start

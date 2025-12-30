@@ -221,7 +221,7 @@ Choose the installation method that fits your environment:
 
 | Method | Best For | Install Time | Auto-Start | Commands |
 |--------|----------|--------------|------------|----------|
-| **[Docker](docs/installation/docker.md)** | Quick setup, cross-platform | ~60 seconds | ✅ Yes | `curl -fsSL https://joachimbrindeau.github.io/ccproxy-api/install.sh \| bash` |
+| **[Docker](docs/installation/docker.md)** | Quick setup, cross-platform | ~60 seconds | ✅ Yes | `curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh \| bash` |
 | **[Homebrew](docs/installation/homebrew.md)** | macOS developers | ~2 minutes | ✅ Service | `brew install joachimbrindeau/claude-code-proxy/claude-code-proxy` |
 | **[Cloud](docs/installation/cloud.md)** | Production deployments | ~3-5 minutes | ✅ Auto-scale | Click deploy button above |
 | **[Windows](docs/installation/windows.md)** | Windows environments | ~3 minutes | ✅ Service | `choco install claude-code-proxy` |

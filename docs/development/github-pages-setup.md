@@ -4,10 +4,10 @@ This document describes how to configure GitHub Pages for hosting the Claude Cod
 
 ## Overview
 
-GitHub Pages will host the installer script at `https://joachimbrindeau.github.io/ccproxy-api/install.sh`, allowing users to install with:
+GitHub Pages will host the installer script at `https://joachimbrindeau.github.io/claude-proxy-multi/install.sh`, allowing users to install with:
 
 ```bash
-curl https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash
+curl https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash
 ```
 
 ## Required Configuration
@@ -22,7 +22,7 @@ curl https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash
 
 ### 2. Configure Custom Domain
 
-1. In the **Custom domain** field, enter: `joachimbrindeau.github.io/ccproxy-api/install.sh`
+1. In the **Custom domain** field, enter: `joachimbrindeau.github.io/claude-proxy-multi/install.sh`
 2. Click **Save**
 3. Wait for DNS check to complete
 4. Enable **Enforce HTTPS** (required for secure installations)
@@ -33,14 +33,14 @@ Configure your DNS provider with the following CNAME record:
 
 ```
 Type:  CNAME
-Name:  joachimbrindeau.github.io/ccproxy-api/install.sh
+Name:  joachimbrindeau.github.io/claude-proxy-multi/install.sh
 Value: joachimbrindeau.github.io
 TTL:   3600 (or default)
 ```
 
 **Verification**:
 ```bash
-dig joachimbrindeau.github.io/ccproxy-api/install.sh CNAME +short
+dig joachimbrindeau.github.io/claude-proxy-multi/install.sh CNAME +short
 # Should return: joachimbrindeau.github.io
 ```
 
@@ -49,7 +49,7 @@ dig joachimbrindeau.github.io/ccproxy-api/install.sh CNAME +short
 GitHub will automatically provision a Let's Encrypt SSL certificate for the custom domain. This may take up to 24 hours.
 
 **Check status** in Settings → Pages:
-- ✅ "Your site is published at https://joachimbrindeau.github.io/ccproxy-api/install.sh"
+- ✅ "Your site is published at https://joachimbrindeau.github.io/claude-proxy-multi/install.sh"
 - ✅ "HTTPS" badge shown
 
 ## Deployment Workflow
@@ -70,7 +70,7 @@ on:
 
 **Process**:
 1. Copies `scripts/install.sh` to `index` (no extension for curl compatibility)
-2. Adds CNAME file with `joachimbrindeau.github.io/ccproxy-api/install.sh`
+2. Adds CNAME file with `joachimbrindeau.github.io/claude-proxy-multi/install.sh`
 3. Deploys to `gh-pages` branch
 4. GitHub Pages serves it at custom domain
 
@@ -80,27 +80,27 @@ After setup, verify the installer is accessible:
 
 ```bash
 # Test with curl
-curl -I https://joachimbrindeau.github.io/ccproxy-api/install.sh
+curl -I https://joachimbrindeau.github.io/claude-proxy-multi/install.sh
 # Should return: HTTP/2 200
 
 # Test content
-curl https://joachimbrindeau.github.io/ccproxy-api/install.sh | head -n 5
+curl https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | head -n 5
 # Should show installer script header
 
 # Test installation (dry-run)
-curl https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash -s -- --help
+curl https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash -s -- --help
 ```
 
 ## Troubleshooting
 
 ### DNS Not Resolving
 
-**Problem**: `dig joachimbrindeau.github.io/ccproxy-api/install.sh` returns no records
+**Problem**: `dig joachimbrindeau.github.io/claude-proxy-multi/install.sh` returns no records
 
 **Solution**:
 1. Verify CNAME record is configured in DNS provider
 2. Wait for DNS propagation (can take up to 48 hours)
-3. Use `nslookup joachimbrindeau.github.io/ccproxy-api/install.sh 8.8.8.8` to test against Google DNS
+3. Use `nslookup joachimbrindeau.github.io/claude-proxy-multi/install.sh 8.8.8.8` to test against Google DNS
 
 ### SSL Certificate Not Provisioning
 
@@ -114,7 +114,7 @@ curl https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash -s -- --hel
 
 ### 404 Not Found
 
-**Problem**: `curl https://joachimbrindeau.github.io/ccproxy-api/install.sh` returns 404
+**Problem**: `curl https://joachimbrindeau.github.io/claude-proxy-multi/install.sh` returns 404
 
 **Solution**:
 1. Verify `gh-pages` branch exists and contains `index` file
@@ -124,11 +124,11 @@ curl https://joachimbrindeau.github.io/ccproxy-api/install.sh | bash -s -- --hel
 ## Repository Settings Checklist
 
 - [ ] GitHub Pages enabled on `gh-pages` branch
-- [ ] Custom domain set to `joachimbrindeau.github.io/ccproxy-api/install.sh`
+- [ ] Custom domain set to `joachimbrindeau.github.io/claude-proxy-multi/install.sh`
 - [ ] DNS CNAME record configured
 - [ ] HTTPS enforced
 - [ ] SSL certificate provisioned (may take 24 hours)
-- [ ] Test `curl https://joachimbrindeau.github.io/ccproxy-api/install.sh` returns installer script
+- [ ] Test `curl https://joachimbrindeau.github.io/claude-proxy-multi/install.sh` returns installer script
 
 ## References
 
