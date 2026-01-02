@@ -354,6 +354,63 @@ class HTTPRequestTransformer(RequestTransformer):
 
         return proxy_headers
 
+    def _is_injected_system_block(self, block: dict[str, Any]) -> bool:
+        """Check if a system block is an injected Claude Code identity block."""
+        text = block.get("text", "")
+        return "Claude Code" in text or "Anthropic's official CLI" in text
+
+    def _count_system_cache_controls(
+        self, system: list[Any], counts: dict[str, int]
+    ) -> None:
+        """Count cache_control blocks in system prompt.
+
+        Args:
+            system: System prompt blocks list
+            counts: Mutable counts dictionary to update
+        """
+        injected_count = 0
+        for i, block in enumerate(system):
+            if not isinstance(block, dict) or "cache_control" not in block:
+                continue
+            if self._is_injected_system_block(block):
+                counts["injected_system"] += 1
+                injected_count = max(injected_count, i + 1)
+            elif i < injected_count:
+                counts["injected_system"] += 1
+            else:
+                counts["user_system"] += 1
+
+    def _count_message_cache_controls(
+        self,
+        messages: list[dict[str, Any]],
+        counts: dict[str, int],
+        early_exit_threshold: int | None,
+    ) -> bool:
+        """Count cache_control blocks in messages.
+
+        Args:
+            messages: List of message dictionaries
+            counts: Mutable counts dictionary to update
+            early_exit_threshold: Threshold for early exit
+
+        Returns:
+            True if early exit threshold was exceeded
+        """
+        for api_message in messages:
+            content = api_message.get("content")
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if isinstance(block, dict) and "cache_control" in block:
+                    counts["messages"] += 1
+                    total = sum(counts.values())
+                    if (
+                        early_exit_threshold is not None
+                        and total > early_exit_threshold
+                    ):
+                        return True
+        return False
+
     def _count_cache_control_blocks(
         self, data: dict[str, Any], early_exit_threshold: int | None = None
     ) -> dict[str, int]:
@@ -370,52 +427,21 @@ class HTTPRequestTransformer(RequestTransformer):
         """
         counts = {"injected_system": 0, "user_system": 0, "messages": 0}
 
-        def _get_total() -> int:
-            return (
-                counts["injected_system"] + counts["user_system"] + counts["messages"]
-            )
-
         # Count in system field
         system = data.get("system")
-        if system:
-            if isinstance(system, str):
-                # String system prompts don't have cache_control
-                pass
-            elif isinstance(system, list):
-                # Count cache_control in system prompt blocks
-                # The first block(s) are injected, rest are user's
-                injected_count = 0
-                for i, block in enumerate(system):
-                    if isinstance(block, dict) and "cache_control" in block:
-                        # Check if this is the injected prompt (contains Claude Code identity)
-                        text = block.get("text", "")
-                        if "Claude Code" in text or "Anthropic's official CLI" in text:
-                            counts["injected_system"] += 1
-                            injected_count = max(injected_count, i + 1)
-                        elif i < injected_count:
-                            # Part of injected system (multiple blocks)
-                            counts["injected_system"] += 1
-                        else:
-                            counts["user_system"] += 1
+        if isinstance(system, list):
+            self._count_system_cache_controls(system, counts)
 
         # Early exit if threshold exceeded after system count
-        if early_exit_threshold is not None and _get_total() > early_exit_threshold:
+        if (
+            early_exit_threshold is not None
+            and sum(counts.values()) > early_exit_threshold
+        ):
             return counts
 
         # Count in messages
         messages = data.get("messages", [])
-        for api_message in messages:
-            content = api_message.get("content")
-            if isinstance(content, list):
-                for block in content:
-                    if isinstance(block, dict) and "cache_control" in block:
-                        counts["messages"] += 1
-                        # Early exit check within messages loop
-                        if (
-                            early_exit_threshold is not None
-                            and _get_total() > early_exit_threshold
-                        ):
-                            return counts
+        self._count_message_cache_controls(messages, counts, early_exit_threshold)
 
         return counts
 

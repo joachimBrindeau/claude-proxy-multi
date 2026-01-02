@@ -28,6 +28,56 @@ class OptionsHandler:
         """
         self.settings = settings
 
+    def _create_options_from_config(
+        self, configured_opts: ClaudeCodeOptions
+    ) -> ClaudeCodeOptions:
+        """Create a new ClaudeCodeOptions from an existing configured instance.
+
+        Args:
+            configured_opts: Existing configured options
+
+        Returns:
+            New ClaudeCodeOptions with copied configuration
+        """
+        mcp_servers = (
+            configured_opts.mcp_servers.copy()
+            if isinstance(configured_opts.mcp_servers, dict)
+            else {}
+        )
+
+        options = ClaudeCodeOptions(
+            mcp_servers=mcp_servers,
+            permission_prompt_tool_name=configured_opts.permission_prompt_tool_name,
+        )
+
+        self._copy_optional_attributes(configured_opts, options)
+        return options
+
+    def _copy_optional_attributes(
+        self, source: ClaudeCodeOptions, target: ClaudeCodeOptions
+    ) -> None:
+        """Copy optional attributes from source to target options.
+
+        Args:
+            source: Source options to copy from
+            target: Target options to copy to
+        """
+        optional_attrs = [
+            ("max_thinking_tokens", int),
+            ("allowed_tools", list),
+            ("disallowed_tools", list),
+            ("cwd", str),
+            ("append_system_prompt", str),
+            ("max_turns", int),
+            ("continue_conversation", bool),
+            ("permission_mode", str),
+        ]
+
+        for attr_name, converter in optional_attrs:
+            value = getattr(source, attr_name, None)
+            if value is not None:
+                setattr(target, attr_name, converter(value))
+
     def create_options(
         self,
         model: str,
@@ -51,57 +101,9 @@ class OptionsHandler:
         """
         # Start with configured defaults if available, otherwise create fresh instance
         if self.settings and self.settings.claude.code_options:
-            # Use the configured options as base - this preserves all default settings
-            # including complex objects like mcp_servers and permission_prompt_tool_name
-            configured_opts = self.settings.claude.code_options
-
-            # Create a new instance with the same configuration
-            # We need to extract the configuration values properly with type safety
-
-            # Extract configuration values with proper types
-            mcp_servers = (
-                configured_opts.mcp_servers.copy()
-                if isinstance(configured_opts.mcp_servers, dict)
-                else {}
+            options = self._create_options_from_config(
+                self.settings.claude.code_options
             )
-            permission_prompt_tool_name = configured_opts.permission_prompt_tool_name
-            max_thinking_tokens = getattr(configured_opts, "max_thinking_tokens", None)
-            allowed_tools = getattr(configured_opts, "allowed_tools", None)
-            disallowed_tools = getattr(configured_opts, "disallowed_tools", None)
-            cwd = getattr(configured_opts, "cwd", None)
-            append_system_prompt = getattr(
-                configured_opts, "append_system_prompt", None
-            )
-            max_turns = getattr(configured_opts, "max_turns", None)
-            continue_conversation = getattr(
-                configured_opts, "continue_conversation", None
-            )
-            permission_mode = getattr(configured_opts, "permission_mode", None)
-
-            # Build ClaudeCodeOptions with proper type handling
-            # Start with a basic instance and set attributes individually for type safety
-            options = ClaudeCodeOptions(
-                mcp_servers=mcp_servers,
-                permission_prompt_tool_name=permission_prompt_tool_name,
-            )
-
-            # Set additional attributes if they exist and are not None
-            if max_thinking_tokens is not None:
-                options.max_thinking_tokens = int(max_thinking_tokens)
-            if allowed_tools is not None:
-                options.allowed_tools = list(allowed_tools)
-            if disallowed_tools is not None:
-                options.disallowed_tools = list(disallowed_tools)
-            if cwd is not None:
-                options.cwd = cwd
-            if append_system_prompt is not None:
-                options.append_system_prompt = append_system_prompt
-            if max_turns is not None:
-                options.max_turns = max_turns
-            if continue_conversation is not None:
-                options.continue_conversation = bool(continue_conversation)
-            if permission_mode is not None:
-                options.permission_mode = permission_mode
         else:
             options = ClaudeCodeOptions()
 
@@ -113,12 +115,8 @@ class OptionsHandler:
             options.system_prompt = system_message
 
         # If session_id is provided via additional_options, enable continue_conversation
-        # This ensures conversation continuity when using session IDs
         if additional_options.get("session_id"):
             options.continue_conversation = True
-
-        # Note: temperature and max_tokens are API-level parameters, not ClaudeCodeOptions parameters
-        # These are handled at the API request level, not in the options object
 
         # Handle additional options as needed
         for key, value in additional_options.items():

@@ -3,9 +3,12 @@
 import asyncio
 import base64
 import hashlib
+import os
 import secrets
+import time
 import urllib.parse
 import webbrowser
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
@@ -27,6 +30,85 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+@dataclass
+class OAuthCallbackResult:
+    """Container for OAuth callback results."""
+
+    authorization_code: str | None = None
+    error: str | None = None
+
+
+def _create_oauth_callback_handler(
+    expected_state: str, result: OAuthCallbackResult
+) -> type[BaseHTTPRequestHandler]:
+    """Create an OAuth callback HTTP request handler.
+
+    Args:
+        expected_state: Expected state parameter for CSRF protection
+        result: Mutable container to store callback results
+
+    Returns:
+        A BaseHTTPRequestHandler subclass for processing OAuth callbacks
+    """
+
+    class OAuthCallbackHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path == "/favicon.ico":
+                self.send_response(404)
+                self.end_headers()
+                return
+
+            parsed_url = urlparse(self.path)
+            query_params = parse_qs(parsed_url.query)
+            received_state = query_params.get("state", [None])[0]
+
+            if received_state != expected_state:
+                result.error = "Invalid state parameter"
+                self._send_error("Invalid state parameter")
+            elif "code" in query_params:
+                result.authorization_code = query_params["code"][0]
+                self._send_success()
+            elif "error" in query_params:
+                result.error = query_params.get("error_description", ["Unknown error"])[
+                    0
+                ]
+                self._send_error(result.error)
+            else:
+                result.error = "No authorization code received"
+                self._send_error("No authorization code received")
+
+        def _send_success(self) -> None:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Login successful! You can close this window.")
+
+        def _send_error(self, message: str | None) -> None:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(f"Error: {message}".encode())
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass  # Suppress HTTP server logs
+
+    return OAuthCallbackHandler
+
+
+def _truncate_error_text(response_text: str) -> str:
+    """Truncate response text for compact error logging.
+
+    Args:
+        response_text: Full response text
+
+    Returns:
+        Truncated text suitable for logging
+    """
+    if len(response_text) > 200:
+        return f"{response_text[:100]}...{response_text[-50:]}"
+    elif len(response_text) > 100:
+        return f"{response_text[:100]}..."
+    return response_text
+
+
 def _log_http_error_compact(operation: str, response: httpx.Response) -> None:
     """Log HTTP error response in compact format.
 
@@ -34,13 +116,9 @@ def _log_http_error_compact(operation: str, response: httpx.Response) -> None:
         operation: Description of the operation that failed
         response: HTTP response object
     """
-    import os
-
-    # Check if verbose API logging is enabled
     verbose_api = os.environ.get("CCPROXY_VERBOSE_API", "false").lower() == "true"
 
     if verbose_api:
-        # Full verbose logging
         logger.error(
             "http_operation_failed",
             operation=operation,
@@ -48,20 +126,11 @@ def _log_http_error_compact(operation: str, response: httpx.Response) -> None:
             response_text=response.text,
         )
     else:
-        # Compact logging - truncate response body
-        response_text = response.text
-        if len(response_text) > 200:
-            response_preview = f"{response_text[:100]}...{response_text[-50:]}"
-        elif len(response_text) > 100:
-            response_preview = f"{response_text[:100]}..."
-        else:
-            response_preview = response_text
-
         logger.error(
             "http_operation_failed_compact",
             operation=operation,
             status_code=response.status_code,
-            response_preview=response_preview,
+            response_preview=_truncate_error_text(response.text),
             verbose_hint="use CCPROXY_VERBOSE_API=true for full response",
         )
 
@@ -286,6 +355,119 @@ class OAuthClient:
             logger.debug("user_profile_fetched", endpoint=self.config.profile_url)
             return UserProfile.model_validate(data)
 
+    def _generate_pkce_sha256(self) -> tuple[str, str]:
+        """Generate PKCE parameters using SHA256.
+
+        Returns:
+            Tuple of (code_verifier, code_challenge)
+        """
+        code_verifier = secrets.token_urlsafe(32)
+        code_challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+            .decode()
+            .rstrip("=")
+        )
+        return code_verifier, code_challenge
+
+    def _build_auth_url(self, state: str, code_challenge: str) -> str:
+        """Build OAuth authorization URL with SHA256 challenge.
+
+        Args:
+            state: CSRF state parameter
+            code_challenge: PKCE code challenge
+
+        Returns:
+            Complete authorization URL
+        """
+        auth_params = {
+            "code": "true",
+            "response_type": "code",
+            "client_id": self.config.client_id,
+            "redirect_uri": self.config.redirect_uri,
+            "scope": " ".join(self.config.scopes),
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+        return f"{self.config.authorize_url}?{urllib.parse.urlencode(auth_params)}"
+
+    async def _wait_for_callback(
+        self, result: OAuthCallbackResult, timeout: float
+    ) -> None:
+        """Wait for OAuth callback with timeout.
+
+        Args:
+            result: Mutable result container
+            timeout: Maximum wait time in seconds
+
+        Raises:
+            OAuthCallbackError: If callback fails or times out
+        """
+        start_time = time.time()
+        while result.authorization_code is None and result.error is None:
+            if time.time() - start_time > timeout:
+                result.error = "Login timeout"
+                break
+            await asyncio.sleep(0.1)
+
+        if result.error:
+            raise OAuthCallbackError(f"OAuth callback failed: {result.error}")
+
+    async def _exchange_tokens(
+        self, authorization_code: str, code_verifier: str
+    ) -> httpx.Response:
+        """Exchange authorization code for tokens.
+
+        Args:
+            authorization_code: Code from OAuth callback
+            code_verifier: PKCE code verifier
+
+        Returns:
+            HTTP response from token endpoint
+        """
+        token_data = {
+            "grant_type": "authorization_code",
+            "code": authorization_code,
+            "redirect_uri": self.config.redirect_uri,
+            "client_id": self.config.client_id,
+            "code_verifier": code_verifier,
+        }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "anthropic-beta": self.config.beta_version,
+            "User-Agent": self.config.user_agent,
+        }
+        async with httpx.AsyncClient() as client:
+            return await client.post(
+                self.config.token_url, headers=headers, data=token_data, timeout=30.0
+            )
+
+    def _parse_token_response(self, response_data: dict[str, Any]) -> ClaudeCredentials:
+        """Parse token response into ClaudeCredentials.
+
+        Args:
+            response_data: JSON response from token endpoint
+
+        Returns:
+            ClaudeCredentials object
+        """
+        expires_in = response_data.get("expires_in")
+        expires_at = None
+        if expires_in:
+            expires_at = int((datetime.now(UTC).timestamp() + expires_in) * 1000)
+
+        scope = response_data.get("scope", "")
+        scopes = scope.split() if scope else self.config.scopes
+
+        oauth_data = {
+            "accessToken": response_data.get("access_token"),
+            "refreshToken": response_data.get("refresh_token"),
+            "expiresAt": expires_at,
+            "scopes": scopes,
+            "subscriptionType": response_data.get("subscription_type", "unknown"),
+        }
+        return ClaudeCredentials(claudeAiOauth=OAuthToken(**oauth_data))
+
     async def login(self) -> ClaudeCredentials:
         """Perform OAuth login flow.
 
@@ -296,194 +478,50 @@ class OAuthClient:
             OAuthLoginError: If login fails
             OAuthCallbackError: If callback processing fails
         """
-        # Generate state parameter for security
         state = secrets.token_urlsafe(32)
+        code_verifier, code_challenge = self._generate_pkce_sha256()
+        callback_result = OAuthCallbackResult()
 
-        # Generate PKCE parameters
-        code_verifier = secrets.token_urlsafe(32)
-        code_challenge = (
-            base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
-            .decode()
-            .rstrip("=")
-        )
-
-        authorization_code = None
-        error = None
-
-        class OAuthCallbackHandler(BaseHTTPRequestHandler):
-            def do_GET(self) -> None:  # noqa: N802
-                nonlocal authorization_code, error
-
-                # Ignore favicon requests
-                if self.path == "/favicon.ico":
-                    self.send_response(404)
-                    self.end_headers()
-                    return
-
-                parsed_url = urlparse(self.path)
-                query_params = parse_qs(parsed_url.query)
-
-                # Check state parameter
-                received_state = query_params.get("state", [None])[0]
-
-                if received_state != state:
-                    error = "Invalid state parameter"
-                    self.send_response(400)
-                    self.end_headers()
-                    self.wfile.write(b"Error: Invalid state parameter")
-                    return
-
-                # Check for authorization code
-                if "code" in query_params:
-                    authorization_code = query_params["code"][0]
-                    self.send_response(200)
-                    self.end_headers()
-                    self.wfile.write(b"Login successful! You can close this window.")
-                elif "error" in query_params:
-                    error = query_params.get("error_description", ["Unknown error"])[0]
-                    self.send_response(400)
-                    self.end_headers()
-                    self.wfile.write(f"Error: {error}".encode())
-                else:
-                    error = "No authorization code received"
-                    self.send_response(400)
-                    self.end_headers()
-                    self.wfile.write(b"Error: No authorization code received")
-
-            def log_message(self, format: str, *args: Any) -> None:
-                # Suppress HTTP server logs
-                pass
-
-        # Start local HTTP server for OAuth callback
-        server = HTTPServer(
-            ("localhost", self.config.callback_port), OAuthCallbackHandler
-        )
-        server_thread = Thread(target=server.serve_forever)
-        server_thread.daemon = True
+        handler_class = _create_oauth_callback_handler(state, callback_result)
+        server = HTTPServer(("localhost", self.config.callback_port), handler_class)
+        server_thread = Thread(target=server.serve_forever, daemon=True)
         server_thread.start()
 
         try:
-            # Build authorization URL
-            auth_params = {
-                "code": "true",  # Required: tells Claude to show code on callback page
-                "response_type": "code",
-                "client_id": self.config.client_id,
-                "redirect_uri": self.config.redirect_uri,
-                "scope": " ".join(self.config.scopes),
-                "state": state,
-                "code_challenge": code_challenge,
-                "code_challenge_method": "S256",
-            }
-
-            auth_url = (
-                f"{self.config.authorize_url}?{urllib.parse.urlencode(auth_params)}"
-            )
-
+            auth_url = self._build_auth_url(state, code_challenge)
             logger.info("oauth_browser_opening", auth_url=auth_url)
             logger.info(
                 "oauth_manual_url",
                 message="If browser doesn't open, visit this URL",
                 auth_url=auth_url,
             )
-
-            # Open browser
             webbrowser.open(auth_url)
 
-            # Wait for callback (with timeout)
-            import time
+            await self._wait_for_callback(callback_result, self.config.callback_timeout)
 
-            start_time = time.time()
-
-            while authorization_code is None and error is None:
-                if time.time() - start_time > self.config.callback_timeout:
-                    error = "Login timeout"
-                    break
-                await asyncio.sleep(0.1)
-
-            if error:
-                raise OAuthCallbackError(f"OAuth callback failed: {error}")
-
-            if not authorization_code:
+            if not callback_result.authorization_code:
                 raise OAuthLoginError("No authorization code received")
 
-            # Exchange authorization code for tokens (form-encoded - standard OAuth 2.0)
-            token_data = {
-                "grant_type": "authorization_code",
-                "code": authorization_code,
-                "redirect_uri": self.config.redirect_uri,
-                "client_id": self.config.client_id,
-                "code_verifier": code_verifier,
-            }
-
-            headers = {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "anthropic-beta": self.config.beta_version,
-                "User-Agent": self.config.user_agent,
-            }
-
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.config.token_url,
-                    headers=headers,
-                    data=token_data,  # form-encoded
-                    timeout=30.0,
-                )
+            response = await self._exchange_tokens(
+                callback_result.authorization_code, code_verifier
+            )
 
             if response.status_code == 200:
-                result = response.json()
-
-                # Calculate expires_at from expires_in
-                expires_in = result.get("expires_in")
-                expires_at = None
-                if expires_in:
-                    expires_at = int(
-                        (datetime.now(UTC).timestamp() + expires_in) * 1000
-                    )
-
-                # Create credentials object
-                oauth_data = {
-                    "accessToken": result.get("access_token"),
-                    "refreshToken": result.get("refresh_token"),
-                    "expiresAt": expires_at,
-                    "scopes": result.get("scope", "").split()
-                    if result.get("scope")
-                    else self.config.scopes,
-                    "subscriptionType": result.get("subscription_type", "unknown"),
-                }
-
-                credentials = ClaudeCredentials(claudeAiOauth=OAuthToken(**oauth_data))
-
+                credentials = self._parse_token_response(response.json())
                 logger.info("oauth_login_completed", client_id=self.config.client_id)
                 return credentials
 
-            else:
-                # Use compact logging for the error message
-                import os
-
-                verbose_api = (
-                    os.environ.get("CCPROXY_VERBOSE_API", "false").lower() == "true"
-                )
-
-                if verbose_api:
-                    error_detail = response.text
-                else:
-                    response_text = response.text
-                    if len(response_text) > 200:
-                        error_detail = f"{response_text[:100]}...{response_text[-50:]}"
-                    elif len(response_text) > 100:
-                        error_detail = f"{response_text[:100]}..."
-                    else:
-                        error_detail = response_text
-
-                raise OAuthLoginError(
-                    f"Token exchange failed: {response.status_code} - {error_detail}"
-                )
+            verbose = os.environ.get("CCPROXY_VERBOSE_API", "false").lower() == "true"
+            error_detail = (
+                response.text if verbose else _truncate_error_text(response.text)
+            )
+            raise OAuthLoginError(
+                f"Token exchange failed: {response.status_code} - {error_detail}"
+            )
 
         except (httpx.HTTPError, httpx.TimeoutException) as e:
-            # HTTP transport errors during OAuth login flow
             raise OAuthLoginError(f"OAuth login failed: {e}") from e
 
         finally:
-            # Stop the HTTP server
             server.shutdown()
             server_thread.join(timeout=1)

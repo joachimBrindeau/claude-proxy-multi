@@ -476,6 +476,45 @@ completion = true
     return taplo_config_path
 
 
+def _run_jsonschema_validation(schema_path: str, config_path: str) -> bool:
+    """Run check-jsonschema validation.
+
+    Args:
+        schema_path: Path to schema file
+        config_path: Path to config file to validate
+
+    Returns:
+        True if validation passes
+
+    Raises:
+        ImportError: If check-jsonschema is not available
+        ValueError: For subprocess errors
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["check-jsonschema", "--schemafile", schema_path, config_path],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0
+    except FileNotFoundError as e:
+        raise ImportError(
+            "check-jsonschema command not found. "
+            "Install with: pip install check-jsonschema"
+        ) from e
+    except (subprocess.SubprocessError, OSError) as e:
+        raise ValueError(f"Validation error: {e}") from e
+
+
+def _cleanup_temp_files(*paths: str) -> None:
+    """Clean up temporary files safely."""
+    for path in paths:
+        Path(path).unlink(missing_ok=True)
+
+
 def validate_config_with_schema(
     config_path: Path, schema_path: Path | None = None
 ) -> bool:
@@ -494,7 +533,6 @@ def validate_config_with_schema(
         tomllib.TOMLDecodeError: If TOML file has invalid syntax
         ValueError: For other validation errors
     """
-    import subprocess
     import tempfile
 
     import orjson
@@ -510,19 +548,17 @@ def validate_config_with_schema(
     if not config_path.exists():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-    # Determine the file type
     suffix = config_path.suffix.lower()
 
     if suffix == ".toml":
-        # Read and parse TOML - let TOML parse errors bubble up
         with config_path.open("rb") as f:
             toml_data = tomllib.load(f)
 
-        # Get or generate schema
-        if schema_path:
-            schema = orjson.loads(schema_path.read_bytes())
-        else:
-            schema = generate_json_schema()
+        schema = (
+            orjson.loads(schema_path.read_bytes())
+            if schema_path
+            else generate_json_schema()
+        )
 
         # Create temporary files for validation
         with tempfile.NamedTemporaryFile(
@@ -538,81 +574,27 @@ def validate_config_with_schema(
             temp_json_path = json_file.name
 
         try:
-            # Use check-jsonschema to validate
-            result = subprocess.run(
-                ["check-jsonschema", "--schemafile", temp_schema_path, temp_json_path],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            # Clean up temporary files
-            Path(temp_schema_path).unlink(missing_ok=True)
-            Path(temp_json_path).unlink(missing_ok=True)
-
-            return result.returncode == 0
-
-        except FileNotFoundError as e:
-            # Clean up temporary files
-            Path(temp_schema_path).unlink(missing_ok=True)
-            Path(temp_json_path).unlink(missing_ok=True)
-            raise ImportError(
-                "check-jsonschema command not found. "
-                "Install with: pip install check-jsonschema"
-            ) from e
-        except (subprocess.SubprocessError, OSError) as e:
-            # Clean up temporary files in case of subprocess or file system errors
-            Path(temp_schema_path).unlink(missing_ok=True)
-            Path(temp_json_path).unlink(missing_ok=True)
-            raise ValueError(f"Validation error: {e}") from e
+            return _run_jsonschema_validation(temp_schema_path, temp_json_path)
+        finally:
+            _cleanup_temp_files(temp_schema_path, temp_json_path)
 
     elif suffix == ".json":
-        # Parse JSON to validate it's well-formed - let JSON parse errors bubble up
-        orjson.loads(config_path.read_bytes())
+        orjson.loads(config_path.read_bytes())  # Validate JSON is well-formed
 
-        # Get or generate schema
         if schema_path:
-            temp_schema_path = str(schema_path)
-            cleanup_schema = False
-        else:
-            schema = generate_json_schema()
-            with tempfile.NamedTemporaryFile(
-                mode="wb", suffix=".json", delete=False
-            ) as schema_file:
-                schema_file.write(orjson.dumps(schema, option=orjson.OPT_INDENT_2))
-                temp_schema_path = schema_file.name
-                cleanup_schema = True
+            return _run_jsonschema_validation(str(schema_path), str(config_path))
+
+        schema = generate_json_schema()
+        with tempfile.NamedTemporaryFile(
+            mode="wb", suffix=".json", delete=False
+        ) as schema_file:
+            schema_file.write(orjson.dumps(schema, option=orjson.OPT_INDENT_2))
+            temp_schema_path = schema_file.name
 
         try:
-            result = subprocess.run(
-                [
-                    "check-jsonschema",
-                    "--schemafile",
-                    temp_schema_path,
-                    str(config_path),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            if cleanup_schema:
-                Path(temp_schema_path).unlink(missing_ok=True)
-
-            return result.returncode == 0
-
-        except FileNotFoundError as e:
-            if cleanup_schema:
-                Path(temp_schema_path).unlink(missing_ok=True)
-            raise ImportError(
-                "check-jsonschema command not found. "
-                "Install with: pip install check-jsonschema"
-            ) from e
-        except (subprocess.SubprocessError, OSError) as e:
-            # Subprocess or file system errors during validation
-            if cleanup_schema:
-                Path(temp_schema_path).unlink(missing_ok=True)
-            raise ValueError(f"Validation error: {e}") from e
+            return _run_jsonschema_validation(temp_schema_path, str(config_path))
+        finally:
+            _cleanup_temp_files(temp_schema_path)
 
     else:
         raise ValueError(

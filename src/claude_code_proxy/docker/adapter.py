@@ -222,6 +222,77 @@ class DockerAdapter:
             ports=ports,
         )
 
+    def _build_docker_run_command(
+        self,
+        image: str,
+        volumes: list[DockerVolume],
+        environment: DockerEnv,
+        command: list[str] | None = None,
+        user_context: DockerUserContext | None = None,
+        entrypoint: str | None = None,
+        ports: list[DockerPortSpec] | None = None,
+    ) -> list[str]:
+        """Build the docker run command list.
+
+        Args:
+            image: Docker image name/tag
+            volumes: Volume mounts
+            environment: Environment variables
+            command: Optional container command
+            user_context: Optional user context
+            entrypoint: Optional custom entrypoint
+            ports: Optional port mappings
+
+        Returns:
+            Complete docker command as list of strings
+        """
+        docker_cmd = ["docker", "run", "--rm", "-it"]
+
+        if user_context and user_context.should_use_user_mapping():
+            docker_user_flag = user_context.get_docker_user_flag()
+            docker_cmd.extend(["--user", docker_user_flag])
+            logger.debug("docker_user_mapping", user_flag=docker_user_flag)
+
+        if entrypoint:
+            docker_cmd.extend(["--entrypoint", entrypoint])
+            logger.debug("docker_custom_entrypoint", entrypoint=entrypoint)
+
+        if ports:
+            for port_spec in ports:
+                validated_port = validate_port_spec(port_spec)
+                docker_cmd.extend(["-p", validated_port])
+                logger.debug("docker_port_mapping", port=validated_port)
+
+        for host_path, container_path in volumes:
+            docker_cmd.extend(["-v", f"{host_path}:{container_path}"])
+
+        for key, value in environment.items():
+            docker_cmd.extend(["-e", f"{key}={value}"])
+
+        docker_cmd.append(image)
+
+        if command:
+            docker_cmd.extend(command)
+
+        return docker_cmd
+
+    def _needs_sudo_sync(self) -> bool:
+        """Check if Docker requires sudo (synchronous version)."""
+        try:
+            subprocess.run(
+                ["docker", "info"], check=True, capture_output=True, text=True
+            )
+            return False
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr or ""
+            return (
+                "permission denied" in stderr.lower()
+                or "dial unix" in stderr.lower()
+                or "connect: permission denied" in stderr.lower()
+            )
+        except (OSError, FileNotFoundError):
+            return False
+
     def exec_container(
         self,
         image: str,
@@ -250,70 +321,17 @@ class DockerAdapter:
             DockerError: If the container fails to execute
             OSError: If the command cannot be executed
         """
-        docker_cmd = ["docker", "run", "--rm", "-it"]
-
-        # Add user context if provided and should be used
-        if user_context and user_context.should_use_user_mapping():
-            docker_user_flag = user_context.get_docker_user_flag()
-            docker_cmd.extend(["--user", docker_user_flag])
-            logger.debug("docker_user_mapping", user_flag=docker_user_flag)
-
-        # Add custom entrypoint if specified
-        if entrypoint:
-            docker_cmd.extend(["--entrypoint", entrypoint])
-            logger.debug("docker_custom_entrypoint", entrypoint=entrypoint)
-
-        # Add port publishing if specified
-        if ports:
-            for port_spec in ports:
-                validated_port = validate_port_spec(port_spec)
-                docker_cmd.extend(["-p", validated_port])
-                logger.debug("docker_port_mapping", port=validated_port)
-
-        # Add volume mounts
-        for host_path, container_path in volumes:
-            docker_cmd.extend(["-v", f"{host_path}:{container_path}"])
-
-        # Add environment variables
-        for key, value in environment.items():
-            docker_cmd.extend(["-e", f"{key}={value}"])
-
-        # Add image
-        docker_cmd.append(image)
-
-        # Add command if specified
-        if command:
-            docker_cmd.extend(command)
-
+        docker_cmd = self._build_docker_run_command(
+            image, volumes, environment, command, user_context, entrypoint, ports
+        )
         cmd_str = " ".join(shlex.quote(arg) for arg in docker_cmd)
         logger.info("docker_execvp", command=cmd_str)
 
         try:
-            # Check if we need sudo (without running the actual command)
-            # Note: We can't use await here since this method replaces the process
-            # Use a simple check instead
-            try:
-                import subprocess
-
-                subprocess.run(
-                    ["docker", "info"], check=True, capture_output=True, text=True
-                )
-                needs_sudo = False
-            except subprocess.CalledProcessError as e:
-                needs_sudo = e.stderr and (
-                    "permission denied" in e.stderr.lower()
-                    or "dial unix" in e.stderr.lower()
-                    or "connect: permission denied" in e.stderr.lower()
-                )
-            except (OSError, FileNotFoundError):
-                # Failed to run docker command
-                needs_sudo = False
-
-            if needs_sudo:
+            if self._needs_sudo_sync():
                 logger.info("docker_using_sudo_for_execution")
                 docker_cmd = ["sudo"] + docker_cmd
 
-            # Replace current process with Docker command
             os.execvp(docker_cmd[0], docker_cmd)
 
         except FileNotFoundError as e:
