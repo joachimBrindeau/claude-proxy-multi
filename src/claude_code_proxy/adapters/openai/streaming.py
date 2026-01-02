@@ -338,6 +338,32 @@ class OpenAIStreamProcessor:
                 # Dict format error
                 yield self._create_chunk_dict(finish_reason="error")
 
+    def _extract_chunk_data(
+        self, chunk: dict[str, Any]
+    ) -> tuple[dict[str, Any], str | None]:
+        """Extract chunk data and type from various formats.
+
+        Handles both Claude SDK and standard Anthropic API formats:
+        - Claude SDK format: {"event": "...", "data": {"type": "..."}}
+        - Anthropic API format: {"type": "...", ...}
+
+        Args:
+            chunk: Raw chunk from the stream
+
+        Returns:
+            Tuple of (chunk_data, chunk_type)
+        """
+        event_type = chunk.get("event")
+        if event_type:
+            # Claude SDK format
+            chunk_data = chunk.get("data", {})
+            chunk_type = chunk_data.get("type")
+        else:
+            # Standard Anthropic API format
+            chunk_data = chunk
+            chunk_type = chunk.get("type")
+        return chunk_data, chunk_type
+
     async def _process_chunk(
         self, chunk: dict[str, Any]
     ) -> AsyncIterator[str | dict[str, Any]]:
@@ -358,37 +384,27 @@ class OpenAIStreamProcessor:
             handle_message_stop,
         )
 
-        # Handle both Claude SDK and standard Anthropic API formats:
-        # Claude SDK format: {"event": "...", "data": {"type": "..."}}
-        # Anthropic API format: {"type": "...", ...}
-        event_type = chunk.get("event")
-        if event_type:
-            # Claude SDK format
-            chunk_data = chunk.get("data", {})
-            chunk_type = chunk_data.get("type")
-        else:
-            # Standard Anthropic API format
-            chunk_data = chunk
-            chunk_type = chunk.get("type")
+        chunk_data, chunk_type = self._extract_chunk_data(chunk)
 
-        # Dispatch to appropriate handler based on chunk type
-        if chunk_type == "message_start":
-            async for output in handle_message_start(self):
+        # Dispatch table for chunk handlers
+        # Handlers that need chunk_data vs those that don't
+        handlers_with_data = {
+            "content_block_start": handle_content_block_start,
+            "content_block_delta": handle_content_block_delta,
+            "message_delta": handle_message_delta,
+        }
+        handlers_without_data = {
+            "message_start": handle_message_start,
+            "content_block_stop": handle_content_block_stop,
+            "message_stop": handle_message_stop,
+        }
+
+        # Dispatch to appropriate handler
+        if chunk_type in handlers_with_data:
+            async for output in handlers_with_data[chunk_type](self, chunk_data):
                 yield output
-        elif chunk_type == "content_block_start":
-            async for output in handle_content_block_start(self, chunk_data):
-                yield output
-        elif chunk_type == "content_block_delta":
-            async for output in handle_content_block_delta(self, chunk_data):
-                yield output
-        elif chunk_type == "content_block_stop":
-            async for output in handle_content_block_stop(self):
-                yield output
-        elif chunk_type == "message_delta":
-            async for output in handle_message_delta(self, chunk_data):
-                yield output
-        elif chunk_type == "message_stop":
-            async for output in handle_message_stop(self):
+        elif chunk_type in handlers_without_data:
+            async for output in handlers_without_data[chunk_type](self):
                 yield output
 
     def _create_chunk_dict(
