@@ -244,38 +244,38 @@ class OpenAIChatCompletionRequest(BaseModel):
 
     @field_validator("model")
     @classmethod
-    def validate_model(cls, v: str) -> str:
+    def validate_model(cls, value: str) -> str:
         """Validate model name - just return as-is like Anthropic endpoint."""
-        return v
+        return value
 
     @field_validator("messages")
     @classmethod
-    def validate_messages(cls, v: list[OpenAIMessage]) -> list[OpenAIMessage]:
+    def validate_messages(cls, messages: list[OpenAIMessage]) -> list[OpenAIMessage]:
         """Validate message structure."""
-        if not v:
+        if not messages:
             raise ValueError("At least one message is required")
-        return v
+        return messages
 
     @field_validator("stop")
     @classmethod
-    def validate_stop(cls, v: str | list[str] | None) -> str | list[str] | None:
+    def validate_stop(cls, value: str | list[str] | None) -> str | list[str] | None:
         """Validate stop sequences."""
-        if v is not None:
-            if isinstance(v, str):
-                return v
-            elif isinstance(v, list):
-                if len(v) > 4:
+        if value is not None:
+            if isinstance(value, str):
+                return value
+            elif isinstance(value, list):
+                if len(value) > 4:
                     raise ValueError("Maximum 4 stop sequences allowed")
-                return v
-        return v
+                return value
+        return value
 
     @field_validator("tools")
     @classmethod
-    def validate_tools(cls, v: list[OpenAITool] | None) -> list[OpenAITool] | None:
+    def validate_tools(cls, tools: list[OpenAITool] | None) -> list[OpenAITool] | None:
         """Validate tools array."""
-        if v is not None and len(v) > 128:
+        if tools is not None and len(tools) > 128:
             raise ValueError("Maximum 128 tools allowed")
-        return v
+        return tools
 
 
 class OpenAIChatCompletionResponse(BaseModel):

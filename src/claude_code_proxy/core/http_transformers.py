@@ -404,8 +404,8 @@ class HTTPRequestTransformer(RequestTransformer):
 
         # Count in messages
         messages = data.get("messages", [])
-        for msg in messages:
-            content = msg.get("content")
+        for api_message in messages:
+            content = api_message.get("content")
             if isinstance(content, list):
                 for block in content:
                     if isinstance(block, dict) and "cache_control" in block:
@@ -433,10 +433,10 @@ class HTTPRequestTransformer(RequestTransformer):
         """
         removed = 0
         messages = data.get("messages", [])
-        for msg in reversed(messages):
+        for api_message in reversed(messages):
             if removed >= to_remove:
                 break
-            content = msg.get("content")
+            content = api_message.get("content")
             if isinstance(content, list):
                 for block in reversed(content):
                     if removed >= to_remove:
@@ -641,7 +641,9 @@ class HTTPRequestTransformer(RequestTransformer):
                     return True
                 # Check for OpenAI message format with system in messages
                 messages = data.get("messages", [])
-                if messages and any(msg.get("role") == "system" for msg in messages):
+                if messages and any(
+                    api_msg.get("role") == "system" for api_msg in messages
+                ):
                     return True
             except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
                 logger.warning(

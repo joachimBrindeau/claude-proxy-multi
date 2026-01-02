@@ -146,7 +146,7 @@ class MessageCreateParams(BaseModel):
 
     @field_validator("model")
     @classmethod
-    def validate_model(cls, v: str) -> str:
+    def validate_model(cls, value: str) -> str:
         """Validate that the model is a supported Claude model."""
         supported_models = {
             "claude-opus-4-20250514",
@@ -165,40 +165,40 @@ class MessageCreateParams(BaseModel):
             "claude-3-haiku",
         }
 
-        if v not in supported_models and not v.startswith("claude-"):
-            raise ValueError(f"Model {v} is not supported")
+        if value not in supported_models and not value.startswith("claude-"):
+            raise ValueError(f"Model {value} is not supported")
 
-        return v
+        return value
 
     @field_validator("messages")
     @classmethod
-    def validate_messages(cls, v: list[Message]) -> list[Message]:
+    def validate_messages(cls, messages: list[Message]) -> list[Message]:
         """Validate message alternation and content."""
-        if not v:
+        if not messages:
             raise ValueError("At least one message is required")
 
         # First message must be from user
-        if v[0].role != "user":
+        if messages[0].role != "user":
             raise ValueError("First message must be from user")
 
         # Check for proper alternation
-        for i in range(1, len(v)):
-            if v[i].role == v[i - 1].role:
+        for i in range(1, len(messages)):
+            if messages[i].role == messages[i - 1].role:
                 raise ValueError("Messages must alternate between user and assistant")
 
-        return v
+        return messages
 
     @field_validator("stop_sequences")
     @classmethod
-    def validate_stop_sequences(cls, v: list[str] | None) -> list[str] | None:
+    def validate_stop_sequences(cls, sequences: list[str] | None) -> list[str] | None:
         """Validate stop sequences."""
-        if v is not None:
-            if len(v) > 4:
+        if sequences is not None:
+            if len(sequences) > 4:
                 raise ValueError("Maximum 4 stop sequences allowed")
-            for seq in v:
+            for seq in sequences:
                 if len(seq) > 100:
                     raise ValueError("Stop sequences must be 100 characters or less")
-        return v
+        return sequences
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 

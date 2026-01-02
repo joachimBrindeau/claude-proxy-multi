@@ -65,14 +65,14 @@ class AccountsImport(BaseModel):
 
     @field_validator("schema_version")
     @classmethod
-    def validate_schema_version(cls, v: str) -> str:
+    def validate_schema_version(cls, value: str) -> str:
         """Validate schema version compatibility."""
         # Currently only supporting version 1.0.0
-        if not v.startswith("1."):
+        if not value.startswith("1."):
             raise ValueError(
-                f"Schema version {v} not compatible with current version 1.0.0"
+                f"Schema version {value} not compatible with current version 1.0.0"
             )
-        return v
+        return value
 
 
 class ImportResult(BaseModel):
