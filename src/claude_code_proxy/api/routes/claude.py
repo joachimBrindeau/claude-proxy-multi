@@ -93,9 +93,11 @@ async def create_openai_chat_completion(
             # Convert non-streaming response to OpenAI format using adapter
             # Convert MessageResponse model to dict for adapter
             # In non-streaming mode, response should always be MessageResponse
-            assert isinstance(response, MessageResponse), (
-                "Non-streaming response must be MessageResponse"
-            )
+            if not isinstance(response, MessageResponse):
+                raise HTTPException(
+                    status_code=500,
+                    detail="Internal error: non-streaming response must be MessageResponse",
+                )
             response_dict = response.model_dump()
             openai_response = adapter.adapt_response(response_dict)
             return OpenAIChatCompletionResponse.model_validate(openai_response)
@@ -185,9 +187,11 @@ async def create_openai_chat_completion_with_session(
             # Convert non-streaming response to OpenAI format using adapter
             # Convert MessageResponse model to dict for adapter
             # In non-streaming mode, response should always be MessageResponse
-            assert isinstance(response, MessageResponse), (
-                "Non-streaming response must be MessageResponse"
-            )
+            if not isinstance(response, MessageResponse):
+                raise HTTPException(
+                    status_code=500,
+                    detail="Internal error: non-streaming response must be MessageResponse",
+                )
             response_dict = response.model_dump()
             openai_response = adapter.adapt_response(response_dict)
             return OpenAIChatCompletionResponse.model_validate(openai_response)

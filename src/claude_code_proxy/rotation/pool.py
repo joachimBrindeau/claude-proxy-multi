@@ -178,7 +178,8 @@ def _try_parse_header(
     value = headers_lower.get(header_name)
     if not value:
         return None
-    return parser(header_name, value) if callable(parser) else parser(value)
+    result = parser(header_name, value) if callable(parser) else parser(value)
+    return int(result) if result is not None else None
 
 
 def _try_parse_retry_after_header(headers_lower: dict[str, str]) -> int | None:

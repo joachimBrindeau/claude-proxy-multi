@@ -3,7 +3,8 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from types import TracebackType
+from typing import TYPE_CHECKING
 
 import httpx
 import orjson
@@ -79,7 +80,12 @@ class CredentialsManager:
             self._http_client = httpx.AsyncClient()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         if self._owns_http_client and self._http_client:
             await self._http_client.aclose()

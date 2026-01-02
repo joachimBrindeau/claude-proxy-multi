@@ -715,7 +715,10 @@ async def complete_oauth(
     flow, error_msg = _validate_oauth_flow_state(state)
     if error_msg:
         return render_page(request, status_message=error_msg)
-    assert flow is not None  # Type narrowing
+    if flow is None:
+        return render_page(
+            request, status_message="OAuth flow state is invalid or expired"
+        )
 
     account_name = flow.account_name
     logger.info(

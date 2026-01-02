@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncIterator
+from types import TracebackType
 from typing import Any
 
 import orjson
@@ -767,6 +768,11 @@ class ClaudeSDKService:
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         await self.close()

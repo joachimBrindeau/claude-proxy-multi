@@ -112,8 +112,9 @@ class SessionPool:
         Returns:
             Session client (possibly new if first chunk timeout)
         """
-        # We know active_stream_handle is not None because we check before calling this
-        assert session_client.active_stream_handle is not None
+        # Validate precondition: active_stream_handle must exist (caller responsibility)
+        if session_client.active_stream_handle is None:
+            raise RuntimeError("Expected active stream handle, but found None")
         old_handle_id = session_client.active_stream_handle.handle_id
 
         if is_first_chunk_timeout:
