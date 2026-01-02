@@ -13,7 +13,7 @@ from claude_code_proxy.core.types import ProxyRequest, ProxyResponse, TransformC
 logger = structlog.get_logger(__name__)
 
 # Claude Code system prompt constants
-claude_code_prompt = "You are Claude Code, Anthropic's official CLI for Claude."
+CLAUDE_CODE_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude."
 
 
 def get_detected_system_field(
@@ -53,7 +53,7 @@ def get_fallback_system_field() -> list[dict[str, Any]]:
     return [
         {
             "type": "text",
-            "text": claude_code_prompt,
+            "text": CLAUDE_CODE_PROMPT,
             "cache_control": {"type": "ephemeral"},
         }
     ]
