@@ -55,15 +55,15 @@ class JsonFileTokenStorage(TokenStorage):
 
             return credentials
 
-        except (orjson.JSONDecodeError, ValueError) as e:
-            # JSON parsing errors or invalid data format
-            raise CredentialsInvalidError(
-                f"Failed to parse credentials file {self.file_path}: {e}"
-            ) from e
         except pydantic.ValidationError as e:
             # Pydantic validation errors when parsing credential data
             raise CredentialsInvalidError(
                 f"Invalid credential data in {self.file_path}: {e}"
+            ) from e
+        except (orjson.JSONDecodeError, ValueError) as e:
+            # JSON parsing errors or invalid data format
+            raise CredentialsInvalidError(
+                f"Failed to parse credentials file {self.file_path}: {e}"
             ) from e
         except (OSError, PermissionError) as e:
             # File system errors: file not readable, permission denied, etc.

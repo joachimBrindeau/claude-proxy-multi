@@ -11,8 +11,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from claude_code_proxy.models.credentials import ClaudeAIOAuth
-from claude_code_proxy.models.user_profile import AccountProfile
+from claude_code_proxy.auth.models import OAuthToken, UserProfile
 
 
 def format_time_remaining(expires_at: datetime) -> str:
@@ -39,8 +38,8 @@ def format_time_remaining(expires_at: datetime) -> str:
 
 def display_account_section(
     console: Console,
-    oauth: ClaudeAIOAuth,
-    profile: AccountProfile | None,
+    oauth: OAuthToken,
+    profile: UserProfile | None,
 ) -> None:
     """Display the account section with login method and profile information.
 
@@ -96,7 +95,7 @@ def display_account_section(
 
 
 def create_credential_details_table(
-    oauth: ClaudeAIOAuth,
+    oauth: OAuthToken,
     cred_file: Path | None,
     has_account_profile: bool,
 ) -> Table:

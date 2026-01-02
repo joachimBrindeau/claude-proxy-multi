@@ -9,9 +9,8 @@ import asyncio
 import httpx
 from structlog import get_logger
 
+from claude_code_proxy.auth.models import ClaudeCredentials, UserProfile
 from claude_code_proxy.exceptions import CredentialsError, OAuthError
-from claude_code_proxy.models.credentials import ClaudeCredentials
-from claude_code_proxy.models.user_profile import AccountProfile
 from claude_code_proxy.services.credentials import CredentialsManager
 
 
@@ -20,7 +19,7 @@ logger = get_logger(__name__)
 
 async def get_or_fetch_profile(
     manager: CredentialsManager,
-) -> AccountProfile | None:
+) -> UserProfile | None:
     """Get saved profile or fetch a fresh one if not available.
 
     This function first tries to load a saved account profile. If that's not available,
@@ -43,7 +42,7 @@ async def get_or_fetch_profile(
 
 async def fetch_and_save_profile(
     manager: CredentialsManager,
-) -> AccountProfile | None:
+) -> UserProfile | None:
     """Fetch a fresh profile from the API and save it.
 
     This function attempts to get a valid access token (refreshing if needed),
@@ -99,7 +98,7 @@ async def reload_credentials_after_refresh(
         return None
 
 
-def get_profile_sync(manager: CredentialsManager) -> AccountProfile | None:
+def get_profile_sync(manager: CredentialsManager) -> UserProfile | None:
     """Synchronous wrapper to get or fetch profile.
 
     Args:

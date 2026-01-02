@@ -13,7 +13,6 @@ Security:
 """
 
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
