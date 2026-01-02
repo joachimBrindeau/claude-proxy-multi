@@ -146,28 +146,28 @@ class Account(BaseModel):
 
     @field_validator("id")
     @classmethod
-    def validate_uuid(cls, v: str) -> str:
+    def validate_uuid(cls, value: str) -> str:
         """Validate that id is a valid UUID v4 format."""
         import uuid
 
         try:
-            uuid_obj = uuid.UUID(v, version=4)
-            if str(uuid_obj) != v:
+            uuid_obj = uuid.UUID(value, version=4)
+            if str(uuid_obj) != value:
                 raise ValueError("Invalid UUID format")
-            return v
+            return value
         except (ValueError, AttributeError) as e:
             raise ValueError(f"Invalid UUID v4: {e}") from e
 
     @field_validator("access_token", "refresh_token")
     @classmethod
-    def validate_token_format(cls, v: str) -> str:
+    def validate_token_format(cls, value: str) -> str:
         """Validate token is non-empty and looks like JWT."""
-        if not v or not v.strip():
+        if not value or not value.strip():
             raise ValueError("Token cannot be empty")
         # JWT tokens have 3 parts separated by dots
-        if v.count(".") != 2:
+        if value.count(".") != 2:
             raise ValueError("Token must be in JWT format (3 parts separated by dots)")
-        return v
+        return value
 
 
 class AccountsExport(BaseModel):
@@ -183,29 +183,31 @@ class AccountsExport(BaseModel):
 
     @field_validator("schema_version")
     @classmethod
-    def validate_schema_version(cls, v: str) -> str:
+    def validate_schema_version(cls, value: str) -> str:
         """Validate schema version is 1.* format."""
-        if not v.startswith("1."):
-            raise ValueError(f"Unsupported schema version: {v} (only 1.* is supported)")
+        if not value.startswith("1."):
+            raise ValueError(
+                f"Unsupported schema version: {value} (only 1.* is supported)"
+            )
         # Basic semver validation (1.x.y)
-        parts = v.split(".")
+        parts = value.split(".")
         if len(parts) != 3:
-            raise ValueError(f"Invalid schema version format: {v} (expected 1.x.y)")
+            raise ValueError(f"Invalid schema version format: {value} (expected 1.x.y)")
         try:
             int(parts[1])  # minor version
             int(parts[2])  # patch version
         except ValueError as e:
-            raise ValueError(f"Invalid schema version: {v}") from e
-        return v
+            raise ValueError(f"Invalid schema version: {value}") from e
+        return value
 
     @field_validator("accounts")
     @classmethod
-    def validate_unique_emails(cls, v: list[Account]) -> list[Account]:
+    def validate_unique_emails(cls, accounts: list[Account]) -> list[Account]:
         """Ensure no duplicate email addresses in export."""
-        emails = [acc.email for acc in v]
+        emails = [acc.email for acc in accounts]
         if len(emails) != len(set(emails)):
             raise ValueError("Duplicate email addresses found in accounts list")
-        return v
+        return accounts
 
 
 class AccountsImport(BaseModel):
@@ -221,28 +223,30 @@ class AccountsImport(BaseModel):
 
     @field_validator("schema_version")
     @classmethod
-    def validate_schema_version(cls, v: str) -> str:
+    def validate_schema_version(cls, value: str) -> str:
         """Validate schema version is 1.* format."""
-        if not v.startswith("1."):
-            raise ValueError(f"Unsupported schema version: {v} (only 1.* is supported)")
-        parts = v.split(".")
+        if not value.startswith("1."):
+            raise ValueError(
+                f"Unsupported schema version: {value} (only 1.* is supported)"
+            )
+        parts = value.split(".")
         if len(parts) != 3:
-            raise ValueError(f"Invalid schema version format: {v} (expected 1.x.y)")
+            raise ValueError(f"Invalid schema version format: {value} (expected 1.x.y)")
         try:
             int(parts[1])
             int(parts[2])
         except ValueError as e:
-            raise ValueError(f"Invalid schema version: {v}") from e
-        return v
+            raise ValueError(f"Invalid schema version: {value}") from e
+        return value
 
     @field_validator("accounts")
     @classmethod
-    def validate_unique_emails(cls, v: list[Account]) -> list[Account]:
+    def validate_unique_emails(cls, accounts: list[Account]) -> list[Account]:
         """Ensure no duplicate email addresses in import."""
-        emails = [acc.email for acc in v]
+        emails = [acc.email for acc in accounts]
         if len(emails) != len(set(emails)):
             raise ValueError("Duplicate email addresses found in accounts list")
-        return v
+        return accounts
 
 
 class ImportResult(BaseModel):

@@ -1,7 +1,8 @@
 """Authentication manager interfaces for centralized auth handling."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol
+from types import TracebackType
+from typing import Protocol
 
 from claude_code_proxy.auth.models import ClaudeCredentials, UserProfile
 
@@ -97,6 +98,11 @@ class BaseAuthManager(ABC):
         return self
 
     @abstractmethod
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         pass

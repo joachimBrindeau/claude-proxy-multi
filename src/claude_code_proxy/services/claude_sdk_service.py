@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncIterator
+from types import TracebackType
 from typing import Any
 
 import orjson
@@ -84,9 +85,9 @@ class ClaudeSDKService:
         """
         # Find the last user message
         last_user_message = None
-        for msg in reversed(messages):
-            if msg.get("role") == "user":
-                last_user_message = msg
+        for api_message in reversed(messages):
+            if api_message.get("role") == "user":
+                last_user_message = api_message
                 break
 
         if not last_user_message:
@@ -320,9 +321,11 @@ class ClaudeSDKService:
 
         # Filter out assistant and result messages
         all_messages = [
-            m
-            for m in sdk_messages
-            if not isinstance(m, sdk_models.AssistantMessage | sdk_models.ResultMessage)
+            msg
+            for msg in sdk_messages
+            if not isinstance(
+                msg, sdk_models.AssistantMessage | sdk_models.ResultMessage
+            )
         ]
 
         for message in all_messages:
@@ -350,14 +353,19 @@ class ClaudeSDKService:
             CCProxyError: If required messages not received
         """
         sdk_messages = []
-        async for m in stream_handle.create_listener():
-            sdk_messages.append(m)
+        async for sdk_message in stream_handle.create_listener():
+            sdk_messages.append(sdk_message)
 
         result_message = next(
-            (m for m in sdk_messages if isinstance(m, sdk_models.ResultMessage)), None
+            (msg for msg in sdk_messages if isinstance(msg, sdk_models.ResultMessage)),
+            None,
         )
         assistant_message = next(
-            (m for m in sdk_messages if isinstance(m, sdk_models.AssistantMessage)),
+            (
+                msg
+                for msg in sdk_messages
+                if isinstance(msg, sdk_models.AssistantMessage)
+            ),
             None,
         )
 
@@ -760,6 +768,11 @@ class ClaudeSDKService:
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         await self.close()

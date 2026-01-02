@@ -13,12 +13,14 @@ Security:
 """
 
 from pathlib import Path
-from typing import Any
 
+import structlog
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
@@ -66,14 +68,14 @@ class AccountsImport(BaseModel):
 
     @field_validator("schema_version")
     @classmethod
-    def validate_schema_version(cls, v: str) -> str:
+    def validate_schema_version(cls, value: str) -> str:
         """Validate schema version compatibility."""
         # Currently only supporting version 1.0.0
-        if not v.startswith("1."):
+        if not value.startswith("1."):
             raise ValueError(
-                f"Schema version {v} not compatible with current version 1.0.0"
+                f"Schema version {value} not compatible with current version 1.0.0"
             )
-        return v
+        return value
 
 
 class ImportResult(BaseModel):
@@ -135,7 +137,8 @@ async def export_accounts() -> JSONResponse:
             }
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - catch-all for file I/O errors
+        logger.error("accounts_export_failed", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to read accounts.json. See server logs for details. Error: {e}",
@@ -230,7 +233,8 @@ async def import_accounts(data: AccountsImport) -> ImportResult:
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - catch-all for file I/O errors
+        logger.error("accounts_import_failed", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to write accounts.json. Error: {e}",

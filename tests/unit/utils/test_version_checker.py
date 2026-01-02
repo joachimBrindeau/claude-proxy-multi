@@ -298,7 +298,7 @@ class TestStateManagement:
 
         assert isinstance(path, Path)
         assert path.name == "version_check.json"
-        assert "claude-code-proxy" in str(path)
+        assert "claude_code_proxy" in str(path)
 
 
 # Integration test for realistic scenario

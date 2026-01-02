@@ -38,19 +38,19 @@ class DockerUserContext(BaseModel):
 
     @field_validator("uid", "gid")
     @classmethod
-    def validate_positive_ids(cls, v: int) -> int:
+    def validate_positive_ids(cls, value: int) -> int:
         """Validate that UID/GID are positive integers."""
-        if v < 0:
+        if value < 0:
             raise ValueError("UID and GID must be non-negative")
-        return v
+        return value
 
     @field_validator("username")
     @classmethod
-    def validate_username(cls, v: str) -> str:
+    def validate_username(cls, value: str) -> str:
         """Validate username is not empty."""
-        if not v or not v.strip():
+        if not value or not value.strip():
             raise ValueError("Username cannot be empty")
-        return v.strip()
+        return value.strip()
 
     @classmethod
     def detect_current_user(

@@ -1,7 +1,6 @@
 """Application lifecycle management helpers."""
 
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from fastapi import FastAPI
 from structlog import get_logger

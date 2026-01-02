@@ -177,8 +177,8 @@ class ClaudeSDKClient:
         # Chain first message with remaining
         async def message_chain() -> AsyncIterator[Any]:
             yield first_message
-            async for msg in remaining_iterator:
-                yield msg
+            async for sdk_response in remaining_iterator:
+                yield sdk_response
 
         # Process messages
         async for converted_message in self._process_message_stream(
@@ -199,19 +199,19 @@ class ClaudeSDKClient:
         """
         sdk_messages = []
 
-        for msg in messages:
-            if msg.get("role") == "user":
+        for api_message in messages:
+            if api_message.get("role") == "user":
                 # Convert content to SDK format
                 content_blocks: list[sdk_models.ContentBlock] = []
 
-                if isinstance(msg.get("content"), str):
+                if isinstance(api_message.get("content"), str):
                     # Simple text content
                     content_blocks.append(
-                        sdk_models.TextBlock(type="text", text=msg["content"])
+                        sdk_models.TextBlock(type="text", text=api_message["content"])
                     )
-                elif isinstance(msg.get("content"), list):
+                elif isinstance(api_message.get("content"), list):
                     # List of content blocks
-                    for block in msg["content"]:
+                    for block in api_message["content"]:
                         if isinstance(block, dict):
                             if block.get("type") == "text":
                                 content_blocks.append(
@@ -370,11 +370,11 @@ class ClaudeSDKClient:
                 await client.connect()
 
                 message_count = 0
-                async for msg in self._execute_with_client(
+                async for sdk_response in self._execute_with_client(
                     client, message, session_id, request_id
                 ):
                     message_count += 1
-                    yield msg
+                    yield sdk_response
 
                 logger.debug(
                     "claude_sdk_query_direct_completed",
@@ -465,9 +465,9 @@ class ClaudeSDKClient:
                             session_client=session_client,
                         )
 
-                        async for msg in stream_iterator:
+                        async for sdk_response in stream_iterator:
                             message_count += 1
-                            yield msg
+                            yield sdk_response
 
                         logger.debug(
                             "claude_sdk_query_session_pool_completed",
@@ -495,8 +495,8 @@ class ClaudeSDKClient:
                             session_client.has_active_stream = False
 
                 # Yield from the wrapped generator
-                async for msg in stream_with_cleanup():
-                    yield msg
+                async for sdk_response in stream_with_cleanup():
+                    yield sdk_response
 
         except StreamTimeoutError:
             raise  # Let service layer handle
@@ -517,8 +517,10 @@ class ClaudeSDKClient:
             )
             # Fall back to direct query
             logger.info("claude_sdk_fallback_to_direct_query", session_id=session_id)
-            async for msg in self._query(message, options, request_id, session_id):
-                yield msg
+            async for sdk_response in self._query(
+                message, options, request_id, session_id
+            ):
+                yield sdk_response
 
     async def _wait_for_first_chunk(
         self,

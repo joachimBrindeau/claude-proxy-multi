@@ -1,6 +1,6 @@
 """Bearer token authentication implementation."""
 
-from typing import Any
+from types import TracebackType
 
 from claude_code_proxy.auth.manager import BaseAuthManager
 from claude_code_proxy.auth.models import ClaudeCredentials, UserProfile
@@ -63,6 +63,11 @@ class BearerTokenAuthManager(BaseAuthManager):
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         pass

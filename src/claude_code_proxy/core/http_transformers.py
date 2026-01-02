@@ -13,7 +13,7 @@ from claude_code_proxy.core.types import ProxyRequest, ProxyResponse, TransformC
 logger = structlog.get_logger(__name__)
 
 # Claude Code system prompt constants
-claude_code_prompt = "You are Claude Code, Anthropic's official CLI for Claude."
+CLAUDE_CODE_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude."
 
 
 def get_detected_system_field(
@@ -53,7 +53,7 @@ def get_fallback_system_field() -> list[dict[str, Any]]:
     return [
         {
             "type": "text",
-            "text": claude_code_prompt,
+            "text": CLAUDE_CODE_PROMPT,
             "cache_control": {"type": "ephemeral"},
         }
     ]
@@ -404,8 +404,8 @@ class HTTPRequestTransformer(RequestTransformer):
 
         # Count in messages
         messages = data.get("messages", [])
-        for msg in messages:
-            content = msg.get("content")
+        for api_message in messages:
+            content = api_message.get("content")
             if isinstance(content, list):
                 for block in content:
                     if isinstance(block, dict) and "cache_control" in block:
@@ -433,10 +433,10 @@ class HTTPRequestTransformer(RequestTransformer):
         """
         removed = 0
         messages = data.get("messages", [])
-        for msg in reversed(messages):
+        for api_message in reversed(messages):
             if removed >= to_remove:
                 break
-            content = msg.get("content")
+            content = api_message.get("content")
             if isinstance(content, list):
                 for block in reversed(content):
                     if removed >= to_remove:
@@ -641,7 +641,9 @@ class HTTPRequestTransformer(RequestTransformer):
                     return True
                 # Check for OpenAI message format with system in messages
                 messages = data.get("messages", [])
-                if messages and any(msg.get("role") == "system" for msg in messages):
+                if messages and any(
+                    api_msg.get("role") == "system" for api_msg in messages
+                ):
                     return True
             except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
                 logger.warning(

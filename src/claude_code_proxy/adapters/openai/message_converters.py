@@ -169,16 +169,16 @@ def convert_messages_dispatcher(
     messages: list[dict[str, Any]] = []
     system_prompt: str | None = None
 
-    for msg in openai_messages:
-        if msg.role in ["system", "developer"]:
-            system_prompt = convert_system_message(msg, system_prompt)
-        elif msg.role in ["user", "assistant"]:
+    for openai_msg in openai_messages:
+        if openai_msg.role in ["system", "developer"]:
+            system_prompt = convert_system_message(openai_msg, system_prompt)
+        elif openai_msg.role in ["user", "assistant"]:
             anthropic_msg = convert_user_or_assistant_message(
-                msg, convert_content_fn, convert_tool_call_fn
+                openai_msg, convert_content_fn, convert_tool_call_fn
             )
             messages.append(anthropic_msg)
-        elif msg.role == "tool":
-            result = convert_tool_message(msg, messages)
+        elif openai_msg.role == "tool":
+            result = convert_tool_message(openai_msg, messages)
             if result is not None:
                 messages.append(result)
 

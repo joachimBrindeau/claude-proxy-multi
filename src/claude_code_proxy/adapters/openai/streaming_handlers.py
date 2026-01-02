@@ -15,6 +15,10 @@ import orjson
 if TYPE_CHECKING:
     from .streaming import OpenAIStreamProcessor
 
+# Type hint helper: ensures async generators have correct return type
+# even when they might not yield on all code paths
+_NEVER_YIELD: bool = False
+
 
 async def handle_message_start(
     processor: OpenAIStreamProcessor,
@@ -30,8 +34,8 @@ async def handle_message_start(
     if not processor.role_sent:
         yield processor._format_chunk_output(delta={"role": "assistant"})
         processor.role_sent = True
-    if False:
-        yield  # type: ignore[unreachable]  # noqa: B009
+    if _NEVER_YIELD:
+        yield {}
 
 
 async def handle_content_block_start(
@@ -128,8 +132,8 @@ async def handle_content_block_start(
             "arguments": "",
         }
 
-    if False:
-        yield  # type: ignore[unreachable]  # noqa: B009
+    if _NEVER_YIELD:
+        yield {}
 
 
 async def handle_content_block_delta(
@@ -175,8 +179,8 @@ async def handle_content_block_delta(
             latest_tool_id = list(processor.tool_calls.keys())[-1]
             processor.tool_calls[latest_tool_id]["arguments"] += partial_json
 
-    if False:
-        yield  # type: ignore[unreachable]  # noqa: B009
+    if _NEVER_YIELD:
+        yield {}
 
 
 async def handle_content_block_stop(
@@ -229,8 +233,8 @@ async def handle_content_block_stop(
                 }
             )
 
-    if False:
-        yield  # type: ignore[unreachable]  # noqa: B009
+    if _NEVER_YIELD:
+        yield {}
 
 
 async def handle_message_delta(
@@ -254,8 +258,8 @@ async def handle_message_delta(
             "total_tokens": usage.get("input_tokens", 0)
             + usage.get("output_tokens", 0),
         }
-    if False:
-        yield  # type: ignore[unreachable]  # noqa: B009
+    if _NEVER_YIELD:
+        yield {}
 
 
 async def handle_message_stop(
@@ -270,5 +274,5 @@ async def handle_message_stop(
         Nothing (handled in main process_stream method)
     """
     # End of message - handled in main process_stream method
-    if False:
-        yield  # type: ignore[unreachable]  # noqa: B009
+    if _NEVER_YIELD:
+        yield {}

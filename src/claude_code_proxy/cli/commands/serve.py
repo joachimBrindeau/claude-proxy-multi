@@ -181,15 +181,6 @@ def _run_local_server(settings: Settings, cli_overrides: dict[str, Any]) -> None
             f"uid={warning(str(os.getuid()))} gid={warning(str(os.getgid()))}"
         )
         toolkit.print(f"HOME={os.environ['HOME']}")
-    # else:
-    #     toolkit.print_title("Starting CCProxy API server", tag="local")
-
-    # toolkit.print(
-    #     f"Server will be available at: http://{settings.server.host}:{settings.server.port}",
-    #     tag="info",
-    # )
-
-    # toolkit.print_line()
 
     # Show API usage information if auth token is configured
     if settings.security.auth_token:
