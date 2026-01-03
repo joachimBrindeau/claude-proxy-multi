@@ -38,6 +38,7 @@ def to_sdk_variant(base_model: BaseModel, sdk_class: type[T]) -> T:
     Example:
         >>> text_block = TextBlock(text="message")
         >>> text_block_sdk = to_sdk_variant(text_block, TextBlockSDK)
+
     """
     return sdk_class.model_validate(base_model.model_dump())
 
@@ -382,6 +383,7 @@ def create_sdk_message(
 
     Returns:
         SDKMessage instance ready to send to Claude SDK
+
     """
     return SDKMessage(
         message=SDKMessageContent(content=content),

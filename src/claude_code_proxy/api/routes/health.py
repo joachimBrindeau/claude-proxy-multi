@@ -67,6 +67,7 @@ async def _check_oauth2_credentials() -> tuple[str, dict[str, Any]]:
     Returns:
         Tuple of (status, details) where status is 'pass'/'fail'/'warn'
         Details include token metadata without exposing sensitive data
+
     """
     try:
         manager = CredentialsManager()
@@ -103,35 +104,34 @@ async def _check_oauth2_credentials() -> tuple[str, dict[str, Any]]:
                 )
 
             return "pass", details
-        else:
-            # Handle expired credentials
-            credentials = validation.credentials
-            oauth_token = credentials.claude_ai_oauth if credentials else None
+        # Handle expired credentials
+        credentials = validation.credentials
+        oauth_token = credentials.claude_ai_oauth if credentials else None
 
-            details = {
-                "auth_status": "expired" if validation.expired else "invalid",
-                "credentials_path": str(validation.path) if validation.path else None,
-            }
+        details = {
+            "auth_status": "expired" if validation.expired else "invalid",
+            "credentials_path": str(validation.path) if validation.path else None,
+        }
 
-            if oauth_token and oauth_token.expires_at_datetime:
-                details.update(
-                    {
-                        "expiration": oauth_token.expires_at_datetime.isoformat(),
-                        "subscription_type": oauth_token.subscription_type,
-                        "expired_hours_ago": str(
-                            int(
-                                (
-                                    datetime.now(UTC) - oauth_token.expires_at_datetime
-                                ).total_seconds()
-                                / 3600
-                            )
+        if oauth_token and oauth_token.expires_at_datetime:
+            details.update(
+                {
+                    "expiration": oauth_token.expires_at_datetime.isoformat(),
+                    "subscription_type": oauth_token.subscription_type,
+                    "expired_hours_ago": str(
+                        int(
+                            (
+                                datetime.now(UTC) - oauth_token.expires_at_datetime
+                            ).total_seconds()
+                            / 3600
                         )
-                        if validation.expired
-                        else None,
-                    }
-                )
+                    )
+                    if validation.expired
+                    else None,
+                }
+            )
 
-            return "warn", details
+        return "warn", details
 
     except CredentialsNotFoundError:
         return "warn", {
@@ -166,6 +166,7 @@ async def check_claude_code() -> tuple[str, dict[str, Any]]:
     Returns:
         Tuple of (status, details) where status is 'pass'/'fail'/'warn'
         Details include CLI version and binary path
+
     """
     cache_key = "cli"
 
@@ -235,22 +236,21 @@ async def check_claude_code() -> tuple[str, dict[str, Any]]:
             )
             _claude_cli_cache[cache_key] = result
             return result
-        else:
-            # Binary exists but --version failed
-            error_output = stderr.decode().strip() if stderr else "Unknown error"
-            result = (
-                "warn",
-                {
-                    "installation_status": "found_with_issues",
-                    "cli_status": "binary_found_but_errors",
-                    "error": f"'claude --version' failed: {error_output}",
-                    "version": None,
-                    "binary_path": claude_path,
-                    "return_code": str(process.returncode),
-                },
-            )
-            _claude_cli_cache[cache_key] = result
-            return result
+        # Binary exists but --version failed
+        error_output = stderr.decode().strip() if stderr else "Unknown error"
+        result = (
+            "warn",
+            {
+                "installation_status": "found_with_issues",
+                "cli_status": "binary_found_but_errors",
+                "error": f"'claude --version' failed: {error_output}",
+                "version": None,
+                "binary_path": claude_path,
+                "return_code": str(process.returncode),
+            },
+        )
+        _claude_cli_cache[cache_key] = result
+        return result
 
     except TimeoutError:
         # Command execution timed out
@@ -287,6 +287,7 @@ async def get_claude_cli_info() -> ClaudeCliInfo:
 
     Returns:
         ClaudeCliInfo: Structured information about Claude CLI installation and status
+
     """
     cli_status, cli_details = await check_claude_code()
 
@@ -318,6 +319,7 @@ async def _check_claude_sdk() -> tuple[str, dict[str, Any]]:
     Returns:
         Tuple of (status, details) where status is 'pass'/'fail'/'warn'
         Details include SDK version and availability
+
     """
     try:
         # Try to import Claude Code SDK
@@ -359,6 +361,7 @@ async def liveness_probe(response: Response) -> dict[str, Any]:
 
     Returns:
         Simple health status following IETF health check format
+
     """
     # Add cache control headers as per best practices
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -382,6 +385,7 @@ async def readiness_probe(response: Response) -> dict[str, Any]:
 
     Returns:
         Readiness status with critical dependency checks
+
     """
     # Add cache control headers
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -469,6 +473,7 @@ async def detailed_health_check(response: Response) -> dict[str, Any]:
 
     Returns:
         Detailed health status following IETF health check format
+
     """
     # Add cache control headers
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"

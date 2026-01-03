@@ -15,6 +15,7 @@ class BearerTokenAuthManager(BaseAuthManager):
 
         Args:
             token: Bearer token string
+
         """
         self.token = token.strip()
         if not self.token:
@@ -28,6 +29,7 @@ class BearerTokenAuthManager(BaseAuthManager):
 
         Raises:
             AuthenticationError: If token is invalid
+
         """
         if not self.token:
             raise AuthenticationError("No bearer token available")
@@ -38,6 +40,7 @@ class BearerTokenAuthManager(BaseAuthManager):
 
         Raises:
             AuthenticationError: Bearer tokens don't support full credentials
+
         """
         raise AuthenticationError(
             "Bearer token authentication doesn't support full credentials"
@@ -48,6 +51,7 @@ class BearerTokenAuthManager(BaseAuthManager):
 
         Returns:
             True if token is available, False otherwise
+
         """
         return bool(self.token)
 
@@ -56,6 +60,7 @@ class BearerTokenAuthManager(BaseAuthManager):
 
         Returns:
             None - bearer tokens don't support user profiles
+
         """
         return None
 
@@ -70,4 +75,3 @@ class BearerTokenAuthManager(BaseAuthManager):
         exc_tb: TracebackType | None,
     ) -> None:
         """Async context manager exit."""
-        pass

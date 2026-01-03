@@ -34,5 +34,6 @@ class SecurityOptions:
 
         Args:
             auth_token: Bearer token for API authentication
+
         """
         self.auth_token = auth_token

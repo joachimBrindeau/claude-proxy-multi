@@ -31,8 +31,6 @@ logger = get_logger(__name__)
 class InvalidAccountsPathError(ValueError):
     """Raised when CCPROXY_ACCOUNTS_PATH is invalid."""
 
-    pass
-
 
 def _validate_accounts_path(path_str: str) -> None:
     """Validate that an accounts path is valid.
@@ -42,6 +40,7 @@ def _validate_accounts_path(path_str: str) -> None:
 
     Raises:
         InvalidAccountsPathError: If path is not absolute or parent doesn't exist
+
     """
     if not path_str.startswith(("/", "~")):
         raise InvalidAccountsPathError(
@@ -66,6 +65,7 @@ def get_accounts_path(*, validate: bool = False) -> Path:
 
     Raises:
         InvalidAccountsPathError: If validate=True and path is invalid
+
     """
     env_path = os.environ.get("CCPROXY_ACCOUNTS_PATH")
 
@@ -86,6 +86,7 @@ def is_rotation_enabled() -> bool:
 
     Returns:
         True if rotation should be enabled
+
     """
     # Check environment variable
     env_enabled = os.environ.get("CCPROXY_ROTATION_ENABLED", "true").lower()
@@ -115,6 +116,7 @@ async def initialize_rotation_pool_startup(app: FastAPI, settings: Settings) -> 
     Args:
         app: FastAPI application
         settings: Application settings
+
     """
     # Check if pool was already created by middleware setup
     existing_pool = getattr(app.state, "rotation_pool", None)
@@ -159,7 +161,7 @@ async def initialize_rotation_pool_startup(app: FastAPI, settings: Settings) -> 
         # OSError: File system errors (permissions, disk full)
         # orjson.JSONDecodeError: Invalid JSON in accounts file
         # ValueError: Invalid account data structure or validation errors
-        logger.error(
+        logger.exception(
             "rotation_pool_init_failed",
             error=str(e),
         )
@@ -175,6 +177,7 @@ async def initialize_refresh_scheduler_startup(
     Args:
         app: FastAPI application
         settings: Application settings
+
     """
     if not getattr(app.state, "rotation_enabled", False):
         app.state.refresh_scheduler = None
@@ -196,7 +199,7 @@ async def initialize_refresh_scheduler_startup(
     except (RuntimeError, ValueError) as e:
         # RuntimeError: Scheduler failed to start (event loop issues)
         # ValueError: Invalid scheduler configuration
-        logger.error(
+        logger.exception(
             "refresh_scheduler_init_failed",
             error=str(e),
         )
@@ -208,6 +211,7 @@ async def shutdown_refresh_scheduler(app: FastAPI) -> None:
 
     Args:
         app: FastAPI application
+
     """
     scheduler = getattr(app.state, "refresh_scheduler", None)
     if scheduler:
@@ -220,6 +224,7 @@ async def shutdown_rotation_pool(app: FastAPI) -> None:
 
     Args:
         app: FastAPI application
+
     """
     pool = getattr(app.state, "rotation_pool", None)
     if pool:
@@ -234,6 +239,7 @@ async def initialize_file_watcher_startup(app: FastAPI, settings: Settings) -> N
     Args:
         app: FastAPI application
         settings: Application settings
+
     """
     if not getattr(app.state, "rotation_enabled", False):
         app.state.file_watcher = None
@@ -272,7 +278,7 @@ async def initialize_file_watcher_startup(app: FastAPI, settings: Settings) -> N
                 # OSError: File read errors during reload
                 # orjson.JSONDecodeError: Invalid JSON in modified accounts file
                 # ValueError: Invalid account data after reload
-                logger.error("accounts_hot_reload_failed", error=str(e))
+                logger.exception("accounts_hot_reload_failed", error=str(e))
 
         watcher = init_file_watcher(accounts_path, on_reload)
         watcher.start()
@@ -287,7 +293,7 @@ async def initialize_file_watcher_startup(app: FastAPI, settings: Settings) -> N
     except (OSError, ValueError) as e:
         # OSError: File system errors when setting up watcher
         # ValueError: Invalid path or configuration
-        logger.error(
+        logger.exception(
             "file_watcher_init_failed",
             error=str(e),
         )
@@ -299,6 +305,7 @@ async def shutdown_file_watcher(app: FastAPI) -> None:
 
     Args:
         app: FastAPI application
+
     """
     watcher = getattr(app.state, "file_watcher", None)
     if watcher:
@@ -314,6 +321,7 @@ def setup_rotation_middleware(app: FastAPI) -> None:
 
     Args:
         app: FastAPI application
+
     """
     # Check if rotation is enabled - this is called before lifespan
     # so we can't check app.state yet. Check via file existence.
@@ -347,4 +355,4 @@ def setup_rotation_middleware(app: FastAPI) -> None:
         # OSError: File system errors reading accounts
         # orjson.JSONDecodeError: Invalid JSON in accounts file
         # ValueError: Invalid account data or middleware configuration
-        logger.error("rotation_middleware_setup_failed", error=str(e))
+        logger.exception("rotation_middleware_setup_failed", error=str(e))

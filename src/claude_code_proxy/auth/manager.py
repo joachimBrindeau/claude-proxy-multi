@@ -18,6 +18,7 @@ class AuthManager(Protocol):
 
         Raises:
             AuthenticationError: If authentication fails
+
         """
         ...
 
@@ -29,6 +30,7 @@ class AuthManager(Protocol):
 
         Raises:
             AuthenticationError: If authentication fails
+
         """
         ...
 
@@ -37,6 +39,7 @@ class AuthManager(Protocol):
 
         Returns:
             True if authenticated, False otherwise
+
         """
         ...
 
@@ -45,6 +48,7 @@ class AuthManager(Protocol):
 
         Returns:
             UserProfile if available, None otherwise
+
         """
         ...
 
@@ -61,8 +65,8 @@ class BaseAuthManager(ABC):
 
         Raises:
             AuthenticationError: If authentication fails
+
         """
-        pass
 
     @abstractmethod
     async def get_credentials(self) -> ClaudeCredentials:
@@ -73,8 +77,8 @@ class BaseAuthManager(ABC):
 
         Raises:
             AuthenticationError: If authentication fails
+
         """
-        pass
 
     @abstractmethod
     async def is_authenticated(self) -> bool:
@@ -82,14 +86,15 @@ class BaseAuthManager(ABC):
 
         Returns:
             True if authenticated, False otherwise
+
         """
-        pass
 
     async def get_user_profile(self) -> UserProfile | None:
         """Get user profile information.
 
         Returns:
             UserProfile if available, None otherwise
+
         """
         return None
 
@@ -105,4 +110,3 @@ class BaseAuthManager(ABC):
         exc_tb: TracebackType | None,
     ) -> None:
         """Async context manager exit."""
-        pass

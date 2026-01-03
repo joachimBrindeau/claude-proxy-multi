@@ -1,10 +1,15 @@
 """CORS configuration settings."""
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class CORSSettings(BaseModel):
-    """CORS-specific configuration settings."""
+    """CORS-specific configuration settings.
+
+    Security Note: When origins contains "*" (wildcard), credentials is automatically
+    set to False to prevent CSRF vulnerabilities. Browsers block credentials with
+    wildcard origins anyway, but we enforce this at the config level for safety.
+    """
 
     origins: list[str] = Field(
         default_factory=lambda: ["*"],
@@ -12,8 +17,8 @@ class CORSSettings(BaseModel):
     )
 
     credentials: bool = Field(
-        default=True,
-        description="CORS allow credentials",
+        default=False,
+        description="CORS allow credentials (automatically disabled for wildcard origins)",
     )
 
     methods: list[str] = Field(
@@ -77,3 +82,16 @@ class CORSSettings(BaseModel):
             # Split comma-separated string
             return [header.strip() for header in v.split(",") if header.strip()]
         return v
+
+    @model_validator(mode="after")
+    def validate_wildcard_credentials(self) -> "CORSSettings":
+        """Ensure credentials are disabled when using wildcard origins.
+
+        This is a security measure to prevent CSRF attacks. Browsers already
+        block credentials with wildcard origins, but we enforce it at config
+        level to make the security posture explicit.
+        """
+        if "*" in self.origins and self.credentials:
+            # Automatically disable credentials for wildcard origins
+            object.__setattr__(self, "credentials", False)
+        return self

@@ -20,6 +20,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         Args:
             app: The ASGI application
+
         """
         super().__init__(app)
 
@@ -34,6 +35,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         Returns:
             The HTTP response
+
         """
         # Generate or extract request ID
         request_id = request.headers.get("x-request-id") or shortuuid.uuid()

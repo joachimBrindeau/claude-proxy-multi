@@ -80,7 +80,7 @@ def _build_headers(config: TokenExchangeConfig) -> dict[str, str]:
 def _handle_error_response(response: httpx.Response, operation: str) -> None:
     """Handle error response and raise TokenExchangeError."""
     error_text = response.text[:500] if len(response.text) > 500 else response.text
-    logger.error(
+    logger.exception(
         f"oauth_{operation}_failed",
         status=response.status_code,
         error=error_text,
@@ -109,6 +109,7 @@ async def exchange_code_async(
 
     Raises:
         TokenExchangeError: If token exchange fails
+
     """
     if config is None:
         config = TokenExchangeConfig()
@@ -157,6 +158,7 @@ def exchange_code_sync(
 
     Raises:
         TokenExchangeError: If token exchange fails
+
     """
     if config is None:
         config = TokenExchangeConfig()
@@ -203,6 +205,7 @@ async def refresh_token_async(
 
     Raises:
         TokenExchangeError: If token refresh fails
+
     """
     if config is None:
         config = TokenExchangeConfig()

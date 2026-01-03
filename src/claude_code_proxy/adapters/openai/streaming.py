@@ -33,6 +33,7 @@ class OpenAISSEFormatter:
 
         Returns:
             Formatted SSE string
+
         """
         json_data = orjson.dumps(data).decode()
         return f"data: {json_data}\n\n"
@@ -51,6 +52,7 @@ class OpenAISSEFormatter:
 
         Returns:
             Formatted SSE string
+
         """
         data = {
             "id": message_id,
@@ -83,6 +85,7 @@ class OpenAISSEFormatter:
 
         Returns:
             Formatted SSE string
+
         """
         data = {
             "id": message_id,
@@ -125,6 +128,7 @@ class OpenAISSEFormatter:
 
         Returns:
             Formatted SSE string
+
         """
         tool_call: dict[str, Any] = {
             "index": tool_call_index,
@@ -176,6 +180,7 @@ class OpenAISSEFormatter:
 
         Returns:
             Formatted SSE string
+
         """
         data = {
             "id": message_id,
@@ -213,6 +218,7 @@ class OpenAISSEFormatter:
 
         Returns:
             Formatted SSE string
+
         """
         data = {
             "id": message_id,
@@ -232,6 +238,7 @@ class OpenAISSEFormatter:
 
         Returns:
             Formatted SSE termination string
+
         """
         return "data: [DONE]\n\n"
 
@@ -257,6 +264,7 @@ class OpenAIStreamProcessor:
             enable_usage: Whether to include usage information
             enable_tool_calls: Whether to process tool calls
             output_format: Output format - "sse" for Server-Sent Events strings, "dict" for dict objects
+
         """
         self.message_id = message_id or generate_openai_response_id()
         self.model = model
@@ -286,6 +294,7 @@ class OpenAIStreamProcessor:
 
         Yields:
             OpenAI-formatted SSE strings or dict objects based on output_format
+
         """
         try:
             chunk_count = 0
@@ -338,6 +347,31 @@ class OpenAIStreamProcessor:
                 # Dict format error
                 yield self._create_chunk_dict(finish_reason="error")
 
+    def _extract_chunk_data(
+        self, chunk: dict[str, Any]
+    ) -> tuple[dict[str, Any], str | None]:
+        """Extract chunk data and type from various formats.
+
+        Handles both Claude SDK and standard Anthropic API formats:
+        - Claude SDK format: {"event": "...", "data": {"type": "..."}}
+        - Anthropic API format: {"type": "...", ...}
+
+        Args:
+            chunk: Raw chunk from the stream
+
+        Returns:
+            Tuple of (chunk_data, chunk_type)
+
+        """
+        event_type = chunk.get("event")
+        if event_type:
+            chunk_data = chunk.get("data", {})
+            chunk_type = chunk_data.get("type")
+        else:
+            chunk_data = chunk
+            chunk_type = chunk.get("type")
+        return chunk_data, chunk_type
+
     async def _process_chunk(
         self, chunk: dict[str, Any]
     ) -> AsyncIterator[str | dict[str, Any]]:
@@ -348,6 +382,7 @@ class OpenAIStreamProcessor:
 
         Yields:
             OpenAI-formatted SSE strings or dict objects based on output_format
+
         """
         from .streaming_handlers import (
             handle_content_block_delta,
@@ -358,37 +393,25 @@ class OpenAIStreamProcessor:
             handle_message_stop,
         )
 
-        # Handle both Claude SDK and standard Anthropic API formats:
-        # Claude SDK format: {"event": "...", "data": {"type": "..."}}
-        # Anthropic API format: {"type": "...", ...}
-        event_type = chunk.get("event")
-        if event_type:
-            # Claude SDK format
-            chunk_data = chunk.get("data", {})
-            chunk_type = chunk_data.get("type")
-        else:
-            # Standard Anthropic API format
-            chunk_data = chunk
-            chunk_type = chunk.get("type")
+        chunk_data, chunk_type = self._extract_chunk_data(chunk)
 
-        # Dispatch to appropriate handler based on chunk type
-        if chunk_type == "message_start":
-            async for output in handle_message_start(self):
+        # Dispatch table pattern - handlers that need chunk_data vs those that don't
+        handlers_with_data = {
+            "content_block_start": handle_content_block_start,
+            "content_block_delta": handle_content_block_delta,
+            "message_delta": handle_message_delta,
+        }
+        handlers_without_data = {
+            "message_start": handle_message_start,
+            "content_block_stop": handle_content_block_stop,
+            "message_stop": handle_message_stop,
+        }
+
+        if chunk_type in handlers_with_data:
+            async for output in handlers_with_data[chunk_type](self, chunk_data):
                 yield output
-        elif chunk_type == "content_block_start":
-            async for output in handle_content_block_start(self, chunk_data):
-                yield output
-        elif chunk_type == "content_block_delta":
-            async for output in handle_content_block_delta(self, chunk_data):
-                yield output
-        elif chunk_type == "content_block_stop":
-            async for output in handle_content_block_stop(self):
-                yield output
-        elif chunk_type == "message_delta":
-            async for output in handle_message_delta(self, chunk_data):
-                yield output
-        elif chunk_type == "message_stop":
-            async for output in handle_message_stop(self):
+        elif chunk_type in handlers_without_data:
+            async for output in handlers_without_data[chunk_type](self):
                 yield output
 
     def _create_chunk_dict(
@@ -406,6 +429,7 @@ class OpenAIStreamProcessor:
 
         Returns:
             OpenAI completion chunk dict
+
         """
         chunk = {
             "id": self.message_id,
@@ -442,48 +466,46 @@ class OpenAIStreamProcessor:
 
         Returns:
             Either SSE string or dict based on output_format
+
         """
         if self.output_format == "dict":
             return self._create_chunk_dict(delta, finish_reason, usage)
-        else:
-            # SSE format
-            if finish_reason:
-                if usage:
-                    return self.formatter.format_final_chunk(
-                        self.message_id,
-                        self.model,
-                        self.created,
-                        finish_reason,
-                        usage=usage,
-                    )
-                else:
-                    return self.formatter.format_final_chunk(
-                        self.message_id, self.model, self.created, finish_reason
-                    )
-            elif delta and delta.get("role"):
-                return self.formatter.format_first_chunk(
-                    self.message_id, self.model, self.created, delta["role"]
-                )
-            elif delta and delta.get("content"):
-                return self.formatter.format_content_chunk(
-                    self.message_id, self.model, self.created, delta["content"]
-                )
-            elif delta and delta.get("tool_calls"):
-                # Handle tool calls
-                tool_call = delta["tool_calls"][0]  # Assume single tool call for now
-                return self.formatter.format_tool_call_chunk(
+        # SSE format
+        if finish_reason:
+            if usage:
+                return self.formatter.format_final_chunk(
                     self.message_id,
                     self.model,
                     self.created,
-                    tool_call["id"],
-                    tool_call.get("function", {}).get("name"),
-                    tool_call.get("function", {}).get("arguments"),
+                    finish_reason,
+                    usage=usage,
                 )
-            else:
-                # Empty delta
-                return self.formatter.format_final_chunk(
-                    self.message_id, self.model, self.created, "stop"
-                )
+            return self.formatter.format_final_chunk(
+                self.message_id, self.model, self.created, finish_reason
+            )
+        if delta and delta.get("role"):
+            return self.formatter.format_first_chunk(
+                self.message_id, self.model, self.created, delta["role"]
+            )
+        if delta and delta.get("content"):
+            return self.formatter.format_content_chunk(
+                self.message_id, self.model, self.created, delta["content"]
+            )
+        if delta and delta.get("tool_calls"):
+            # Handle tool calls
+            tool_call = delta["tool_calls"][0]  # Assume single tool call for now
+            return self.formatter.format_tool_call_chunk(
+                self.message_id,
+                self.model,
+                self.created,
+                tool_call["id"],
+                tool_call.get("function", {}).get("name"),
+                tool_call.get("function", {}).get("arguments"),
+            )
+        # Empty delta
+        return self.formatter.format_final_chunk(
+            self.message_id, self.model, self.created, "stop"
+        )
 
 
 __all__ = [

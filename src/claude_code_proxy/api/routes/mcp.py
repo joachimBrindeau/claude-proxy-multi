@@ -6,7 +6,7 @@ Provides MCP server functionality including permission checking tools.
 from typing import Annotated
 
 from fastapi import FastAPI
-from fastapi_mcp import FastApiMCP  # type: ignore[import-untyped]
+from fastapi_mcp import FastApiMCP
 from pydantic import BaseModel, ConfigDict, Field
 from structlog import get_logger
 
@@ -74,10 +74,10 @@ async def check_permission(
         if status == PermissionStatus.ALLOWED:
             return PermissionToolAllowResponse(updated_input=request.input)
 
-        elif status == PermissionStatus.DENIED:
+        if status == PermissionStatus.DENIED:
             return PermissionToolDenyResponse(message="User denied the operation")
 
-        elif status == PermissionStatus.EXPIRED:
+        if status == PermissionStatus.EXPIRED:
             return PermissionToolDenyResponse(message="Permission request expired")
 
     logger.info(
@@ -104,16 +104,15 @@ async def check_permission(
                 permission_id=permission_id,
             )
             return PermissionToolAllowResponse(updated_input=request.input)
-        else:
-            logger.info(
-                "permission_denied_after_authorization",
-                tool_name=request.tool_name,
-                permission_id=permission_id,
-                status=final_status.value,
-            )
-            return PermissionToolDenyResponse(
-                message=f"User denied the operation (status: {final_status.value})"
-            )
+        logger.info(
+            "permission_denied_after_authorization",
+            tool_name=request.tool_name,
+            permission_id=permission_id,
+            status=final_status.value,
+        )
+        return PermissionToolDenyResponse(
+            message=f"User denied the operation (status: {final_status.value})"
+        )
 
     except TimeoutError:
         logger.warning(
@@ -130,6 +129,7 @@ def setup_mcp(app: FastAPI) -> None:
 
     Args:
         app: The FastAPI application to mount MCP on
+
     """
     # Minimal MCP sub-app without middleware or docs
     mcp_app = FastAPI(

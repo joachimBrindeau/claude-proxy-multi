@@ -3,6 +3,7 @@
 import asyncio
 
 import httpx
+import structlog
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
@@ -13,6 +14,9 @@ from claude_code_proxy.api.routes.helpers import (
 )
 from claude_code_proxy.auth.conditional import ConditionalAuthDep
 from claude_code_proxy.exceptions import CCProxyError
+
+
+logger = structlog.get_logger(__name__)
 
 
 # Create the router for proxy endpoints
@@ -56,13 +60,15 @@ async def create_anthropic_message(
     except asyncio.CancelledError:
         raise
     except (httpx.HTTPError, httpx.ConnectError) as e:
+        # Log detailed error internally, return generic message to client
+        logger.exception("upstream_error", error=str(e), error_type=type(e).__name__)
         raise HTTPException(
-            status_code=502, detail=f"Upstream service error: {str(e)}"
+            status_code=502, detail="Upstream service unavailable"
         ) from e
     except (KeyError, TypeError, ValueError) as e:
-        raise HTTPException(
-            status_code=500, detail=f"Internal server error: {str(e)}"
-        ) from e
+        # Log detailed error internally, return generic message to client
+        logger.exception("internal_error", error=str(e), error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/v1/chat/completions", response_model=None)
@@ -102,10 +108,12 @@ async def create_openai_chat_completion(
     except asyncio.CancelledError:
         raise
     except (httpx.HTTPError, httpx.ConnectError) as e:
+        # Log detailed error internally, return generic message to client
+        logger.exception("upstream_error", error=str(e), error_type=type(e).__name__)
         raise HTTPException(
-            status_code=502, detail=f"Upstream service error: {str(e)}"
+            status_code=502, detail="Upstream service unavailable"
         ) from e
     except (KeyError, TypeError, ValueError) as e:
-        raise HTTPException(
-            status_code=500, detail=f"Internal server error: {str(e)}"
-        ) from e
+        # Log detailed error internally, return generic message to client
+        logger.exception("internal_error", error=str(e), error_type=type(e).__name__)
+        raise HTTPException(status_code=500, detail="Internal server error") from e

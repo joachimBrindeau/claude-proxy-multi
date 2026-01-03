@@ -117,6 +117,7 @@ def get_pool_from_request(request: Request) -> RotationPool:
 
     Raises:
         HTTPException: If pool not available
+
     """
     pool = getattr(request.app.state, "rotation_pool", None)
     if pool is None:
@@ -181,6 +182,7 @@ async def get_account_status(request: Request, name: str) -> AccountStatusRespon
     """Get status of a specific account.
 
     Args:
+        request: FastAPI request object
         name: Account name to query
 
     Returns:
@@ -188,6 +190,7 @@ async def get_account_status(request: Request, name: str) -> AccountStatusRespon
 
     Raises:
         HTTPException: If account not found
+
     """
     pool = get_pool_from_request(request)
     account = pool.get_account(name)
@@ -206,10 +209,12 @@ async def refresh_account_token(request: Request, name: str) -> dict[str, Any]:
     """Manually trigger token refresh for an account.
 
     Args:
+        request: FastAPI request object
         name: Account name to refresh
 
     Returns:
         Result of refresh operation
+
     """
     pool = get_pool_from_request(request)
     account = pool.get_account(name)
@@ -235,11 +240,10 @@ async def refresh_account_token(request: Request, name: str) -> dict[str, Any]:
             "message": f"Token refreshed for account '{name}'",
             "account": name,
         }
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refresh token for account '{name}'",
-        )
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"Failed to refresh token for account '{name}'",
+    )
 
 
 @router.post("/status/accounts/{name}/enable")
@@ -249,10 +253,12 @@ async def enable_account(request: Request, name: str) -> dict[str, Any]:
     Use after resolving auth errors or testing an account.
 
     Args:
+        request: FastAPI request object
         name: Account name to enable
 
     Returns:
         Result of operation
+
     """
     pool = get_pool_from_request(request)
     account = pool.get_account(name)

@@ -87,6 +87,9 @@ dev = [
   "pytest-html>=4.1.0",
   "pytest-benchmark>=4.0.0",
   "pytest-httpx>=0.35.0",
+  "pytest-randomly>=3.16.0",
+  "hypothesis>=6.122.0",
+  "mutmut>=3.2.0",
   "tox>=4.27.0",
   # Pre-commit and CI
   "pre-commit>=4.2.0",
@@ -94,6 +97,8 @@ dev = [
   "bandit>=1.9.2",
   "safety>=3.7.0",
   "pip-audit>=2.10.0",
+  "detect-secrets>=1.5.0",
+  # Note: semgrep conflicts with fastapi-mcp (tomli version mismatch)
   # Code quality analysis
   "vulture>=2.14",
   "radon>=6.0.1",
@@ -101,6 +106,8 @@ dev = [
   "interrogate>=1.7.0",
   "deptry>=0.23.0",
   "codespell>=2.4.1",
+  "tryceratops>=2.4.1",
+  "import-linter>=2.1",
   # Dependency management
   "pip-licenses>=5.5.0",
   # SDK and utilities
@@ -449,6 +456,13 @@ exclude = ["tests", ".venv"]
 min_confidence = 80
 exclude = ["tests/", ".venv/", "examples/"]
 ignore_names = ["visit_*", "do_*", "setUp", "tearDown"]
+
+[tool.tryceratops]
+# TRY300: Style preference for else blocks - too many false positives
+# TRY003: Long exception messages - often necessary for clear error messages
+# TRY301: Re-raise in try blocks - intentional pattern for exception chaining
+ignore = ["TRY300", "TRY003", "TRY301"]
+exclude = ["tests/", ".venv/"]
 
 [tool.tox]
 legacy_tox_ini = """

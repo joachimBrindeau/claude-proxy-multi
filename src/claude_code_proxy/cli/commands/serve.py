@@ -525,8 +525,7 @@ def api(
         ),
     ] = False,
 ) -> None:
-    """
-    Start the CCProxy API server.
+    """Start the CCProxy API server.
 
     This command starts the API server either locally or in Docker.
     The server provides both Anthropic and OpenAI-compatible endpoints.
@@ -541,6 +540,7 @@ def api(
         claude-code-proxy serve --docker --docker-image custom:latest --port 8080
         claude-code-proxy serve --max-thinking-tokens 10000 --allowed-tools Read,Write,Bash
         claude-code-proxy serve --port 8080 --workers 4
+
     """
     try:
         # Early logging - use basic print until logging is configured
@@ -792,8 +792,7 @@ def claude(
         ),
     ] = None,
 ) -> None:
-    """
-    Execute claude CLI commands directly.
+    """Execute claude CLI commands directly.
 
     This is a simple pass-through to the claude CLI executable
     found by the settings system or run from docker image.
@@ -805,6 +804,7 @@ def claude(
         claude-code-proxy claude --docker -- --version
         claude-code-proxy claude --docker --docker-image custom:latest -- --version
         claude-code-proxy claude --docker --docker-env API_KEY=sk-... --docker-volume ./data:/data -- chat
+
     """
     # Handle None args case
     if args is None:
@@ -900,11 +900,11 @@ def claude(
                 raise typer.Exit(1) from e
 
     except ConfigurationError as e:
-        logger.error("cli_configuration_error", error=str(e), command="claude")
+        logger.exception("cli_configuration_error", error=str(e), command="claude")
         toolkit.print(f"Configuration error: {e}", tag="error")
         raise typer.Exit(1) from e
     except OSError as e:
         # File system errors (already handled OSError from execvp separately above)
-        logger.error("cli_unexpected_error", error=str(e), command="claude")
+        logger.exception("cli_unexpected_error", error=str(e), command="claude")
         toolkit.print(f"Error executing claude command: {e}", tag="error")
         raise typer.Exit(1) from e

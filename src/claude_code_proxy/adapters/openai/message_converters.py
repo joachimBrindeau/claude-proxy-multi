@@ -24,6 +24,7 @@ def convert_system_message(msg: Any, current_system_prompt: str | None) -> str:
 
     Returns:
         Updated system prompt
+
     """
     if isinstance(msg.content, str):
         new_content = msg.content
@@ -61,6 +62,7 @@ def convert_user_or_assistant_message(
 
     Returns:
         Anthropic format message
+
     """
     anthropic_msg = {
         "role": msg.role,
@@ -90,6 +92,7 @@ def _add_tool_calls_to_message(
 
     Returns:
         Updated message with tool calls
+
     """
     # Ensure content is a list
     if isinstance(anthropic_msg["content"], str):
@@ -116,6 +119,7 @@ def convert_tool_message(
 
     Returns:
         New message dict or None if appended to existing message
+
     """
     tool_result = {
         "type": "tool_result",
@@ -143,6 +147,7 @@ def _append_tool_result_to_last_message(
     Args:
         messages: Messages list to modify
         tool_result: Tool result to append
+
     """
     if isinstance(messages[-1]["content"], str):
         messages[-1]["content"] = [{"type": "text", "text": messages[-1]["content"]}]
@@ -165,6 +170,7 @@ def convert_messages_dispatcher(
 
     Returns:
         Tuple of (anthropic messages, system prompt)
+
     """
     messages: list[dict[str, Any]] = []
     system_prompt: str | None = None
@@ -221,6 +227,7 @@ def _format_result_message(source: str, data: dict[str, Any]) -> str:
 
     Returns:
         Formatted message string
+
     """
     session_id = data.get("session_id", "")
     stop_reason = data.get("stop_reason", "")
@@ -239,6 +246,7 @@ def handle_tool_use_sdk(
 
     Returns:
         Formatted tool call
+
     """
     tool_call_block = {
         "type": "tool_use",
@@ -257,6 +265,7 @@ def handle_tool_result_sdk(block: dict[str, Any]) -> str:
 
     Returns:
         Formatted result string
+
     """
     source = block.get("source", "claude_code_sdk")
     tool_use_id = block.get("tool_use_id", "")
@@ -277,6 +286,7 @@ def convert_content_blocks_dispatcher(
 
     Returns:
         Tuple of (content string, tool calls list)
+
     """
     content = ""
     tool_calls: list[Any] = []

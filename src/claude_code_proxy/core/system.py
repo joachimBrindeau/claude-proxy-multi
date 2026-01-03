@@ -8,6 +8,7 @@ def get_xdg_config_home() -> Path:
 
     Returns:
         Path to the user config directory (cross-platform).
+
     """
     return Path(platformdirs.user_config_dir())
 
@@ -17,6 +18,7 @@ def get_xdg_data_home() -> Path:
 
     Returns:
         Path to the user data directory (cross-platform).
+
     """
     return Path(platformdirs.user_data_dir())
 
@@ -26,5 +28,6 @@ def get_xdg_cache_home() -> Path:
 
     Returns:
         Path to the user cache directory (cross-platform).
+
     """
     return Path(platformdirs.user_cache_dir())

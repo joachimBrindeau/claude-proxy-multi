@@ -39,6 +39,7 @@ def get_package_dir() -> Path:
 
     Returns:
         Path to the package directory
+
     """
     try:
         import importlib.util
@@ -63,6 +64,7 @@ def get_root_package_name() -> str:
 
     Returns:
         The root package name
+
     """
     if __package__:
         return __package__.split(".")[0]
@@ -79,6 +81,7 @@ async def run_in_executor(func: Callable[..., T], *args: Any, **kwargs: Any) -> 
 
     Returns:
         The result of the function call
+
     """
     loop = asyncio.get_event_loop()
 
@@ -100,6 +103,7 @@ async def safe_await(awaitable: Awaitable[T], timeout: float | None = None) -> T
 
     Returns:
         The result of the awaitable or None if timeout/error
+
     """
     try:
         if timeout is not None:
@@ -125,6 +129,7 @@ async def gather_with_concurrency(
 
     Returns:
         List of results from the awaitables
+
     """
     semaphore = asyncio.Semaphore(limit)
 
@@ -135,8 +140,7 @@ async def gather_with_concurrency(
     limited_awaitables = [_limited_awaitable(aw) for aw in awaitables]
     if return_exceptions:
         return await asyncio.gather(*limited_awaitables, return_exceptions=True)
-    else:
-        return await asyncio.gather(*limited_awaitables)
+    return await asyncio.gather(*limited_awaitables)
 
 
 @asynccontextmanager
@@ -145,6 +149,7 @@ async def async_timer() -> AsyncIterator[Callable[[], float]]:
 
     Yields:
         Function that returns elapsed time in seconds
+
     """
     import time
 
@@ -170,6 +175,7 @@ async def wait_for_condition(
 
     Returns:
         True if condition was met, False if timeout occurred
+
     """
     start_time = asyncio.get_event_loop().time()
 
@@ -220,6 +226,7 @@ async def async_cache_result(
     Note:
         For optimal performance with varying TTLs, consider using the
         @cached_async decorator directly with a custom TTLCache instance.
+
     """
     # Check if we have a cached result
     if cache_key in _default_cache:
@@ -235,7 +242,7 @@ async def async_cache_result(
 def cached_async(
     maxsize: int = 100, ttl: float = 300.0
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
-    """Decorator to cache async function results using cachetools.TTLCache.
+    """Cache async function results using cachetools.TTLCache.
 
     This provides a cleaner alternative to async_cache_result for new code.
 
@@ -251,6 +258,7 @@ def cached_async(
         async def expensive_operation(param: str) -> dict:
             # ... expensive async operation
             return result
+
     """
     cache: TTLCache[tuple[Any, ...], Any] = TTLCache(maxsize=maxsize, ttl=ttl)
 
@@ -274,8 +282,7 @@ def cached_async(
 
 
 def parse_version(version_string: str) -> tuple[int, int, int, str]:
-    """
-    Parse version string into components using packaging.version.
+    """Parse version string into components using packaging.version.
 
     Handles various formats:
     - 1.2.3
@@ -288,6 +295,7 @@ def parse_version(version_string: str) -> tuple[int, int, int, str]:
 
     Returns:
         Tuple of (major, minor, patch, suffix)
+
     """
     try:
         v = Version(version_string)
@@ -343,35 +351,35 @@ def format_version(version: str, level: str) -> str:
 
     Raises:
         ValueError: If level is unknown
+
     """
     major, minor, patch, suffix = parse_version(version)
     base_version = f"{major}.{minor}.{patch}"
 
     if level == "major":
         return str(major)
-    elif level == "minor":
+    if level == "minor":
         return f"{major}.{minor}"
-    elif level == "patch" or level == "full":
+    if level == "patch" or level == "full":
         if suffix:
             return f"{base_version}-{suffix}"
         return base_version
-    elif level == "docker":
+    if level == "docker":
         # Docker-compatible version (no + characters)
         if suffix:
             return f"{base_version}-{suffix}"
         return f"{major}.{minor}"
-    elif level == "npm":
+    if level == "npm":
         # NPM-compatible version
         if suffix:
             return f"{base_version}-{suffix}.0"
         return base_version
-    elif level == "python":
+    if level == "python":
         # Python-compatible version
         if suffix:
             return f"{base_version}.{suffix}0"
         return base_version
-    else:
-        raise ValueError(f"Unknown version level: {level}")
+    raise ValueError(f"Unknown version level: {level}")
 
 
 def get_claude_docker_home_dir() -> str:
@@ -379,6 +387,7 @@ def get_claude_docker_home_dir() -> str:
 
     Returns:
         Path to Claude Docker home directory
+
     """
     import platformdirs
 
@@ -400,6 +409,7 @@ def generate_schema_files(output_dir: Path | None = None) -> list[Path]:
     Raises:
         ImportError: If required dependencies are not available
         OSError: If unable to write files
+
     """
     if output_dir is None:
         output_dir = Path.cwd()
@@ -434,6 +444,7 @@ def generate_taplo_config(output_dir: Path | None = None) -> Path:
 
     Raises:
         OSError: If unable to write file
+
     """
     if output_dir is None:
         output_dir = Path.cwd()
@@ -493,131 +504,164 @@ def validate_config_with_schema(
         FileNotFoundError: If config file doesn't exist
         tomllib.TOMLDecodeError: If TOML file has invalid syntax
         ValueError: For other validation errors
+
     """
-    import subprocess
-    import tempfile
-
     import orjson
-
-    # Import tomllib for Python 3.11+ or fallback to tomli
-    try:
-        import tomllib
-    except ImportError:
-        import tomli as tomllib  # type: ignore[no-redef]
 
     config_path = Path(config_path)
 
     if not config_path.exists():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-    # Determine the file type
     suffix = config_path.suffix.lower()
 
     if suffix == ".toml":
-        # Read and parse TOML - let TOML parse errors bubble up
-        with config_path.open("rb") as f:
-            toml_data = tomllib.load(f)
-
-        # Get or generate schema
-        if schema_path:
-            schema = orjson.loads(schema_path.read_bytes())
-        else:
-            schema = generate_json_schema()
-
-        # Create temporary files for validation
-        with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=".json", delete=False
-        ) as schema_file:
-            schema_file.write(orjson.dumps(schema, option=orjson.OPT_INDENT_2))
-            temp_schema_path = schema_file.name
-
-        with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=".json", delete=False
-        ) as json_file:
-            json_file.write(orjson.dumps(toml_data, option=orjson.OPT_INDENT_2))
-            temp_json_path = json_file.name
-
-        try:
-            # Use check-jsonschema to validate
-            result = subprocess.run(
-                ["check-jsonschema", "--schemafile", temp_schema_path, temp_json_path],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            # Clean up temporary files
-            Path(temp_schema_path).unlink(missing_ok=True)
-            Path(temp_json_path).unlink(missing_ok=True)
-
-            return result.returncode == 0
-
-        except FileNotFoundError as e:
-            # Clean up temporary files
-            Path(temp_schema_path).unlink(missing_ok=True)
-            Path(temp_json_path).unlink(missing_ok=True)
-            raise ImportError(
-                "check-jsonschema command not found. "
-                "Install with: pip install check-jsonschema"
-            ) from e
-        except (subprocess.SubprocessError, OSError) as e:
-            # Clean up temporary files in case of subprocess or file system errors
-            Path(temp_schema_path).unlink(missing_ok=True)
-            Path(temp_json_path).unlink(missing_ok=True)
-            raise ValueError(f"Validation error: {e}") from e
-
+        return _validate_toml_config(config_path, schema_path)
     elif suffix == ".json":
-        # Parse JSON to validate it's well-formed - let JSON parse errors bubble up
+        # Parse JSON to validate it's well-formed
         orjson.loads(config_path.read_bytes())
-
-        # Get or generate schema
-        if schema_path:
-            temp_schema_path = str(schema_path)
-            cleanup_schema = False
-        else:
-            schema = generate_json_schema()
-            with tempfile.NamedTemporaryFile(
-                mode="wb", suffix=".json", delete=False
-            ) as schema_file:
-                schema_file.write(orjson.dumps(schema, option=orjson.OPT_INDENT_2))
-                temp_schema_path = schema_file.name
-                cleanup_schema = True
-
-        try:
-            result = subprocess.run(
-                [
-                    "check-jsonschema",
-                    "--schemafile",
-                    temp_schema_path,
-                    str(config_path),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            if cleanup_schema:
-                Path(temp_schema_path).unlink(missing_ok=True)
-
-            return result.returncode == 0
-
-        except FileNotFoundError as e:
-            if cleanup_schema:
-                Path(temp_schema_path).unlink(missing_ok=True)
-            raise ImportError(
-                "check-jsonschema command not found. "
-                "Install with: pip install check-jsonschema"
-            ) from e
-        except (subprocess.SubprocessError, OSError) as e:
-            # Subprocess or file system errors during validation
-            if cleanup_schema:
-                Path(temp_schema_path).unlink(missing_ok=True)
-            raise ValueError(f"Validation error: {e}") from e
-
+        return _validate_json_config(config_path, schema_path)
     else:
         raise ValueError(
             f"Unsupported config file format: {suffix}. Only TOML (.toml) files are supported."
         )
+
+
+def _validate_toml_config(config_path: Path, schema_path: Path | None) -> bool:
+    """Validate a TOML config file against schema.
+
+    Args:
+        config_path: Path to TOML configuration file
+        schema_path: Optional path to schema file
+
+    Returns:
+        True if validation passes, False otherwise
+
+    """
+    import orjson
+
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    with config_path.open("rb") as f:
+        toml_data = tomllib.load(f)
+
+    schema = orjson.loads(schema_path.read_bytes()) if schema_path else generate_json_schema()
+
+    # Create temp files and run validation with cleanup
+    temp_schema_path, temp_json_path = _create_temp_validation_files(schema, toml_data)
+    return _run_validation_with_cleanup(temp_schema_path, temp_json_path)
+
+
+def _create_temp_validation_files(
+    schema: dict[str, Any], data: dict[str, Any]
+) -> tuple[Path, Path]:
+    """Create temporary files for JSON schema validation.
+
+    Args:
+        schema: JSON schema dictionary
+        data: Data to validate
+
+    Returns:
+        Tuple of (schema_path, data_path)
+
+    """
+    import tempfile
+
+    import orjson
+
+    with tempfile.NamedTemporaryFile(mode="wb", suffix=".json", delete=False) as schema_file:
+        schema_file.write(orjson.dumps(schema, option=orjson.OPT_INDENT_2))
+        temp_schema_path = Path(schema_file.name)
+
+    with tempfile.NamedTemporaryFile(mode="wb", suffix=".json", delete=False) as json_file:
+        json_file.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
+        temp_json_path = Path(json_file.name)
+
+    return temp_schema_path, temp_json_path
+
+
+def _run_validation_with_cleanup(schema_path: Path, config_path: Path) -> bool:
+    """Run validation and clean up temp files.
+
+    Args:
+        schema_path: Path to schema file (will be deleted)
+        config_path: Path to config file (will be deleted)
+
+    Returns:
+        True if validation passes, False otherwise
+
+    """
+    try:
+        return _run_jsonschema_validation(schema_path, config_path)
+    finally:
+        schema_path.unlink(missing_ok=True)
+        config_path.unlink(missing_ok=True)
+
+
+def _validate_json_config(config_path: Path, schema_path: Path | None) -> bool:
+    """Validate a JSON config file against schema.
+
+    Args:
+        config_path: Path to JSON configuration file
+        schema_path: Optional path to schema file
+
+    Returns:
+        True if validation passes, False otherwise
+
+    """
+    import tempfile
+
+    import orjson
+
+    if schema_path:
+        return _run_jsonschema_validation(schema_path, config_path)
+
+    # Generate temporary schema file
+    schema = generate_json_schema()
+    with tempfile.NamedTemporaryFile(mode="wb", suffix=".json", delete=False) as schema_file:
+        schema_file.write(orjson.dumps(schema, option=orjson.OPT_INDENT_2))
+        temp_schema_path = Path(schema_file.name)
+
+    try:
+        return _run_jsonschema_validation(temp_schema_path, config_path)
+    finally:
+        temp_schema_path.unlink(missing_ok=True)
+
+
+def _run_jsonschema_validation(schema_path: Path, config_path: Path) -> bool:
+    """Run check-jsonschema validation.
+
+    Args:
+        schema_path: Path to JSON schema file
+        config_path: Path to config file to validate
+
+    Returns:
+        True if validation passes, False otherwise
+
+    Raises:
+        ImportError: If check-jsonschema is not available
+        ValueError: For subprocess or OS errors
+
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["check-jsonschema", "--schemafile", str(schema_path), str(config_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0
+    except FileNotFoundError as e:
+        raise ImportError(
+            "check-jsonschema command not found. Install with: pip install check-jsonschema"
+        ) from e
+    except (subprocess.SubprocessError, OSError) as e:
+        raise ValueError(f"Validation error: {e}") from e
 
 
 def generate_json_schema() -> dict[str, Any]:
@@ -628,6 +672,7 @@ def generate_json_schema() -> dict[str, Any]:
 
     Raises:
         ImportError: If required dependencies are not available
+
     """
     try:
         from claude_code_proxy.config.settings import Settings
@@ -667,6 +712,7 @@ def save_schema_file(schema: dict[str, Any], output_path: Path) -> None:
 
     Raises:
         OSError: If unable to write file
+
     """
     import orjson
 

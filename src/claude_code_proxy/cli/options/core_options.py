@@ -21,5 +21,6 @@ class CoreOptions:
 
         Args:
             config: Path to configuration file
+
         """
         self.config = config

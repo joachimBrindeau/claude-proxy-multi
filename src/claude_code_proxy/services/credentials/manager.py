@@ -55,6 +55,7 @@ class CredentialsManager:
             storage: Storage backend (uses JSON file storage if not provided)
             oauth_client: OAuth client (creates one if not provided)
             http_client: HTTP client for OAuth operations
+
         """
         # Lazy import to avoid circular dependency
         if config is None:
@@ -112,6 +113,7 @@ class CredentialsManager:
 
         Returns:
             Path to credentials file if found, None otherwise
+
         """
         for path_str in self.config.storage.storage_paths:
             path = Path(path_str).expanduser()
@@ -119,8 +121,7 @@ class CredentialsManager:
             if path.exists() and path.is_file():
                 logger.info("credentials_file_found", path=str(path))
                 return path
-            else:
-                logger.debug("credentials_path_not_found", path=str(path))
+            logger.debug("credentials_path_not_found", path=str(path))
 
         logger.warning(
             "no_credentials_files_found",
@@ -133,6 +134,7 @@ class CredentialsManager:
 
         Returns:
             Credentials if found and valid, None otherwise
+
         """
         try:
             return await self.storage.load()
@@ -143,7 +145,7 @@ class CredentialsManager:
             pydantic.ValidationError,
         ) as e:
             # Storage errors, file I/O issues, JSON parsing failures, or invalid credential format
-            logger.error("credentials_load_failed", error=str(e))
+            logger.exception("credentials_load_failed", error=str(e))
             return None
 
     async def save(self, credentials: ClaudeCredentials) -> bool:
@@ -154,12 +156,13 @@ class CredentialsManager:
 
         Returns:
             True if saved successfully, False otherwise
+
         """
         try:
             return await self.storage.save(credentials)
         except (CredentialsStorageError, OSError, orjson.JSONDecodeError) as e:
             # Storage errors, file I/O issues, or JSON serialization failures
-            logger.error("credentials_save_failed", error=str(e))
+            logger.exception("credentials_save_failed", error=str(e))
             return False
 
     # ==================== OAuth Operations ====================
@@ -172,6 +175,7 @@ class CredentialsManager:
 
         Raises:
             OAuthLoginError: If login fails
+
         """
         if self._oauth_client is None:
             raise RuntimeError("OAuth client not initialized")
@@ -213,6 +217,7 @@ class CredentialsManager:
         Raises:
             CredentialsNotFoundError: If no credentials found
             CredentialsExpiredError: If credentials expired and refresh fails
+
         """
         credentials = await self.load()
         if not credentials:
@@ -245,7 +250,7 @@ class CredentialsManager:
                         )
                     except (OAuthTokenRefreshError, httpx.HTTPError, ValueError) as e:
                         # Token refresh failed due to OAuth, network, or validation errors
-                        logger.error(
+                        logger.exception(
                             "token_refresh_failed", error=str(e), exc_info=True
                         )
                         if oauth_token.is_expired:
@@ -269,6 +274,7 @@ class CredentialsManager:
         Raises:
             CredentialsNotFoundError: If no credentials found
             CredentialsExpiredError: If credentials expired and refresh fails
+
         """
         credentials = await self.get_valid_credentials()
         return credentials.claude_ai_oauth.access_token
@@ -287,6 +293,7 @@ class CredentialsManager:
             RuntimeError: If OAuth client not initialized
             ValueError: If no refresh token available
             Exception: If token refresh fails
+
         """
         credentials = await self.load()
         if not credentials:
@@ -300,6 +307,7 @@ class CredentialsManager:
 
         Returns:
             UserProfile if successful, None otherwise
+
         """
         try:
             credentials = await self.get_valid_credentials()
@@ -316,7 +324,7 @@ class CredentialsManager:
             httpx.HTTPError,
         ) as e:
             # OAuth errors, missing/expired credentials, or network failures
-            logger.error(
+            logger.exception(
                 "user_profile_fetch_failed",
                 error=str(e),
                 exc_info=True,
@@ -328,6 +336,7 @@ class CredentialsManager:
 
         Returns:
             UserProfile if available, None otherwise
+
         """
         return await self._load_account_profile()
 
@@ -341,11 +350,12 @@ class CredentialsManager:
 
         Raises:
             CredentialsNotFoundError: If no credentials are found or storage fails
+
         """
         try:
             credentials = await self.load()
         except Exception as e:  # noqa: BLE001 - catch-all to convert storage errors to CredentialsNotFoundError
-            logger.error("credentials_load_exception", error=str(e), exc_info=True)
+            logger.exception("credentials_load_exception", error=str(e))
             raise CredentialsNotFoundError(
                 "No credentials found. Please login first."
             ) from e
@@ -365,6 +375,7 @@ class CredentialsManager:
 
         Returns:
             True if deleted successfully, False otherwise
+
         """
         try:
             # Delete both credentials and account profile
@@ -373,7 +384,7 @@ class CredentialsManager:
             return success
         except (CredentialsStorageError, OSError) as e:
             # Storage errors or file I/O issues during deletion
-            logger.error("credentials_delete_failed", error=str(e), exc_info=True)
+            logger.exception("credentials_delete_failed", error=str(e))
             return False
 
     # ==================== Private Helper Methods ====================
@@ -383,6 +394,7 @@ class CredentialsManager:
 
         Returns:
             Path to account.json file alongside credentials
+
         """
         # Use the same directory as credentials file but with account.json name
         credentials_path = self._find_existing_path()
@@ -401,6 +413,7 @@ class CredentialsManager:
 
         Returns:
             True if saved successfully
+
         """
         try:
             account_path = await self._get_account_profile_path()
@@ -417,7 +430,7 @@ class CredentialsManager:
 
         except (OSError, orjson.JSONDecodeError) as e:
             # File I/O errors or JSON serialization failures
-            logger.error("account_profile_save_failed", error=str(e), exc_info=True)
+            logger.exception("account_profile_save_failed", error=str(e))
             return False
 
     async def _load_account_profile(self) -> UserProfile | None:
@@ -425,6 +438,7 @@ class CredentialsManager:
 
         Returns:
             User profile if found, None otherwise
+
         """
         try:
             account_path = await self._get_account_profile_path()
@@ -448,6 +462,7 @@ class CredentialsManager:
 
         Returns:
             True if deleted successfully
+
         """
         try:
             account_path = await self._get_account_profile_path()
@@ -468,6 +483,7 @@ class CredentialsManager:
 
         Returns:
             Subscription type string
+
         """
         if not profile.account:
             return "unknown"
@@ -475,7 +491,7 @@ class CredentialsManager:
         # Check account flags first
         if profile.account.has_claude_max:
             return "max"
-        elif profile.account.has_claude_pro:
+        if profile.account.has_claude_pro:
             return "pro"
 
         # Fallback to organization type
@@ -483,7 +499,7 @@ class CredentialsManager:
             org_type = profile.organization.organization_type.lower()
             if "max" in org_type:
                 return "max"
-            elif "pro" in org_type:
+            if "pro" in org_type:
                 return "pro"
 
         return "free"
@@ -493,6 +509,7 @@ class CredentialsManager:
 
         Returns:
             Path if found, None otherwise
+
         """
         for path_str in self.config.storage.storage_paths:
             path = Path(path_str).expanduser()
@@ -508,12 +525,12 @@ class CredentialsManager:
 
         Returns:
             True if token should be refreshed
+
         """
         if self.config.storage.auto_refresh:
             buffer = timedelta(seconds=self.config.storage.refresh_buffer_seconds)
             return datetime.now(UTC) + buffer >= oauth_token.expires_at_datetime
-        else:
-            return oauth_token.is_expired
+        return oauth_token.is_expired
 
     async def _refresh_token_with_profile(
         self, credentials: ClaudeCredentials
@@ -530,6 +547,7 @@ class CredentialsManager:
             RuntimeError: If OAuth client not initialized
             ValueError: If no refresh token available
             Exception: If token refresh fails
+
         """
         if self._oauth_client is None:
             raise RuntimeError("OAuth client not initialized")

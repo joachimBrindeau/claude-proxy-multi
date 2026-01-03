@@ -56,6 +56,7 @@ def is_rate_limit_error(status_code: int, error_message: str | None = None) -> b
 
     Returns:
         True if this appears to be a rate limit error
+
     """
     # HTTP 429 is always rate limit
     if status_code == 429:
@@ -78,6 +79,7 @@ def _parse_retry_after_seconds(value: str) -> int | None:
 
     Returns:
         Reset timestamp in ms, or None if parsing fails
+
     """
     try:
         seconds = int(value)
@@ -96,6 +98,7 @@ def _parse_retry_after_date(value: str) -> int | None:
 
     Returns:
         Reset timestamp in ms, or None if parsing fails
+
     """
     try:
         dt = dateutil_parser.parse(value)
@@ -117,6 +120,7 @@ def _parse_unix_timestamp_header(header_name: str, value: str) -> int | None:
 
     Returns:
         Reset timestamp in ms, or None if parsing fails
+
     """
     try:
         reset_seconds = int(value)
@@ -143,6 +147,7 @@ def _parse_iso8601_header(header_name: str, value: str) -> int | None:
 
     Returns:
         Reset timestamp in ms, or None if parsing fails
+
     """
     try:
         dt = dateutil_parser.parse(value)
@@ -174,6 +179,7 @@ def _try_parse_header(
 
     Returns:
         Parsed timestamp in ms, or None
+
     """
     value = headers_lower.get(header_name)
     if not value:
@@ -190,6 +196,7 @@ def _try_parse_retry_after_header(headers_lower: dict[str, str]) -> int | None:
 
     Returns:
         Parsed timestamp in ms, or None
+
     """
     retry_after = headers_lower.get("retry-after")
     if not retry_after:
@@ -210,6 +217,7 @@ def _try_parse_unified_headers(headers_lower: dict[str, str]) -> int | None:
 
     Returns:
         Parsed timestamp in ms, or None
+
     """
     for header_name in (
         "anthropic-ratelimit-unified-reset",
@@ -231,6 +239,7 @@ def _try_parse_legacy_headers(headers_lower: dict[str, str]) -> int | None:
 
     Returns:
         Parsed timestamp in ms, or None
+
     """
     for header_name in (
         "anthropic-ratelimit-tokens-reset",
@@ -257,6 +266,7 @@ def parse_retry_after(headers: dict[str, str]) -> int | None:
 
     Returns:
         Unix timestamp (ms) when rate limit resets, or None
+
     """
     headers_lower = {k.lower(): v for k, v in headers.items()}
 
@@ -308,6 +318,7 @@ class RotationPool:
         Args:
             accounts_path: Path to accounts.json file
             auto_load: Whether to load accounts on init
+
         """
         self._accounts_path = accounts_path or DEFAULT_ACCOUNTS_PATH
         self._accounts: dict[str, Account] = {}
@@ -362,6 +373,7 @@ class RotationPool:
         Args:
             source: Account to copy state from
             target: Account to copy state to
+
         """
         target.last_used = source.last_used
         target.tokens_limit = source.tokens_limit
@@ -464,6 +476,7 @@ class RotationPool:
 
         Returns:
             Account if found, None otherwise
+
         """
         return self._accounts.get(name)
 
@@ -484,6 +497,7 @@ class RotationPool:
 
         Returns:
             Next available account, or None if all unavailable
+
         """
         async with self._lock:
             self._check_rate_limit_resets()
@@ -526,6 +540,7 @@ class RotationPool:
 
         Returns:
             Next available account not in exclude list, or None
+
         """
         async with self._lock:
             self._check_rate_limit_resets()
@@ -562,6 +577,7 @@ class RotationPool:
             account_name: Name of the account
             reset_time: Optional reset timestamp (ms)
             headers: Optional response headers to parse retry-after
+
         """
         account = self._accounts.get(account_name)
         if not account:
@@ -580,6 +596,7 @@ class RotationPool:
         Args:
             account_name: Name of the account
             error: Error message
+
         """
         account = self._accounts.get(account_name)
         if not account:
@@ -593,6 +610,7 @@ class RotationPool:
 
         Args:
             account_name: Name of the account
+
         """
         account = self._accounts.get(account_name)
         if not account:
@@ -616,6 +634,7 @@ class RotationPool:
 
         Returns:
             True if updated successfully
+
         """
         account = self._accounts.get(account_name)
         if not account:
@@ -637,6 +656,7 @@ class RotationPool:
 
         Returns:
             True if added (False if name already exists)
+
         """
         if account.name in self._accounts:
             logger.warning("account_already_exists", account=account.name)
@@ -659,6 +679,7 @@ class RotationPool:
 
         Returns:
             True if removed (False if not found)
+
         """
         if account_name not in self._accounts:
             logger.warning("account_not_found", account=account_name)
@@ -681,6 +702,7 @@ class RotationPool:
 
         Returns:
             True if file has changed
+
         """
         path = self.accounts_path
         if not path.exists():
@@ -694,6 +716,7 @@ class RotationPool:
 
         Returns:
             True if reloaded
+
         """
         if self.has_file_changed():
             logger.info("accounts_file_changed_reloading")
@@ -706,6 +729,7 @@ class RotationPool:
 
         Returns:
             Status dictionary with counts and account details
+
         """
         self._check_rate_limit_resets()
 
@@ -779,6 +803,7 @@ def get_rotation_pool() -> RotationPool:
 
     Raises:
         RuntimeError: If pool not initialized
+
     """
     if _pool is None:
         raise RuntimeError(
@@ -796,6 +821,7 @@ def init_rotation_pool(accounts_path: Path | None = None) -> RotationPool:
 
     Returns:
         Initialized RotationPool
+
     """
     global _pool
     _pool = RotationPool(accounts_path=accounts_path)

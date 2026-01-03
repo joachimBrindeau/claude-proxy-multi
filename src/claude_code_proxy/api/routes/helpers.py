@@ -18,6 +18,7 @@ def extract_request_data(
 
     Returns:
         Tuple of (headers, query_params, service_path)
+
     """
     headers = dict(request.headers)
     query_params: dict[str, str | list[str]] | None = (
@@ -41,6 +42,7 @@ def create_error_response(
 
     Returns:
         ProxyResponse object
+
     """
     return ProxyResponse(
         content=response_body,
@@ -64,6 +66,7 @@ def create_regular_response(
 
     Returns:
         ProxyResponse object
+
     """
     return ProxyResponse(
         content=response_body,
@@ -81,6 +84,7 @@ async def create_sse_stream_generator(response_body: bytes) -> AsyncIterator[byt
 
     Yields:
         Formatted SSE data chunks
+
     """
     for line in response_body.decode().split("\n"):
         if line.strip():
@@ -95,6 +99,7 @@ def prepare_streaming_headers(response_headers: dict[str, str]) -> dict[str, str
 
     Returns:
         Headers configured for SSE streaming
+
     """
     streaming_headers = response_headers.copy()
     streaming_headers["Cache-Control"] = "no-cache"
@@ -118,6 +123,7 @@ def create_streaming_response(
 
     Returns:
         StreamingResponse configured for SSE
+
     """
     streaming_headers = prepare_streaming_headers(response_headers)
 
@@ -136,6 +142,7 @@ def is_streaming_response(response_headers: dict[str, str]) -> bool:
 
     Returns:
         True if content-type indicates SSE streaming
+
     """
     content_type = response_headers.get("content-type", "")
     return "text/event-stream" in content_type
@@ -155,6 +162,7 @@ def handle_proxy_response(
 
     Returns:
         Appropriate response type (StreamingResponse or ProxyResponse)
+
     """
     # Handle error responses
     if status_code >= 400:

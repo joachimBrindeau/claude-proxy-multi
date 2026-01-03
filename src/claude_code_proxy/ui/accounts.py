@@ -361,7 +361,7 @@ def render_page(
 @router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 async def accounts_page(request: Request) -> HTMLResponse:
-    """Main accounts page."""
+    """Render the main accounts page."""
     return render_page(request)
 
 
@@ -414,6 +414,7 @@ def build_auth_url_for_state(state: str) -> str:
 
     Raises:
         ValueError: If state format is invalid
+
     """
     # Validate state format (base64url: alphanumeric + - and _)
     if not state or not re.match(r"^[A-Za-z0-9_-]{32,}$", state):
@@ -562,6 +563,7 @@ def _validate_oauth_flow_state(
 
     Returns:
         Tuple of (flow, error_message). One will be None.
+
     """
     flow = _pending_oauth_flows.get(state)
     if not flow or flow.is_expired():
@@ -595,6 +597,7 @@ def _validate_token_response(
 
     Returns:
         Tuple of (access_token, refresh_token, expires_in) or None if invalid.
+
     """
     access_token = token_response.get("access_token")
     refresh_token = token_response.get("refresh_token")
@@ -630,6 +633,7 @@ def _save_account_credentials(
 
     Returns:
         Tuple of (success, is_new_account)
+
     """
     path = get_accounts_path()
     try:
@@ -663,6 +667,7 @@ async def _check_and_update_account_capacity(
 
     Returns:
         Status message string (empty if no message)
+
     """
     try:
         capacity = await check_capacity_async(account_name)
@@ -677,7 +682,7 @@ async def _check_and_update_account_capacity(
                 )
         if capacity.error:
             return f" (Capacity check: {capacity.error})"
-        elif capacity.tokens_remaining_percent is not None:
+        if capacity.tokens_remaining_percent is not None:
             return f" ({capacity.tokens_remaining_percent:.0f}% tokens remaining)"
     except (httpx.HTTPError, OSError) as e:
         # httpx.HTTPError: Network or HTTP errors during capacity check API call
@@ -762,7 +767,7 @@ async def complete_oauth(
         # httpx.HTTPError: Network or HTTP errors during OAuth token exchange
         # OSError: Low-level network errors (connection refused, etc.)
         # ValueError: Invalid response data from token exchange
-        logger.error("oauth_exchange_failed", error=str(e))
+        logger.exception("oauth_exchange_failed", error=str(e))
         return render_page(request, status_message=f"Token exchange failed: {e}")
 
 
@@ -856,7 +861,7 @@ async def check_account_capacity(
     except (httpx.HTTPError, OSError) as e:
         # httpx.HTTPError: Network or HTTP errors during capacity check API call
         # OSError: Low-level network errors (connection refused, etc.)
-        logger.error("capacity_check_failed", account=account_name, error=str(e))
+        logger.exception("capacity_check_failed", account=account_name, error=str(e))
         return render_page(request, status_message=f"Capacity check failed: {e}")
 
 

@@ -83,6 +83,7 @@ class SSEConfirmationHandler:
         Args:
             event_type: Type of the event
             data: Event data
+
         """
         if event_type == "ping":
             return
@@ -105,6 +106,7 @@ class SSEConfirmationHandler:
 
         Args:
             data: Event data containing request details
+
         """
         request_id = data.get("request_id")
         if not request_id:
@@ -141,7 +143,7 @@ class SSEConfirmationHandler:
             request = PermissionRequest.model_validate(request_data)
         except pydantic.ValidationError as e:
             # Pydantic validation failed for permission request data
-            logger.error(
+            logger.exception(
                 "permission_request_validation_failed", data=data, error=str(e)
             )
             return
@@ -157,6 +159,7 @@ class SSEConfirmationHandler:
 
         Args:
             data: Event data containing resolution details
+
         """
         request_id = data.get("request_id")
         allowed = data.get("allowed", False)
@@ -211,6 +214,7 @@ class SSEConfirmationHandler:
 
         Args:
             request: The permission request to handle
+
         """
         try:
             allowed = await self.terminal_handler.handle_permission(request)
@@ -240,7 +244,7 @@ class SSEConfirmationHandler:
 
         except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException) as e:
             # HTTP errors during permission handling (e.g., sending response)
-            logger.error(
+            logger.exception(
                 "permission_handling_error",
                 request_id=request.id,
                 error=str(e),
@@ -261,6 +265,7 @@ class SSEConfirmationHandler:
         Args:
             request_id: ID of the confirmation request
             allowed: Whether to allow or deny
+
         """
         if not self.client:
             logger.error("send_response_no_client", request_id=request_id)
@@ -295,7 +300,7 @@ class SSEConfirmationHandler:
 
         except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException) as e:
             # HTTP client errors when sending permission response
-            logger.error(
+            logger.exception(
                 "permission_response_error",
                 request_id=request_id,
                 error=str(e),
@@ -312,6 +317,7 @@ class SSEConfirmationHandler:
 
         Yields:
             Tuples of (event_type, data)
+
         """
         buffer = ""
         async for chunk in response.aiter_text():
@@ -341,7 +347,7 @@ class SSEConfirmationHandler:
                         data = orjson.loads(data_json)
                         yield event_type, data
                     except orjson.JSONDecodeError as e:
-                        logger.error(
+                        logger.exception(
                             "sse_parse_error",
                             event_type=event_type,
                             data=" ".join(data_lines),
@@ -388,7 +394,7 @@ class SSEConfirmationHandler:
             ) as e:
                 retry_count += 1
                 if retry_count > self.max_retries:
-                    logger.error(
+                    logger.exception(
                         "connection_failed_max_retries",
                         max_retries=self.max_retries,
                     )
@@ -414,7 +420,7 @@ class SSEConfirmationHandler:
 
             except httpx.HTTPError as e:
                 # Other HTTP errors that aren't connection or timeout related
-                logger.error("sse_client_error", error=str(e), exc_info=True)
+                logger.exception("sse_client_error", error=str(e))
                 raise typer.Exit(1) from e
 
     async def _connect_and_handle_stream(self, stream_url: str) -> None:
@@ -470,7 +476,7 @@ class SSEConfirmationHandler:
                     ValueError,
                 ) as e:
                     # Event handling errors: validation, HTTP, missing keys, or value errors
-                    logger.error(
+                    logger.exception(
                         "sse_event_error",
                         event_type=event_type,
                         error=str(e),
@@ -562,7 +568,7 @@ def connect(
         logger.info("permission_handler_stopped")
     except (httpx.HTTPError, httpx.ConnectError, httpx.TimeoutException) as e:
         # HTTP client errors during handler execution
-        logger.error("permission_handler_error", error=str(e), exc_info=True)
+        logger.exception("permission_handler_error", error=str(e))
         raise typer.Exit(1) from e
 
 

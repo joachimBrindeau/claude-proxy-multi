@@ -12,6 +12,7 @@ from claude_code_proxy.exceptions import (
 from .core import Scheduler
 from .registry import register_task
 from .tasks import (
+    ModelRefreshTask,
     PoolStatsTask,
     VersionUpdateCheckTask,
 )
@@ -21,12 +22,12 @@ logger = structlog.get_logger(__name__)
 
 
 async def setup_scheduler_tasks(scheduler: Scheduler, settings: Settings) -> None:
-    """
-    Setup and configure all scheduler tasks based on settings.
+    """Set up and configure all scheduler tasks based on settings.
 
     Args:
         scheduler: Scheduler instance
         settings: Application settings
+
     """
     scheduler_config = settings.scheduler
 
@@ -65,11 +66,35 @@ async def setup_scheduler_tasks(scheduler: Scheduler, settings: Settings) -> Non
             )
         except (SchedulerError, TaskRegistrationError) as e:
             # Task registration or scheduler state errors during task addition
-            logger.error(
+            logger.exception(
                 "version_check_task_add_failed",
                 error=str(e),
                 error_type=type(e).__name__,
             )
+
+    # Add model refresh task (always enabled when scheduler is running)
+    # Uses 15 minute interval by default (900 seconds)
+    try:
+        model_refresh_interval = getattr(
+            scheduler_config, "model_refresh_interval_seconds", 900
+        )
+        await scheduler.add_task(
+            task_name="model_refresh",
+            task_type="model_refresh",
+            interval_seconds=model_refresh_interval,
+            enabled=True,
+        )
+        logger.debug(
+            "model_refresh_task_added",
+            interval_seconds=model_refresh_interval,
+        )
+    except (SchedulerError, TaskRegistrationError) as e:
+        # Task registration or scheduler state errors during task addition
+        logger.exception(
+            "model_refresh_task_add_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
 
 
 def _register_default_tasks(settings: Settings) -> None:
@@ -83,17 +108,19 @@ def _register_default_tasks(settings: Settings) -> None:
         register_task("version_update_check", VersionUpdateCheckTask)
     if not registry.is_registered("pool_stats"):
         register_task("pool_stats", PoolStatsTask)
+    if not registry.is_registered("model_refresh"):
+        register_task("model_refresh", ModelRefreshTask)
 
 
 async def start_scheduler(settings: Settings) -> Scheduler | None:
-    """
-    Start the scheduler with configured tasks.
+    """Start the scheduler with configured tasks.
 
     Args:
         settings: Application settings
 
     Returns:
         Scheduler instance if successful, None otherwise
+
     """
     try:
         if not settings.scheduler.enabled:
@@ -132,7 +159,7 @@ async def start_scheduler(settings: Settings) -> Scheduler | None:
 
     except SchedulerError as e:
         # Scheduler initialization or task setup failed
-        logger.error(
+        logger.exception(
             "scheduler_start_failed",
             error=str(e),
             error_type=type(e).__name__,
@@ -141,11 +168,11 @@ async def start_scheduler(settings: Settings) -> Scheduler | None:
 
 
 async def stop_scheduler(scheduler: Scheduler | None) -> None:
-    """
-    Stop the scheduler gracefully.
+    """Stop the scheduler gracefully.
 
     Args:
         scheduler: Scheduler instance to stop
+
     """
     if scheduler is None:
         return
@@ -154,7 +181,7 @@ async def stop_scheduler(scheduler: Scheduler | None) -> None:
         await scheduler.stop()
     except SchedulerShutdownError as e:
         # Graceful shutdown failed or timed out
-        logger.error(
+        logger.exception(
             "scheduler_stop_failed",
             error=str(e),
             error_type=type(e).__name__,

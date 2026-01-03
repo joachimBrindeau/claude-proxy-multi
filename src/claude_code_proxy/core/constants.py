@@ -19,11 +19,29 @@ DEFAULT_TEMPERATURE = 1.0
 DEFAULT_TOP_P = 1.0
 DEFAULT_STREAM = False
 
+# Time unit conversions
+SECONDS_PER_MINUTE = 60
+SECONDS_PER_HOUR = 3600
+SECONDS_PER_DAY = 86400
+MILLISECONDS_PER_SECOND = 1000
+
 # Timeouts (in seconds)
 DEFAULT_TIMEOUT = 30
+DEFAULT_CACHE_TTL = 300  # 5 minutes
+OAUTH_FLOW_TTL = 600  # 10 minutes
 
 # Rate limiting
 DEFAULT_RATE_LIMIT = 100  # requests per minute
+
+# String truncation limits for logging/debugging
+PREVIEW_SHORT = 100
+PREVIEW_MEDIUM = 200
+PREVIEW_LONG = 500
+
+# Cache size limits
+CACHE_MAXSIZE_SMALL = 100
+CACHE_MAXSIZE_MEDIUM = 1000
+CACHE_MAXSIZE_LARGE = 10000
 
 # Docker defaults
 DEFAULT_DOCKER_IMAGE = "ghcr.io/anthropics/claude-cli:latest"

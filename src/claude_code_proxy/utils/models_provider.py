@@ -15,6 +15,7 @@ def get_anthropic_models() -> list[dict[str, Any]]:
 
     Returns:
         List of Anthropic model entries with type, id, display_name, and created_at fields
+
     """
     # Model display names mapping
     display_names = {
@@ -65,6 +66,7 @@ def get_models_list() -> dict[str, Any]:
 
     Returns:
         Dictionary with list of Claude models in Anthropic API format
+
     """
     anthropic_models = get_anthropic_models()
 

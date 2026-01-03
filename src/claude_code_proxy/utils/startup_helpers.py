@@ -17,6 +17,7 @@ from claude_code_proxy.auth.credentials_adapter import CredentialsAuthManager
 from claude_code_proxy.exceptions import (
     ClaudeSDKError,
     CredentialsError,
+    CredentialsExpiredError,
     CredentialsNotFoundError,
     CredentialsStorageError,
     PermissionRequestError,
@@ -44,6 +45,7 @@ async def validate_claude_authentication_startup(
     Args:
         app: FastAPI application instance
         settings: Application settings
+
     """
     try:
         credentials_manager = CredentialsManager()
@@ -90,14 +92,14 @@ async def validate_claude_authentication_startup(
         )
     # Catch credential-related errors (storage issues, validation failures, etc.)
     except (CredentialsError, CredentialsStorageError, ValueError, OSError) as e:
-        logger.error(
+        logger.exception(
             "claude_token_validation_error",
             error=str(e),
             message="Failed to validate Claude authentication token. The server will continue without Claude authentication.",
             exc_info=True,
         )
     except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
-        logger.error(
+        logger.exception(
             "claude_token_validation_error",
             error=str(e),
             message="Failed to validate Claude authentication token. The server will continue without Claude authentication.",
@@ -114,6 +116,7 @@ async def check_version_updates_startup(app: FastAPI, settings: Settings) -> Non
     Args:
         app: FastAPI application instance
         settings: Application settings
+
     """
     # Skip version check if disabled by settings
     if not settings.scheduler.version_check_enabled:
@@ -156,6 +159,7 @@ async def check_claude_cli_startup(app: FastAPI, settings: Settings) -> None:
     Args:
         app: FastAPI application instance
         settings: Application settings
+
     """
     try:
         from claude_code_proxy.api.routes.health import get_claude_cli_info
@@ -179,13 +183,13 @@ async def check_claude_cli_startup(app: FastAPI, settings: Settings) -> None:
             )
     # Catch import errors, subprocess failures, and file system errors during CLI check
     except (ImportError, OSError, RuntimeError, ValueError) as e:
-        logger.error(
+        logger.exception(
             "claude_cli_check_failed",
             error=str(e),
             message="Failed to check Claude CLI status during startup",
         )
     except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
-        logger.error(
+        logger.exception(
             "claude_cli_check_failed",
             error=str(e),
             message="Failed to check Claude CLI status during startup",
@@ -198,6 +202,7 @@ async def setup_scheduler_startup(app: FastAPI, settings: Settings) -> None:
     Args:
         app: FastAPI application instance
         settings: Application settings
+
     """
     try:
         scheduler = await start_scheduler(settings)
@@ -222,13 +227,13 @@ async def setup_scheduler_startup(app: FastAPI, settings: Settings) -> None:
                 logger.debug("session_pool_stats_task_added", interval_seconds=60)
             # Catch scheduler task registration errors
             except SchedulerError as e:
-                logger.error(
+                logger.exception(
                     "session_pool_stats_task_add_failed",
                     error=str(e),
                     error_type=type(e).__name__,
                 )
     except SchedulerError as e:
-        logger.error("scheduler_initialization_failed", error=str(e))
+        logger.exception("scheduler_initialization_failed", error=str(e))
         # Continue startup even if scheduler fails (graceful degradation)
 
 
@@ -237,13 +242,14 @@ async def setup_scheduler_shutdown(app: FastAPI) -> None:
 
     Args:
         app: FastAPI application instance
+
     """
     try:
         scheduler = getattr(app.state, "scheduler", None)
         await stop_scheduler(scheduler)
         logger.debug("scheduler_stopped_lifespan")
     except SchedulerError as e:
-        logger.error("scheduler_stop_failed", error=str(e))
+        logger.exception("scheduler_stop_failed", error=str(e))
 
 
 async def setup_session_manager_shutdown(app: FastAPI) -> None:
@@ -251,6 +257,7 @@ async def setup_session_manager_shutdown(app: FastAPI) -> None:
 
     Args:
         app: FastAPI application instance
+
     """
     if hasattr(app.state, "session_manager") and app.state.session_manager:
         try:
@@ -258,9 +265,9 @@ async def setup_session_manager_shutdown(app: FastAPI) -> None:
             logger.debug("claude_sdk_session_manager_shutdown")
         # Catch SDK session shutdown errors (connection cleanup, process termination)
         except (ClaudeSDKError, RuntimeError, OSError) as e:
-            logger.error("claude_sdk_session_manager_shutdown_failed", error=str(e))
+            logger.exception("claude_sdk_session_manager_shutdown_failed", error=str(e))
         except Exception as e:  # noqa: BLE001 - shutdown code needs catch-all for graceful cleanup
-            logger.error("claude_sdk_session_manager_shutdown_failed", error=str(e))
+            logger.exception("claude_sdk_session_manager_shutdown_failed", error=str(e))
 
 
 async def initialize_claude_detection_startup(app: FastAPI, settings: Settings) -> None:
@@ -269,6 +276,7 @@ async def initialize_claude_detection_startup(app: FastAPI, settings: Settings) 
     Args:
         app: FastAPI application instance
         settings: Application settings
+
     """
     try:
         logger.debug("initializing_claude_detection")
@@ -283,13 +291,13 @@ async def initialize_claude_detection_startup(app: FastAPI, settings: Settings) 
         )
     # Catch detection errors (subprocess failures, parsing errors, file access)
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error("claude_detection_startup_failed", error=str(e))
+        logger.exception("claude_detection_startup_failed", error=str(e))
         # Continue startup with fallback - detection service will provide fallback data
         detection_service = ClaudeDetectionService(settings)
         app.state.claude_detection_data = detection_service._get_fallback_data()
         app.state.claude_detection_service = detection_service
     except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
-        logger.error("claude_detection_startup_failed", error=str(e))
+        logger.exception("claude_detection_startup_failed", error=str(e))
         # Continue startup with fallback - detection service will provide fallback data
         detection_service = ClaudeDetectionService(settings)
         app.state.claude_detection_data = detection_service._get_fallback_data()
@@ -302,6 +310,7 @@ async def initialize_claude_sdk_startup(app: FastAPI, settings: Settings) -> Non
     Args:
         app: FastAPI application instance
         settings: Application settings
+
     """
     try:
         # Create auth manager with settings
@@ -336,10 +345,10 @@ async def initialize_claude_sdk_startup(app: FastAPI, settings: Settings) -> Non
         logger.debug("claude_sdk_service_initialized")
     # Catch SDK initialization errors (import, auth, session pool, config)
     except (ImportError, ClaudeSDKError, CredentialsError, RuntimeError, OSError) as e:
-        logger.error("claude_sdk_service_initialization_failed", error=str(e))
+        logger.exception("claude_sdk_service_initialization_failed", error=str(e))
         # Continue startup even if ClaudeSDKService fails (graceful degradation)
     except Exception as e:  # noqa: BLE001 - startup code needs catch-all for graceful degradation
-        logger.error("claude_sdk_service_initialization_failed", error=str(e))
+        logger.exception("claude_sdk_service_initialization_failed", error=str(e))
         # Continue startup even if ClaudeSDKService fails (graceful degradation)
 
 
@@ -351,6 +360,7 @@ async def initialize_permission_service_startup(
     Args:
         app: FastAPI application instance
         settings: Application settings
+
     """
     if settings.claude.builtin_permissions:
         try:
@@ -386,7 +396,7 @@ async def initialize_permission_service_startup(
             )
         # Catch permission service init errors (import, async start, config)
         except (ImportError, PermissionRequestError, RuntimeError, OSError) as e:
-            logger.error("permission_service_initialization_failed", error=str(e))
+            logger.exception("permission_service_initialization_failed", error=str(e))
             # Continue without permission service (API will work but without prompts)
     else:
         logger.debug(
@@ -402,6 +412,7 @@ async def setup_permission_service_shutdown(app: FastAPI, settings: Settings) ->
     Args:
         app: FastAPI application instance
         settings: Application settings
+
     """
     if (
         hasattr(app.state, "permission_service")
@@ -413,7 +424,7 @@ async def setup_permission_service_shutdown(app: FastAPI, settings: Settings) ->
             logger.debug("permission_service_stopped")
         # Catch permission service shutdown errors (async cleanup, connection close)
         except (PermissionRequestError, RuntimeError, OSError) as e:
-            logger.error("permission_service_stop_failed", error=str(e))
+            logger.exception("permission_service_stop_failed", error=str(e))
 
 
 async def flush_streaming_batches_shutdown(app: FastAPI) -> None:
@@ -421,6 +432,7 @@ async def flush_streaming_batches_shutdown(app: FastAPI) -> None:
 
     Args:
         app: FastAPI application instance
+
     """
     try:
         from claude_code_proxy.utils.simple_request_logger import (
@@ -431,6 +443,110 @@ async def flush_streaming_batches_shutdown(app: FastAPI) -> None:
         logger.debug("streaming_batches_flushed")
     # Catch streaming batch flush errors (import, I/O, async cleanup)
     except (ImportError, OSError, RuntimeError) as e:
-        logger.error("streaming_batches_flush_failed", error=str(e))
+        logger.exception("streaming_batches_flush_failed", error=str(e))
     except Exception as e:  # noqa: BLE001 - shutdown code needs catch-all for graceful cleanup
-        logger.error("streaming_batches_flush_failed", error=str(e))
+        logger.exception("streaming_batches_flush_failed", error=str(e))
+
+
+async def initialize_model_resolver_startup(app: FastAPI, settings: Settings) -> None:
+    """Initialize the dynamic model resolver and fallback system.
+
+    Fetches available models from Anthropic's API and caches
+    tier-to-model mappings for dynamic alias resolution.
+    Also initializes the model fallback system for 403 error handling.
+
+    Args:
+        app: FastAPI application instance
+        settings: Application settings
+
+    """
+    try:
+        from claude_code_proxy.services.model_fallback import (
+            ModelTier,
+            initialize_model_fallback,
+        )
+        from claude_code_proxy.services.model_resolver import (
+            ModelResolver,
+            set_model_resolver,
+        )
+
+        credentials_manager = CredentialsManager()
+
+        # Default: 15 minutes (900 seconds)
+        resolver = ModelResolver(
+            credentials_manager=credentials_manager,
+            refresh_interval_seconds=900,
+        )
+
+        await resolver.initialize()
+
+        # Set global resolver for use in model_mapping.py
+        set_model_resolver(resolver)
+
+        # Initialize the model fallback system
+        availability_cache, fallback_resolver = initialize_model_fallback()
+
+        # Populate fallback resolver with models by tier
+        tier_models = resolver.get_models_by_tier()
+        fallback_models = {
+            ModelTier(tier): models
+            for tier, models in tier_models.items()
+            if tier in [t.value for t in ModelTier]
+        }
+        fallback_resolver.set_models_by_tier(fallback_models)
+
+        # Store in app state for access
+        app.state.model_resolver = resolver
+        app.state.availability_cache = availability_cache
+        app.state.fallback_resolver = fallback_resolver
+
+        logger.info(
+            "model_resolver_initialized",
+            cached_tiers=list(resolver.get_cached_mappings().keys()),
+            fallback_enabled=True,
+        )
+    # Catch model resolver init errors (import, network, credentials)
+    except (
+        ImportError,
+        RuntimeError,
+        OSError,
+        ValueError,
+        CredentialsExpiredError,
+        CredentialsError,
+    ) as e:
+        logger.warning(
+            "model_resolver_initialization_failed",
+            error=str(e),
+            fallback="static_mappings",
+            message="Using static model mappings as fallback. Refresh credentials at /accounts",
+        )
+        # Continue startup - model_mapping.py has static fallbacks
+
+
+async def shutdown_model_resolver(app: FastAPI) -> None:
+    """Shutdown the model resolver, fallback system, and clean up resources.
+
+    Args:
+        app: FastAPI application instance
+
+    """
+    # Shutdown fallback system first
+    try:
+        from claude_code_proxy.services.model_fallback import shutdown_model_fallback
+
+        shutdown_model_fallback()
+        logger.debug("model_fallback_shutdown")
+    except (ImportError, RuntimeError) as e:
+        logger.exception("model_fallback_shutdown_failed", error=str(e))
+
+    # Then shutdown model resolver
+    if hasattr(app.state, "model_resolver") and app.state.model_resolver:
+        try:
+            from claude_code_proxy.services.model_resolver import set_model_resolver
+
+            await app.state.model_resolver.close()
+            set_model_resolver(None)
+            logger.debug("model_resolver_shutdown")
+        # Catch model resolver shutdown errors (HTTP client cleanup)
+        except (RuntimeError, OSError) as e:
+            logger.exception("model_resolver_shutdown_failed", error=str(e))

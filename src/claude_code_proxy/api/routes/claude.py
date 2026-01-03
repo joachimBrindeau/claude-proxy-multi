@@ -89,18 +89,17 @@ async def create_openai_chat_completion(
                     "Connection": "keep-alive",
                 },
             )
-        else:
-            # Convert non-streaming response to OpenAI format using adapter
-            # Convert MessageResponse model to dict for adapter
-            # In non-streaming mode, response should always be MessageResponse
-            if not isinstance(response, MessageResponse):
-                raise HTTPException(
-                    status_code=500,
-                    detail="Internal error: non-streaming response must be MessageResponse",
-                )
-            response_dict = response.model_dump()
-            openai_response = adapter.adapt_response(response_dict)
-            return OpenAIChatCompletionResponse.model_validate(openai_response)
+        # Convert non-streaming response to OpenAI format using adapter
+        # Convert MessageResponse model to dict for adapter
+        # In non-streaming mode, response should always be MessageResponse
+        if not isinstance(response, MessageResponse):
+            raise HTTPException(
+                status_code=500,
+                detail="Internal error: non-streaming response must be MessageResponse",
+            )
+        response_dict = response.model_dump()
+        openai_response = adapter.adapt_response(response_dict)
+        return OpenAIChatCompletionResponse.model_validate(openai_response)
 
     except (HTTPException, CCProxyError):
         # Re-raise HTTP and proxy errors to be handled by error middleware
@@ -183,18 +182,17 @@ async def create_openai_chat_completion_with_session(
                     "Connection": "keep-alive",
                 },
             )
-        else:
-            # Convert non-streaming response to OpenAI format using adapter
-            # Convert MessageResponse model to dict for adapter
-            # In non-streaming mode, response should always be MessageResponse
-            if not isinstance(response, MessageResponse):
-                raise HTTPException(
-                    status_code=500,
-                    detail="Internal error: non-streaming response must be MessageResponse",
-                )
-            response_dict = response.model_dump()
-            openai_response = adapter.adapt_response(response_dict)
-            return OpenAIChatCompletionResponse.model_validate(openai_response)
+        # Convert non-streaming response to OpenAI format using adapter
+        # Convert MessageResponse model to dict for adapter
+        # In non-streaming mode, response should always be MessageResponse
+        if not isinstance(response, MessageResponse):
+            raise HTTPException(
+                status_code=500,
+                detail="Internal error: non-streaming response must be MessageResponse",
+            )
+        response_dict = response.model_dump()
+        openai_response = adapter.adapt_response(response_dict)
+        return OpenAIChatCompletionResponse.model_validate(openai_response)
 
     except (HTTPException, CCProxyError):
         # Re-raise HTTP and proxy errors to be handled by error middleware
@@ -282,9 +280,8 @@ async def create_anthropic_message_with_session(
                     "Connection": "keep-alive",
                 },
             )
-        else:
-            # Return Anthropic format response directly
-            return MessageResponse.model_validate(response)
+        # Return Anthropic format response directly
+        return MessageResponse.model_validate(response)
 
     except (HTTPException, CCProxyError):
         # Re-raise HTTP and proxy errors to be handled by error middleware

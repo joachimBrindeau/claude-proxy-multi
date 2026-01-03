@@ -41,6 +41,7 @@ class StreamHandle:
             request_id: Optional request ID
             session_client: Optional session client
             session_config: Optional session pool configuration
+
         """
         self.handle_id = str(uuid.uuid4())
         self._message_iterator = message_iterator
@@ -81,6 +82,7 @@ class StreamHandle:
 
         Yields:
             Messages from the stream
+
         """
         # Start worker if needed
         await self._ensure_worker_started()
@@ -166,6 +168,7 @@ class StreamHandle:
 
         Args:
             listener_id: ID of the listener to remove
+
         """
         if listener_id in self._listeners:
             listener = self._listeners.pop(listener_id)
@@ -260,7 +263,7 @@ class StreamHandle:
                             )
                         except RuntimeError as e:
                             # RuntimeError: no running event loop or task creation failed
-                            logger.error(
+                            logger.exception(
                                 "stream_handle_interrupt_schedule_error",
                                 handle_id=self.handle_id,
                                 error=str(e),
@@ -346,7 +349,7 @@ class StreamHandle:
 
         except (asyncio.CancelledError, OSError) as e:
             # SDK interrupt errors: task cancellation or I/O errors
-            logger.error(
+            logger.exception(
                 "stream_handle_interrupt_failed",
                 handle_id=self.handle_id,
                 error=str(e),
@@ -377,6 +380,7 @@ class StreamHandle:
 
         Returns:
             True if interrupted successfully
+
         """
         if not self._worker:
             logger.warning(
@@ -409,7 +413,7 @@ class StreamHandle:
 
         except (TimeoutError, asyncio.CancelledError, OSError) as e:
             # Interrupt errors: task cancellation, timeout, or I/O errors
-            logger.error(
+            logger.exception(
                 "stream_handle_interrupt_error",
                 handle_id=self.handle_id,
                 error=str(e),
@@ -424,6 +428,7 @@ class StreamHandle:
 
         Returns:
             True if completed, False if timed out
+
         """
         if not self._worker:
             return True
@@ -435,6 +440,7 @@ class StreamHandle:
 
         Returns:
             Dictionary of statistics
+
         """
         stats = {
             "handle_id": self.handle_id,
@@ -470,7 +476,7 @@ class StreamHandle:
     # Message lifecycle tracking methods for stale detection
 
     def on_first_chunk_received(self) -> None:
-        """Called when SystemMessage(init) is received - first chunk."""
+        """Record when first chunk is received from SystemMessage(init)."""
         if self._first_chunk_received_at is None:
             self._first_chunk_received_at = time.time()
             self._last_activity_at = self._first_chunk_received_at
@@ -481,11 +487,11 @@ class StreamHandle:
             )
 
     def on_message_received(self, message: Any) -> None:
-        """Called when any message is received to update activity."""
+        """Update activity timestamp when message is received."""
         self._last_activity_at = time.time()
 
     def on_completion(self) -> None:
-        """Called when ResultMessage is received - stream completed."""
+        """Mark stream as completed when ResultMessage is received."""
         if not self._has_result_message:
             self._has_result_message = True
             self._completed_at = time.time()
@@ -516,6 +522,7 @@ class StreamHandle:
 
         Returns:
             True if stream should be considered stale
+
         """
         if self.is_completed:
             # Completed streams are never stale
@@ -524,15 +531,15 @@ class StreamHandle:
         if not self.has_first_chunk:
             # No first chunk received - configurable timeout
             return self.idle_seconds > self._first_chunk_timeout
-        else:
-            # First chunk received but not completed - configurable timeout
-            return self.idle_seconds > self._ongoing_timeout
+        # First chunk received but not completed - configurable timeout
+        return self.idle_seconds > self._ongoing_timeout
 
     def is_first_chunk_timeout(self) -> bool:
         """Check if this is specifically a first chunk timeout.
 
         Returns:
             True if no first chunk received and timeout exceeded
+
         """
         return (
             not self.has_first_chunk and self.idle_seconds > self._first_chunk_timeout
@@ -543,6 +550,7 @@ class StreamHandle:
 
         Returns:
             True if first chunk received but ongoing timeout exceeded
+
         """
         return (
             self.has_first_chunk

@@ -26,6 +26,7 @@ def parse_system_message_tags(text: str) -> str:
 
     Returns:
         Text with system_message tags converted to readable format
+
     """
     system_pattern = r"<system_message>(.*?)</system_message>"
 
@@ -53,6 +54,7 @@ def parse_tool_use_sdk_tags(
 
     Returns:
         Tuple of (processed_text, tool_calls_list)
+
     """
     tool_use_pattern = r"<tool_use_sdk>(.*?)</tool_use_sdk>"
     tool_calls = []
@@ -71,12 +73,11 @@ def parse_tool_use_sdk_tags(
                 }
                 tool_calls.append(format_openai_tool_call(tool_call_block))
                 return ""  # Remove the XML tag from text
-            else:
-                # For streaming: format as readable text
-                tool_id = tool_data.get("id", "")
-                tool_name = tool_data.get("name", "")
-                tool_input = tool_data.get("input", {})
-                return f"[claude_code_sdk tool_use {tool_id}]: {tool_name}({orjson.dumps(tool_input).decode()})"
+            # For streaming: format as readable text
+            tool_id = tool_data.get("id", "")
+            tool_name = tool_data.get("name", "")
+            tool_input = tool_data.get("input", {})
+            return f"[claude_code_sdk tool_use {tool_id}]: {tool_name}({orjson.dumps(tool_input).decode()})"
         except orjson.JSONDecodeError:
             # Keep original if parsing fails
             return match.group(0)
@@ -93,6 +94,7 @@ def parse_tool_result_sdk_tags(text: str) -> str:
 
     Returns:
         Text with tool_result_sdk tags converted to readable format
+
     """
     tool_result_pattern = r"<tool_result_sdk>(.*?)</tool_result_sdk>"
 
@@ -119,6 +121,7 @@ def parse_result_message_tags(text: str) -> str:
 
     Returns:
         Text with result_message tags converted to readable format
+
     """
     result_message_pattern = r"<result_message>(.*?)</result_message>"
 
@@ -147,6 +150,7 @@ def parse_text_tags(text: str) -> str:
 
     Returns:
         Text with text tags unwrapped (inner content extracted)
+
     """
     text_pattern = r"<text>\n?(.*?)\n?</text>"
 
@@ -173,6 +177,7 @@ def parse_formatted_sdk_content(
         Tuple of (cleaned_text, tool_calls_list)
         - cleaned_text: Text with XML-formatted SDK content converted to readable format
         - tool_calls_list: List of tool calls (empty if collect_tool_calls=False)
+
     """
     if not text:
         return text, []

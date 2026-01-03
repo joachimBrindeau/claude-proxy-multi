@@ -20,8 +20,7 @@ logger = structlog.get_logger(__name__)
 
 
 class Scheduler:
-    """
-    Scheduler for managing multiple periodic tasks.
+    """Scheduler for managing multiple periodic tasks.
 
     Provides centralized management of scheduled tasks with:
     - Dynamic task registration and configuration
@@ -36,13 +35,13 @@ class Scheduler:
         graceful_shutdown_timeout: float = 30.0,
         task_registry: TaskRegistry | None = None,
     ):
-        """
-        Initialize the scheduler.
+        """Initialize the scheduler.
 
         Args:
             max_concurrent_tasks: Maximum number of tasks to run concurrently
             graceful_shutdown_timeout: Timeout for graceful shutdown in seconds
             task_registry: Task registry instance (uses global if None)
+
         """
         self.max_concurrent_tasks = max_concurrent_tasks
         self.graceful_shutdown_timeout = graceful_shutdown_timeout
@@ -79,7 +78,7 @@ class Scheduler:
         except (RuntimeError, ValueError) as e:
             # Runtime or validation errors during scheduler initialization
             self._running = False
-            logger.error(
+            logger.exception(
                 "scheduler_start_failed",
                 error=str(e),
                 error_type=type(e).__name__,
@@ -122,7 +121,7 @@ class Scheduler:
                         )
             except asyncio.CancelledError as e:
                 # Task cancellation during shutdown - propagate for proper cleanup
-                logger.error(
+                logger.exception(
                     "scheduler_shutdown_error",
                     error=str(e),
                     error_type=type(e).__name__,
@@ -140,8 +139,7 @@ class Scheduler:
         task_type: str,
         **task_kwargs: Any,
     ) -> None:
-        """
-        Add and start a task.
+        """Add and start a task.
 
         Args:
             task_name: Unique name for this task instance
@@ -151,6 +149,7 @@ class Scheduler:
         Raises:
             TaskRegistrationError: If task type is not registered
             SchedulerError: If task name already exists or task creation fails
+
         """
         if task_name in self._tasks:
             raise SchedulerError(f"Task '{task_name}' already exists")
@@ -189,7 +188,7 @@ class Scheduler:
             if task_name in self._tasks:
                 del self._tasks[task_name]
 
-            logger.error(
+            logger.exception(
                 "task_add_failed",
                 task_name=task_name,
                 task_type=task_type,
@@ -199,14 +198,14 @@ class Scheduler:
             raise SchedulerError(f"Failed to add task '{task_name}': {e}") from e
 
     async def remove_task(self, task_name: str) -> None:
-        """
-        Remove and stop a task.
+        """Remove and stop a task.
 
         Args:
             task_name: Name of task to remove
 
         Raises:
             TaskNotFoundError: If task does not exist
+
         """
         if task_name not in self._tasks:
             raise TaskNotFoundError(f"Task '{task_name}' does not exist")
@@ -222,7 +221,7 @@ class Scheduler:
 
         except (SchedulerError, asyncio.CancelledError) as e:
             # Task stop failed or was cancelled during removal
-            logger.error(
+            logger.exception(
                 "task_remove_failed",
                 task_name=task_name,
                 error=str(e),
@@ -231,8 +230,7 @@ class Scheduler:
             raise SchedulerError(f"Failed to remove task '{task_name}': {e}") from e
 
     def get_task(self, task_name: str) -> BaseScheduledTask:
-        """
-        Get a task instance by name.
+        """Get a task instance by name.
 
         Args:
             task_name: Name of task to retrieve
@@ -242,6 +240,7 @@ class Scheduler:
 
         Raises:
             TaskNotFoundError: If task does not exist
+
         """
         if task_name not in self._tasks:
             raise TaskNotFoundError(f"Task '{task_name}' does not exist")
@@ -249,17 +248,16 @@ class Scheduler:
         return self._tasks[task_name]
 
     def list_tasks(self) -> list[str]:
-        """
-        Get list of all task names.
+        """Get list of all task names.
 
         Returns:
             List of task names
+
         """
         return list(self._tasks.keys())
 
     def get_task_status(self, task_name: str) -> dict[str, Any]:
-        """
-        Get status information for a specific task.
+        """Get status information for a specific task.
 
         Args:
             task_name: Name of task
@@ -269,6 +267,7 @@ class Scheduler:
 
         Raises:
             TaskNotFoundError: If task does not exist
+
         """
         if task_name not in self._tasks:
             raise TaskNotFoundError(f"Task '{task_name}' does not exist")
@@ -276,11 +275,11 @@ class Scheduler:
         return self._tasks[task_name].get_status()
 
     def get_scheduler_status(self) -> dict[str, Any]:
-        """
-        Get overall scheduler status information.
+        """Get overall scheduler status information.
 
         Returns:
             Scheduler status dictionary
+
         """
         running_tasks = [name for name, task in self._tasks.items() if task.is_running]
 
@@ -311,11 +310,11 @@ _global_scheduler: Scheduler | None = None
 
 
 async def get_scheduler() -> Scheduler:
-    """
-    Get or create the global scheduler instance.
+    """Get or create the global scheduler instance.
 
     Returns:
         Global Scheduler instance
+
     """
     global _global_scheduler
 

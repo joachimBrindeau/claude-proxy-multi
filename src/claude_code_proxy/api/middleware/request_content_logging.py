@@ -27,6 +27,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
 
         Args:
             app: The ASGI application
+
         """
         super().__init__(app)
 
@@ -41,6 +42,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
 
         Returns:
             The HTTP response
+
         """
         # Get request ID and timestamp from context if available
         request_id = self._get_request_id(request)
@@ -65,6 +67,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
 
         Returns:
             Request ID string or 'unknown' if not found
+
         """
         try:
             # Try to get from request state
@@ -95,6 +98,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
 
         Returns:
             Timestamp prefix string or None if not found
+
         """
         try:
             # Try to get from request context
@@ -118,6 +122,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
             request: The HTTP request
             request_id: Request identifier
             timestamp: Timestamp prefix for the log file
+
         """
         try:
             # Read request body
@@ -157,7 +162,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
         except (OSError, ValueError, asyncio.CancelledError) as e:
             # OSError for file I/O issues, ValueError for encoding/serialization issues
             # asyncio.CancelledError for cancelled async operations
-            logger.error(
+            logger.exception(
                 "failed_to_log_request_content",
                 request_id=request_id,
                 error=str(e),
@@ -172,6 +177,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
             response: The HTTP response
             request_id: Request identifier
             timestamp: Timestamp prefix for the log file
+
         """
         try:
             if isinstance(response, StreamingResponse):
@@ -184,7 +190,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
         except (OSError, ValueError, asyncio.CancelledError) as e:
             # OSError for file I/O issues, ValueError for encoding/serialization issues
             # asyncio.CancelledError for cancelled async operations
-            logger.error(
+            logger.exception(
                 "failed_to_log_response_content",
                 request_id=request_id,
                 error=str(e),
@@ -199,6 +205,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
             response: The HTTP response
             request_id: Request identifier
             timestamp: Timestamp prefix for the log file
+
         """
         # Create response log data
         response_data = {
@@ -244,6 +251,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
             response: The streaming HTTP response
             request_id: Request identifier
             timestamp: Timestamp prefix for the log file
+
         """
         # Log response metadata first
         response_data = {
@@ -294,7 +302,7 @@ class RequestContentLoggingMiddleware(BaseHTTPMiddleware):
                 except (OSError, UnicodeEncodeError, asyncio.CancelledError) as e:
                     # OSError for file I/O issues, UnicodeEncodeError for encoding failures
                     # asyncio.CancelledError for cancelled async operations
-                    logger.error(
+                    logger.exception(
                         "error_in_streaming_response_logging",
                         request_id=request_id,
                         error=str(e),

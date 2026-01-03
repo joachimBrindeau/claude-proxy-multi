@@ -26,6 +26,7 @@ class ClaudeStreamProcessor:
 
         Args:
             message_converter: Converter for message formats.
+
         """
         self.message_converter = message_converter
 
@@ -41,6 +42,7 @@ class ClaudeStreamProcessor:
 
         Returns:
             Tuple of (chunks to yield, updated content_block_index)
+
         """
         logger.debug(
             "sdk_system_message_processing",
@@ -70,6 +72,7 @@ class ClaudeStreamProcessor:
 
         Returns:
             Tuple of (chunks to yield, updated content_block_index)
+
         """
         logger.debug(
             "sdk_text_block_processing",
@@ -104,6 +107,7 @@ class ClaudeStreamProcessor:
 
         Returns:
             Tuple of (chunks to yield, updated content_block_index)
+
         """
         logger.debug(
             "sdk_tool_use_block_processing",
@@ -145,6 +149,7 @@ class ClaudeStreamProcessor:
 
         Returns:
             Tuple of (chunks to yield, updated content_block_index)
+
         """
         logger.debug(
             "sdk_tool_result_block_processing",
@@ -188,6 +193,7 @@ class ClaudeStreamProcessor:
 
         Returns:
             Tuple of (chunks to yield, updated content_block_index)
+
         """
         logger.debug(
             "sdk_assistant_message_processing",
@@ -234,6 +240,7 @@ class ClaudeStreamProcessor:
 
         Returns:
             Tuple of (chunks to yield, updated content_block_index)
+
         """
         logger.debug(
             "sdk_user_message_processing",
@@ -274,6 +281,7 @@ class ClaudeStreamProcessor:
 
         Returns:
             Tuple of (chunks to yield, should_break flag)
+
         """
         logger.debug(
             "sdk_result_message_processing",
@@ -347,6 +355,7 @@ class ClaudeStreamProcessor:
 
         Yields:
             Anthropic-compatible streaming chunks.
+
         """
         message_id = f"msg_{uuid4()}"
         content_block_index = 0

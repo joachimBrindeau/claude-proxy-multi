@@ -112,9 +112,11 @@ def setup_logging(
     log_level_name: str = "DEBUG",
     log_file: str | None = None,
 ) -> BoundLogger:
-    """
-    Setup logging for the entire application using canonical structlog pattern.
-    Returns a structlog logger instance.
+    """Set up logging for the entire application using canonical structlog pattern.
+
+    Returns:
+        Structlog logger instance
+
     """
     log_level = getattr(logging, log_level_name.upper(), logging.INFO)
 

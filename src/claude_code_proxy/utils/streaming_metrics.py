@@ -27,6 +27,7 @@ def extract_usage_from_streaming_chunk(chunk_data: Any) -> UsageData | None:
 
     Returns:
         UsageData with token counts or None if no usage found
+
     """
     if not isinstance(chunk_data, dict):
         return None
@@ -70,6 +71,7 @@ class StreamingMetricsCollector:
 
         Args:
             request_id: Optional request ID for logging context
+
         """
         self.request_id = request_id
         self.metrics = StreamingTokenMetrics(
@@ -87,6 +89,7 @@ class StreamingMetricsCollector:
 
         Returns:
             True if this was the final chunk with complete metrics, False otherwise
+
         """
         # Check if this chunk contains usage information
         # Look for usage data in any chunk - the event type will be determined from the JSON
@@ -136,7 +139,7 @@ class StreamingMetricsCollector:
                                 return False  # Not final yet
 
                             # Handle message_delta: get final output tokens
-                            elif event_type == "message_delta":
+                            if event_type == "message_delta":
                                 self.metrics["tokens_output"] = usage_data.get(
                                     "output_tokens"
                                 )
@@ -163,5 +166,6 @@ class StreamingMetricsCollector:
 
         Returns:
             Current token metrics
+
         """
         return self.metrics.copy()

@@ -145,7 +145,7 @@ class SessionClient:
                 self.last_error = e
                 self.metrics.error_count += 1
 
-                logger.error(
+                logger.exception(
                     "session_connection_failed",
                     session_id=self.session_id,
                     attempt=self.connection_attempts,
@@ -154,7 +154,7 @@ class SessionClient:
                 )
 
                 if self.connection_attempts >= self.max_connection_attempts:
-                    logger.error(
+                    logger.exception(
                         "session_connection_exhausted",
                         session_id=self.session_id,
                         max_attempts=self.max_connection_attempts,
@@ -167,6 +167,7 @@ class SessionClient:
 
         Returns:
             Task that completes when connection is established
+
         """
         if self._connection_task is None or self._connection_task.done():
             self._connection_task = asyncio.create_task(self._connect_async())
@@ -177,7 +178,7 @@ class SessionClient:
         return self._connection_task
 
     async def _connect_async(self) -> bool:
-        """Internal async connection method for background task."""
+        """Connect asynchronously for background task."""
         try:
             return await self.connect()
         except (
@@ -187,7 +188,7 @@ class SessionClient:
             OSError,
         ) as e:
             # SDK connection/process errors in background task
-            logger.error(
+            logger.exception(
                 "session_background_connection_failed",
                 session_id=self.session_id,
                 error=str(e),
@@ -351,7 +352,7 @@ class SessionClient:
                 asyncio.CancelledError,
             ) as disconnect_error:
                 # Force disconnect also failed
-                logger.error(
+                logger.exception(
                     "session_force_disconnect_failed",
                     session_id=self.session_id,
                     error=str(disconnect_error),
@@ -480,7 +481,7 @@ class SessionClient:
                     )
             except (TimeoutError, asyncio.CancelledError, OSError) as e:
                 # Stream drain errors: cancellation, timeout, or I/O errors
-                logger.error(
+                logger.exception(
                     "session_stream_drain_error_via_handle",
                     session_id=self.session_id,
                     handle_id=self.active_stream_handle.handle_id,
@@ -511,6 +512,7 @@ class SessionClient:
 
         Returns:
             True if interrupt completed within timeout, False if timed out
+
         """
         try:
             await asyncio.wait_for(
@@ -573,6 +575,7 @@ class SessionClient:
         Args:
             idle_threshold: Max idle time in seconds before cleanup
             stuck_threshold: Max time a session can be ACTIVE without going idle (indicating stuck)
+
         """
         # Check if session has been stuck in ACTIVE state too long
         is_potentially_stuck = (

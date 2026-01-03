@@ -13,11 +13,12 @@ logger = get_logger(__name__)
 
 
 def setup_cors_middleware(app: FastAPI, settings: Settings) -> None:
-    """Setup CORS middleware for the FastAPI application.
+    """Set up CORS middleware for the FastAPI application.
 
     Args:
         app: FastAPI application instance
         settings: Application settings containing CORS configuration
+
     """
     logger.debug("cors_middleware_setup_start")
 
@@ -43,6 +44,7 @@ def get_cors_config(settings: Settings) -> dict[str, Any]:
 
     Returns:
         Dictionary containing CORS configuration
+
     """
     return {
         "allow_origins": settings.cors.origins,

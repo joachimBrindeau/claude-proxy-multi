@@ -69,6 +69,7 @@ class DockerUserContext(BaseModel):
 
         Raises:
             RuntimeError: If user detection fails or platform unsupported
+
         """
         current_platform = platform.system()
 
@@ -133,6 +134,7 @@ class DockerUserContext(BaseModel):
 
         Raises:
             ValueError: If validation fails for any parameter
+
         """
         return cls(
             uid=uid,
@@ -148,6 +150,7 @@ class DockerUserContext(BaseModel):
 
         Returns:
             str: Docker user flag in format "uid:gid"
+
         """
         return f"{self.uid}:{self.gid}"
 
@@ -156,6 +159,7 @@ class DockerUserContext(BaseModel):
 
         Returns:
             bool: True if platform supports user mapping
+
         """
         return platform.system() in self._supported_platforms
 
@@ -164,6 +168,7 @@ class DockerUserContext(BaseModel):
 
         Returns:
             bool: True if user mapping is enabled and platform is supported
+
         """
         return self.enable_user_mapping and self.is_supported_platform()
 
@@ -172,6 +177,7 @@ class DockerUserContext(BaseModel):
 
         Returns:
             dict[str, str]: Environment variables to set in container
+
         """
         env = {}
         if self.home_path:
@@ -186,6 +192,7 @@ class DockerUserContext(BaseModel):
 
         Returns:
             list[tuple[str, str]]: List of (host_path, container_path) tuples
+
         """
         volumes = []
         if self.home_path and self.home_path.host_path:
@@ -199,6 +206,7 @@ class DockerUserContext(BaseModel):
 
         Returns:
             list[tuple[str, str]]: List of (host_path, container_path) tuples
+
         """
         volumes = []
         if self.home_path and self.home_path.host_path:
@@ -210,6 +218,7 @@ class DockerUserContext(BaseModel):
 
         Returns:
             str: Description of user context for debugging
+
         """
         parts = [
             f"uid={self.uid}",

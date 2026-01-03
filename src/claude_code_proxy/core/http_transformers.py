@@ -27,6 +27,7 @@ def get_detected_system_field(
 
     Returns:
         The system field to inject (preserving exact Claude CLI structure), or None if no detection data available
+
     """
     if not app_state or not hasattr(app_state, "claude_detection_data"):
         return None
@@ -37,13 +38,12 @@ def get_detected_system_field(
     if injection_mode == "full":
         # Return the complete detected system field exactly as Claude CLI sent it
         return detected_system
-    else:
-        # Minimal mode: extract just the first system message, preserving its structure
-        if isinstance(detected_system, str):
-            return detected_system
-        elif isinstance(detected_system, list) and detected_system:
-            # Return only the first message object with its complete structure (type, text, cache_control)
-            return [detected_system[0]]
+    # Minimal mode: extract just the first system message, preserving its structure
+    if isinstance(detected_system, str):
+        return detected_system
+    if isinstance(detected_system, list) and detected_system:
+        # Return only the first message object with its complete structure (type, text, cache_control)
+        return [detected_system[0]]
 
     return None
 
@@ -94,6 +94,7 @@ class HTTPRequestTransformer(RequestTransformer):
 
         Returns:
             The transformed proxy request
+
         """
         # Transform path
         transformed_path = self.transform_path(
@@ -195,6 +196,7 @@ class HTTPRequestTransformer(RequestTransformer):
 
         Returns:
             Dictionary with transformed request data (method, url, headers, body)
+
         """
         import urllib.parse
 
@@ -367,57 +369,82 @@ class HTTPRequestTransformer(RequestTransformer):
 
         Returns:
             Dictionary with counts for 'injected_system', 'user_system', and 'messages'
+
         """
         counts = {"injected_system": 0, "user_system": 0, "messages": 0}
 
-        def _get_total() -> int:
-            return (
-                counts["injected_system"] + counts["user_system"] + counts["messages"]
-            )
-
-        # Count in system field
+        # Count in system field (only for list-type system prompts)
         system = data.get("system")
-        if system:
-            if isinstance(system, str):
-                # String system prompts don't have cache_control
-                pass
-            elif isinstance(system, list):
-                # Count cache_control in system prompt blocks
-                # The first block(s) are injected, rest are user's
-                injected_count = 0
-                for i, block in enumerate(system):
-                    if isinstance(block, dict) and "cache_control" in block:
-                        # Check if this is the injected prompt (contains Claude Code identity)
-                        text = block.get("text", "")
-                        if "Claude Code" in text or "Anthropic's official CLI" in text:
-                            counts["injected_system"] += 1
-                            injected_count = max(injected_count, i + 1)
-                        elif i < injected_count:
-                            # Part of injected system (multiple blocks)
-                            counts["injected_system"] += 1
-                        else:
-                            counts["user_system"] += 1
+        if isinstance(system, list):
+            self._count_system_cache_blocks(system, counts)
 
         # Early exit if threshold exceeded after system count
-        if early_exit_threshold is not None and _get_total() > early_exit_threshold:
+        total = sum(counts.values())
+        if early_exit_threshold is not None and total > early_exit_threshold:
             return counts
 
         # Count in messages
-        messages = data.get("messages", [])
-        for api_message in messages:
-            content = api_message.get("content")
-            if isinstance(content, list):
-                for block in content:
-                    if isinstance(block, dict) and "cache_control" in block:
-                        counts["messages"] += 1
-                        # Early exit check within messages loop
-                        if (
-                            early_exit_threshold is not None
-                            and _get_total() > early_exit_threshold
-                        ):
-                            return counts
+        for api_message in data.get("messages", []):
+            if self._count_message_cache_blocks(api_message, counts, early_exit_threshold):
+                return counts
 
         return counts
+
+    def _count_system_cache_blocks(
+        self, system: list[dict[str, Any]], counts: dict[str, int]
+    ) -> None:
+        """Count cache_control blocks in system prompt.
+
+        Args:
+            system: List of system prompt blocks
+            counts: Counts dictionary to update in place
+
+        """
+        injected_count = 0
+        for i, block in enumerate(system):
+            if not isinstance(block, dict) or "cache_control" not in block:
+                continue
+
+            # Check if this is the injected prompt (contains Claude Code identity)
+            text = block.get("text", "")
+            is_injected = "Claude Code" in text or "Anthropic's official CLI" in text
+
+            if is_injected:
+                counts["injected_system"] += 1
+                injected_count = max(injected_count, i + 1)
+            elif i < injected_count:
+                # Part of injected system (multiple blocks)
+                counts["injected_system"] += 1
+            else:
+                counts["user_system"] += 1
+
+    def _count_message_cache_blocks(
+        self,
+        api_message: dict[str, Any],
+        counts: dict[str, int],
+        early_exit_threshold: int | None,
+    ) -> bool:
+        """Count cache_control blocks in a single message.
+
+        Args:
+            api_message: Message dictionary
+            counts: Counts dictionary to update in place
+            early_exit_threshold: Threshold for early exit
+
+        Returns:
+            True if early exit threshold exceeded, False otherwise
+
+        """
+        content = api_message.get("content")
+        if not isinstance(content, list):
+            return False
+
+        for block in content:
+            if isinstance(block, dict) and "cache_control" in block:
+                counts["messages"] += 1
+                if early_exit_threshold is not None and sum(counts.values()) > early_exit_threshold:
+                    return True
+        return False
 
     def _remove_cache_control_from_messages(
         self, data: dict[str, Any], to_remove: int
@@ -430,6 +457,7 @@ class HTTPRequestTransformer(RequestTransformer):
 
         Returns:
             Number of cache_control blocks actually removed
+
         """
         removed = 0
         messages = data.get("messages", [])
@@ -458,6 +486,7 @@ class HTTPRequestTransformer(RequestTransformer):
 
         Returns:
             Number of cache_control blocks actually removed
+
         """
         removed = 0
         system = data.get("system")
@@ -492,6 +521,7 @@ class HTTPRequestTransformer(RequestTransformer):
 
         Returns:
             Modified data dictionary with cache_control blocks limited
+
         """
         import copy
 
@@ -565,6 +595,7 @@ class HTTPRequestTransformer(RequestTransformer):
 
         Returns:
             Transformed request body as bytes with system prompt injection
+
         """
         try:
             data = orjson.loads(body)
@@ -704,6 +735,7 @@ class HTTPResponseTransformer(ResponseTransformer):
 
         Returns:
             The transformed proxy response
+
         """
         # Extract original path from context for transformation decisions
         original_path = ""
@@ -775,6 +807,7 @@ class HTTPResponseTransformer(ResponseTransformer):
 
         Returns:
             Dictionary with transformed response data (status_code, headers, body)
+
         """
         # For error responses, handle OpenAI transformation if needed
         if status_code >= 400:

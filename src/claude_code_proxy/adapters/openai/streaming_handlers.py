@@ -30,6 +30,7 @@ async def handle_message_start(
 
     Yields:
         Formatted role chunk if not already sent
+
     """
     if not processor.role_sent:
         yield processor._format_chunk_output(delta={"role": "assistant"})
@@ -49,6 +50,7 @@ async def handle_content_block_start(
 
     Yields:
         Formatted chunks for various content block types
+
     """
     block = chunk_data.get("content_block", {})
     block_type = block.get("type")
@@ -136,6 +138,50 @@ async def handle_content_block_start(
         yield {}
 
 
+def _handle_text_delta(
+    processor: OpenAIStreamProcessor, delta: dict[str, Any]
+) -> str | dict[str, Any] | None:
+    """Handle text_delta - returns formatted text chunk or None."""
+    text = delta.get("text", "")
+    if text:
+        return processor._format_chunk_output(delta={"content": text})
+    return None
+
+
+def _handle_thinking_delta(
+    processor: OpenAIStreamProcessor, delta: dict[str, Any]
+) -> None:
+    """Handle thinking_delta - accumulates thinking content."""
+    if not processor.thinking_block_active:
+        return
+    thinking_text = delta.get("thinking", "")
+    if thinking_text:
+        processor.current_thinking_text += thinking_text
+
+
+def _handle_signature_delta(
+    processor: OpenAIStreamProcessor, delta: dict[str, Any]
+) -> None:
+    """Handle signature_delta - accumulates thinking signature."""
+    if not processor.thinking_block_active:
+        return
+    signature = delta.get("signature", "")
+    if signature:
+        if processor.current_thinking_signature is None:
+            processor.current_thinking_signature = ""
+        processor.current_thinking_signature += signature
+
+
+def _handle_input_json_delta(
+    processor: OpenAIStreamProcessor, delta: dict[str, Any]
+) -> None:
+    """Handle input_json_delta - accumulates tool call arguments."""
+    partial_json = delta.get("partial_json", "")
+    if partial_json and processor.tool_calls:
+        latest_tool_id = list(processor.tool_calls.keys())[-1]
+        processor.tool_calls[latest_tool_id]["arguments"] += partial_json
+
+
 async def handle_content_block_delta(
     processor: OpenAIStreamProcessor, chunk_data: dict[str, Any]
 ) -> AsyncIterator[str | dict[str, Any]]:
@@ -147,37 +193,21 @@ async def handle_content_block_delta(
 
     Yields:
         Formatted text chunks
+
     """
     delta = chunk_data.get("delta", {})
     delta_type = delta.get("type")
 
     if delta_type == "text_delta":
-        # Text content
-        text = delta.get("text", "")
-        if text:
-            yield processor._format_chunk_output(delta={"content": text})
-
-    elif delta_type == "thinking_delta" and processor.thinking_block_active:
-        # Thinking content
-        thinking_text = delta.get("thinking", "")
-        if thinking_text:
-            processor.current_thinking_text += thinking_text
-
-    elif delta_type == "signature_delta" and processor.thinking_block_active:
-        # Thinking signature
-        signature = delta.get("signature", "")
-        if signature:
-            if processor.current_thinking_signature is None:
-                processor.current_thinking_signature = ""
-            processor.current_thinking_signature += signature
-
+        result = _handle_text_delta(processor, delta)
+        if result is not None:
+            yield result
+    elif delta_type == "thinking_delta":
+        _handle_thinking_delta(processor, delta)
+    elif delta_type == "signature_delta":
+        _handle_signature_delta(processor, delta)
     elif delta_type == "input_json_delta":
-        # Tool call arguments
-        partial_json = delta.get("partial_json", "")
-        if partial_json and processor.tool_calls:
-            # Find the tool call this belongs to (usually the last one)
-            latest_tool_id = list(processor.tool_calls.keys())[-1]
-            processor.tool_calls[latest_tool_id]["arguments"] += partial_json
+        _handle_input_json_delta(processor, delta)
 
     if _NEVER_YIELD:
         yield {}
@@ -193,6 +223,7 @@ async def handle_content_block_stop(
 
     Yields:
         Formatted thinking blocks or tool calls
+
     """
     # End of content block
     if processor.thinking_block_active:
@@ -248,6 +279,7 @@ async def handle_message_delta(
 
     Yields:
         Nothing (updates processor state only)
+
     """
     # Usage information
     usage = chunk_data.get("usage", {})
@@ -272,6 +304,7 @@ async def handle_message_stop(
 
     Yields:
         Nothing (handled in main process_stream method)
+
     """
     # End of message - handled in main process_stream method
     if _NEVER_YIELD:

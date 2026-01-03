@@ -1,5 +1,4 @@
-"""
-Scheduler system for periodic tasks.
+"""Scheduler system for periodic tasks.
 
 This module provides a generic, extensible scheduler for managing periodic tasks
 in the CCProxy API. It provides a centralized system that supports:

@@ -56,13 +56,12 @@ class HTTPClient(ABC):
 
         Raises:
             HTTPError: If the request fails
+
         """
-        pass
 
     @abstractmethod
     async def close(self) -> None:
         """Close any resources held by the HTTP client."""
-        pass
 
 
 class BaseProxyClient:
@@ -73,6 +72,7 @@ class BaseProxyClient:
 
         Args:
             http_client: The HTTP client to use for requests
+
         """
         self.http_client = http_client
 
@@ -98,6 +98,7 @@ class BaseProxyClient:
 
         Raises:
             HTTPError: If the request fails
+
         """
         return await self.http_client.request(method, url, headers, body, timeout)
 
@@ -121,6 +122,7 @@ class HTTPXClient(HTTPClient):
             timeout: Request timeout in seconds
             proxy: HTTP proxy URL (optional)
             verify: SSL verification (True/False or path to CA bundle)
+
         """
         import httpx
 
@@ -163,6 +165,7 @@ class HTTPXClient(HTTPClient):
 
         Raises:
             HTTPError: If the request fails
+
         """
         import httpx
 
@@ -227,6 +230,7 @@ class HTTPXClient(HTTPClient):
 
         Returns:
             HTTPX streaming response context manager
+
         """
         client = await self._get_client()
         return client.stream(
@@ -248,6 +252,7 @@ def get_proxy_url() -> str | None:
 
     Returns:
         str or None: Proxy URL if any proxy is set
+
     """
     # Check for standard proxy environment variables
     # For HTTPS requests, prioritize HTTPS_PROXY
@@ -275,6 +280,7 @@ def get_ssl_context() -> str | bool:
         - Path to CA bundle file
         - True for default verification
         - False to disable verification (insecure)
+
     """
     # Check for custom CA bundle
     ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
@@ -289,7 +295,7 @@ def get_ssl_context() -> str | bool:
             operation="get_ssl_context",
         )
         return ca_bundle
-    elif ssl_verify in ("false", "0", "no"):
+    if ssl_verify in ("false", "0", "no"):
         logger.warning(
             "ssl_verification_disabled",
             ssl_verify_value=ssl_verify,
@@ -297,10 +303,9 @@ def get_ssl_context() -> str | bool:
             security_warning=True,
         )
         return False
-    else:
-        logger.debug(
-            "ssl_default_verification",
-            ssl_verify_value=ssl_verify,
-            operation="get_ssl_context",
-        )
-        return True
+    logger.debug(
+        "ssl_default_verification",
+        ssl_verify_value=ssl_verify,
+        operation="get_ssl_context",
+    )
+    return True

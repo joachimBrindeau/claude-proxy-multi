@@ -71,6 +71,7 @@ def parse_comma_separated(
 
     Raises:
         ValidationError: If max_items is exceeded
+
     """
     if isinstance(value, list):
         items = value
@@ -104,6 +105,7 @@ def validate_path(path: str | Path, must_exist: bool = True) -> Path:
 
     Raises:
         ValidationError: If path is invalid
+
     """
     if isinstance(path, str):
         path = Path(path)
@@ -255,12 +257,12 @@ class ImportResult(BaseModel):
     Provides detailed statistics about import success/failure.
     """
 
+    status: str = Field(default="success", description="Overall import status")
     imported: int = Field(..., description="Number of new accounts imported", ge=0)
     updated: int = Field(..., description="Number of existing accounts updated", ge=0)
     skipped: int = Field(
         ..., description="Number of accounts skipped (unchanged)", ge=0
     )
-    errors: int = Field(default=0, description="Number of accounts with errors", ge=0)
-    message: str = Field(
-        default="Import completed successfully", description="Status message"
+    errors: list[dict[str, str]] = Field(
+        default_factory=list, description="List of accounts that failed validation"
     )

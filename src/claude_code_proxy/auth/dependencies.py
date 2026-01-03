@@ -1,5 +1,6 @@
 """FastAPI dependency injection for authentication."""
 
+import secrets
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -27,6 +28,7 @@ async def get_credentials_auth_manager() -> AuthManager:
 
     Returns:
         CredentialsAuthManager instance
+
     """
     return CredentialsAuthManager()
 
@@ -44,6 +46,7 @@ async def get_bearer_auth_manager(
 
     Raises:
         HTTPException: If no valid bearer token provided
+
     """
     if not credentials or not credentials.credentials:
         raise HTTPException(
@@ -59,7 +62,7 @@ async def _get_auth_manager_with_settings(
     credentials: HTTPAuthorizationCredentials | None,
     settings: "Settings",
 ) -> AuthManager:
-    """Internal function to get auth manager with specific settings.
+    """Get auth manager using specific settings.
 
     Args:
         credentials: HTTP authorization credentials
@@ -70,13 +73,17 @@ async def _get_auth_manager_with_settings(
 
     Raises:
         HTTPException: If no valid authentication available
+
     """
     # Try bearer token first if provided
     if credentials and credentials.credentials:
         try:
             # If API has configured auth_token, validate against it
             if settings.security.auth_token:
-                if credentials.credentials == settings.security.auth_token:
+                # Use constant-time comparison to prevent timing attacks
+                if secrets.compare_digest(
+                    credentials.credentials, settings.security.auth_token
+                ):
                     bearer_auth = BearerTokenAuthManager(credentials.credentials)
                     if await bearer_auth.is_authenticated():
                         return bearer_auth
@@ -128,6 +135,7 @@ async def get_auth_manager(
 
     Raises:
         HTTPException: If no valid authentication available
+
     """
     # Import here to avoid circular imports
     from claude_code_proxy.config.settings import get_settings
@@ -155,6 +163,7 @@ async def get_auth_manager_with_injected_settings(
 
     Raises:
         HTTPException: If no valid authentication available
+
     """
     # Import here to avoid circular imports
     from claude_code_proxy.config.settings import get_settings
@@ -176,6 +185,7 @@ async def require_auth(
 
     Raises:
         HTTPException: If authentication fails
+
     """
     try:
         if not await auth_manager.is_authenticated():
@@ -202,6 +212,7 @@ async def get_access_token(
 
     Raises:
         HTTPException: If token retrieval fails
+
     """
     try:
         return await auth_manager.get_access_token()

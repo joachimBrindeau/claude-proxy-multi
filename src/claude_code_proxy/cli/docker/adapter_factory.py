@@ -26,6 +26,7 @@ def _parse_volume_string(vol_str: str) -> DockerVolume | None:
 
     Returns:
         Tuple of (host_path, container_path) or None if invalid
+
     """
     parts = vol_str.split(":", 2)
     if len(parts) >= 2:
@@ -49,6 +50,7 @@ def _build_volumes(
 
     Returns:
         List of volume tuples (host_path, container_path)
+
     """
     volumes: list[DockerVolume] = []
 
@@ -93,6 +95,7 @@ def _build_environment(
 
     Returns:
         Dictionary of environment variables
+
     """
     environment: DockerEnv = docker_settings.docker_environment.copy()
 
@@ -126,6 +129,7 @@ def _create_docker_paths(
 
     Returns:
         Tuple of (home_path, workspace_path), each may be None
+
     """
     home_path = None
     workspace_path = None
@@ -160,6 +164,7 @@ def _build_user_context(
 
     Returns:
         DockerUserContext if user mapping is enabled and valid, None otherwise
+
     """
     effective_mapping_enabled = (
         user_mapping_enabled
@@ -206,6 +211,7 @@ def _build_command(
 
     Returns:
         Combined command list or None if no command provided
+
     """
     if not command:
         return None
@@ -258,6 +264,7 @@ def _create_docker_adapter_from_settings(
 
     Returns:
         Tuple of (image, volumes, environment, command, user_context, additional_args)
+
     """
     docker_settings = settings.docker
 

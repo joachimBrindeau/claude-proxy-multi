@@ -19,6 +19,7 @@ def parse_thinking_blocks(content: str) -> list[dict[str, Any]]:
 
     Returns:
         List of content blocks with thinking and text
+
     """
     thinking_pattern = r'<thinking signature="([^"]*)">(.*?)</thinking>'
     anthropic_content: list[dict[str, Any]] = []
@@ -61,6 +62,7 @@ def convert_image_url_to_anthropic(url: str) -> dict[str, Any] | None:
 
     Returns:
         Anthropic image block or None if invalid
+
     """
     if url.startswith("data:"):
         # Base64 encoded image
@@ -95,13 +97,14 @@ def convert_pydantic_block(block: Any) -> dict[str, Any] | None:
 
     Returns:
         Anthropic content block or None if unsupported
+
     """
     block_type = getattr(block, "type", None)
 
     if block_type == "text" and hasattr(block, "text") and block.text is not None:
         return {"type": "text", "text": block.text}
 
-    elif (
+    if (
         block_type == "image_url"
         and hasattr(block, "image_url")
         and block.image_url is not None
@@ -127,11 +130,12 @@ def convert_dict_block(block: dict[str, Any]) -> dict[str, Any] | None:
 
     Returns:
         Anthropic content block or None if unsupported
+
     """
     if block.get("type") == "text":
         return {"type": "text", "text": block.get("text", "")}
 
-    elif block.get("type") == "image_url":
+    if block.get("type") == "image_url":
         # Convert image URL to Anthropic format
         image_url = block.get("image_url", {})
         url = image_url.get("url", "")

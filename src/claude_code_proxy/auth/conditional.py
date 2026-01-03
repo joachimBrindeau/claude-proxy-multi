@@ -37,6 +37,7 @@ async def get_conditional_auth_manager(
 
     Raises:
         HTTPException: If auth is required but credentials are invalid
+
     """
     # Check if auth is required for this configuration
     if settings is None or not settings.security.auth_token:
@@ -64,12 +65,11 @@ async def get_conditional_auth_manager(
         bearer_auth = BearerTokenAuthManager(credentials.credentials)
         if await bearer_auth.is_authenticated():
             return bearer_auth
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication failed",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     except (AuthenticationError, ValueError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

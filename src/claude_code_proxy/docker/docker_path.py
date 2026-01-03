@@ -20,6 +20,7 @@ class DockerPath(BaseModel):
         docker_vol = workspace.vol()  # Returns volume mapping tuple
         container_path = workspace.container()  # Returns container path
         host_path = workspace.host()  # Returns host path
+
     """
 
     host_path: Path | None = None
@@ -39,6 +40,7 @@ class DockerPath(BaseModel):
 
         Returns:
             tuple[str, str]: (host_path, container_path) for Docker -v flag
+
         """
         if self.host_path is None:
             raise ValueError("host_path is not set, cannot create volume mapping")
@@ -49,6 +51,7 @@ class DockerPath(BaseModel):
 
         Returns:
             Path: Resolved host path
+
         """
         if self.host_path is None:
             raise ValueError("host_path is not set")
@@ -59,6 +62,7 @@ class DockerPath(BaseModel):
 
         Returns:
             str: Container path
+
         """
         return self.container_path
 
@@ -70,6 +74,7 @@ class DockerPath(BaseModel):
 
         Returns:
             DockerPath: New instance with joined paths
+
         """
         host_joined = self.host_path
         if host_joined:
@@ -86,7 +91,7 @@ class DockerPath(BaseModel):
         return f"{self.env_definition_variable_name}={self.container_path} # {self.host_path}"
 
     def __str__(self) -> str:
-        """String representation showing the mapping."""
+        """Return string representation showing the mapping."""
         if self.host_path:
             return f"DockerPath({self.host_path} -> {self.container_path})"
         return f"DockerPath(container_path={self.container_path})"
@@ -106,6 +111,7 @@ class DockerPathSet:
 
         workspace_vol = paths.get("workspace").vol()
         config_path = paths.get("config").container()
+
     """
 
     def __init__(self, base_host_path: str | Path | None = None) -> None:
@@ -113,6 +119,7 @@ class DockerPathSet:
 
         Args:
             base_host_path: Base path on host for all paths in this set
+
         """
         self.base_host_path = Path(base_host_path).resolve() if base_host_path else None
         self.paths: dict[str, DockerPath] = {}
@@ -130,6 +137,7 @@ class DockerPathSet:
 
         Returns:
             Self: For method chaining
+
         """
         if self.base_host_path is None:
             raise ValueError("base_host_path must be set to use add() method")
@@ -157,6 +165,7 @@ class DockerPathSet:
 
         Returns:
             Self: For method chaining
+
         """
         self.paths[name] = docker_path
         return self
@@ -172,6 +181,7 @@ class DockerPathSet:
 
         Raises:
             KeyError: If path name is not found
+
         """
         if name not in self.paths:
             raise KeyError(
@@ -187,6 +197,7 @@ class DockerPathSet:
 
         Returns:
             bool: True if path exists
+
         """
         return name in self.paths
 
@@ -195,6 +206,7 @@ class DockerPathSet:
 
         Returns:
             list[tuple[str, str]]: List of (host_path, container_path) tuples
+
         """
         return [path.vol() for path in self.paths.values()]
 
@@ -203,5 +215,6 @@ class DockerPathSet:
 
         Returns:
             list[str]: List of logical path names
+
         """
         return list(self.paths.keys())

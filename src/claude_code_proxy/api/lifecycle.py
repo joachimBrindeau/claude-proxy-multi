@@ -14,6 +14,8 @@ logger = get_logger(__name__)
 
 # Type definitions for lifecycle components
 class LifecycleComponent(TypedDict):
+    """Type definition for application lifecycle components."""
+
     name: str
     startup: Callable[[FastAPI, Settings], Awaitable[None]] | None
     shutdown: (
@@ -24,6 +26,8 @@ class LifecycleComponent(TypedDict):
 
 
 class ShutdownComponent(TypedDict):
+    """Type definition for shutdown-only components."""
+
     name: str
     shutdown: Callable[[FastAPI], Awaitable[None]] | None
 
@@ -39,6 +43,7 @@ async def run_startup_component(
         component: Lifecycle component definition
         app: FastAPI application instance
         settings: Application settings
+
     """
     if not component["startup"]:
         return
@@ -48,7 +53,7 @@ async def run_startup_component(
         logger.debug(f"starting_{component_name.lower().replace(' ', '_')}")
         await component["startup"](app, settings)
     except (OSError, RuntimeError, ValueError) as e:
-        logger.error(
+        logger.exception(
             f"{component_name.lower().replace(' ', '_')}_startup_failed",
             error=str(e),
             component=component_name,
@@ -66,6 +71,7 @@ async def run_shutdown_component(
         component: Lifecycle or shutdown component definition
         app: FastAPI application instance
         settings: Optional application settings (required for some components)
+
     """
     if not component["shutdown"]:
         return
@@ -80,7 +86,7 @@ async def run_shutdown_component(
         else:
             await component["shutdown"](app)  # type: ignore
     except (OSError, RuntimeError) as e:
-        logger.error(
+        logger.exception(
             f"{component_name.lower().replace(' ', '_')}_shutdown_failed",
             error=str(e),
             component=component_name,
@@ -98,6 +104,7 @@ async def execute_startup_sequence(
         components: List of lifecycle components
         app: FastAPI application instance
         settings: Application settings
+
     """
     for component in components:
         await run_startup_component(component, app, settings)
@@ -116,6 +123,7 @@ async def execute_shutdown_sequence(
         shutdown_components: List of shutdown-only components
         app: FastAPI application instance
         settings: Application settings
+
     """
     # Execute shutdown-only components first
     for shutdown_component in shutdown_components:
@@ -131,6 +139,7 @@ def log_server_start(settings: Settings) -> None:
 
     Args:
         settings: Application settings
+
     """
     logger.info(
         "server_start",
@@ -148,6 +157,7 @@ def log_claude_cli_config(settings: Settings) -> None:
 
     Args:
         settings: Application settings
+
     """
     if settings.claude.cli_path:
         logger.debug("claude_cli_configured", cli_path=settings.claude.cli_path)

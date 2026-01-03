@@ -3,7 +3,7 @@
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 import httpx
 import typer
@@ -39,10 +39,9 @@ def get_credentials_manager(
         settings = get_settings()
         settings.auth.storage.storage_paths = custom_paths
         return CredentialsManager(config=settings.auth)
-    else:
-        # Use default settings
-        settings = get_settings()
-        return CredentialsManager(config=settings.auth)
+    # Use default settings
+    settings = get_settings()
+    return CredentialsManager(config=settings.auth)
 
 
 def get_docker_credential_paths() -> list[Path]:
@@ -67,6 +66,7 @@ def _resolve_credential_paths(
 
     Returns:
         List of credential paths, or None for default paths
+
     """
     if credential_file:
         return [Path(credential_file)]
@@ -108,6 +108,7 @@ def validate_credentials(
         claude-code-proxy auth validate
         claude-code-proxy auth validate --docker
         claude-code-proxy auth validate --credential-file /path/to/credentials.json
+
     """
     toolkit = get_rich_toolkit()
     toolkit.print("[bold cyan]Claude Credentials Validation[/bold cyan]", centered=True)
@@ -227,6 +228,7 @@ def credential_info(
         claude-code-proxy auth info
         claude-code-proxy auth info --docker
         claude-code-proxy auth info --credential-file /path/to/credentials.json
+
     """
     from claude_code_proxy.cli.commands.auth_credential_helpers import get_profile_sync
     from claude_code_proxy.cli.commands.auth_display_helpers import (
@@ -304,74 +306,23 @@ def login_command(
         claude-code-proxy auth login
         claude-code-proxy auth login --docker
         claude-code-proxy auth login --credential-file /path/to/credentials.json
+
     """
     toolkit = get_rich_toolkit()
     toolkit.print("[bold cyan]Claude OAuth Login[/bold cyan]", centered=True)
     toolkit.print_line()
 
     try:
-        # Get credential paths based on options
-        custom_paths = None
-        if credential_file:
-            custom_paths = [Path(credential_file)]
-        elif docker:
-            custom_paths = get_docker_credential_paths()
-
-        # Check if already logged in
+        custom_paths = _get_credential_paths(docker, credential_file)
         manager = get_credentials_manager(custom_paths)
-        try:
-            validation_result = asyncio.run(manager.validate())
-            if validation_result.valid and not validation_result.expired:
-                console.print(
-                    "[yellow]You are already logged in with valid credentials.[/yellow]"
-                )
-                console.print(
-                    "Use [cyan]claude-code-proxy auth info[/cyan] to view current credentials."
-                )
 
-                overwrite = typer.confirm(
-                    "Do you want to login again and overwrite existing credentials?"
-                )
-                if not overwrite:
-                    console.print("Login cancelled.")
-                    return
-        except CredentialsNotFoundError:
-            # No credentials found, proceed with login
-            pass
+        if not _check_should_proceed_with_login(manager):
+            return
 
-        # Perform OAuth login
-        console.print("Starting OAuth login process...")
-        console.print("Your browser will open for authentication.")
-        console.print(
-            "A temporary server will start on port 54545 for the OAuth callback..."
-        )
-
-        try:
-            asyncio.run(manager.login())
-            success = True
-        except (OAuthError, httpx.HTTPError, CredentialsStorageError) as e:
-            # OAuth flow errors, network errors, or credential storage errors
-            logger.error(f"Login failed: {e}")
-            success = False
-        except Exception as e:  # noqa: BLE001 - CLI catch-all for login errors
-            logger.error(f"Login failed with unexpected error: {e}")
-            success = False
+        success = _perform_oauth_login(manager)
 
         if success:
-            toolkit.print("Successfully logged in to Claude!", tag="success")
-
-            # Show credential info
-            console.print("\n[dim]Credential information:[/dim]")
-            updated_validation = asyncio.run(manager.validate())
-            if updated_validation.valid and updated_validation.credentials:
-                oauth_token = updated_validation.credentials.claude_ai_oauth
-                console.print(
-                    f"  Subscription: {oauth_token.subscription_type or 'Unknown'}"
-                )
-                if oauth_token.scopes:
-                    console.print(f"  Scopes: {', '.join(oauth_token.scopes)}")
-                exp_dt = oauth_token.expires_at_datetime
-                console.print(f"  Expires: {exp_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+            _display_login_success(toolkit, manager)
         else:
             toolkit.print("Login failed. Please try again.", tag="error")
             raise typer.Exit(1)
@@ -380,12 +331,99 @@ def login_command(
         console.print("\n[yellow]Login cancelled by user.[/yellow]")
         raise typer.Exit(1) from None
     except (OAuthError, CredentialsError, CredentialsStorageError, OSError) as e:
-        # OAuth errors, credential errors, or file system errors during login
         toolkit.print(f"Error during login: {e}", tag="error")
         raise typer.Exit(1) from e
     except Exception as e:  # noqa: BLE001 - CLI catch-all for user-friendly errors
         toolkit.print(f"Error during login: {e}", tag="error")
         raise typer.Exit(1) from e
+
+
+def _get_credential_paths(docker: bool, credential_file: str | None) -> list[Path] | None:
+    """Get credential paths based on CLI options.
+
+    Args:
+        docker: Whether to use Docker credential paths
+        credential_file: Optional custom credential file path
+
+    Returns:
+        List of credential paths or None for default paths
+
+    """
+    if credential_file:
+        return [Path(credential_file)]
+    if docker:
+        return get_docker_credential_paths()
+    return None
+
+
+def _check_should_proceed_with_login(manager: "CredentialsManager") -> bool:
+    """Check if user wants to proceed with login when already logged in.
+
+    Args:
+        manager: Credentials manager instance
+
+    Returns:
+        True if should proceed with login, False otherwise
+
+    """
+    try:
+        validation_result = asyncio.run(manager.validate())
+        if validation_result.valid and not validation_result.expired:
+            console.print("[yellow]You are already logged in with valid credentials.[/yellow]")
+            console.print("Use [cyan]claude-code-proxy auth info[/cyan] to view current credentials.")
+            overwrite = typer.confirm("Do you want to login again and overwrite existing credentials?")
+            if not overwrite:
+                console.print("Login cancelled.")
+                return False
+    except CredentialsNotFoundError:
+        pass  # No credentials found, proceed with login
+    return True
+
+
+def _perform_oauth_login(manager: "CredentialsManager") -> bool:
+    """Perform the OAuth login flow.
+
+    Args:
+        manager: Credentials manager instance
+
+    Returns:
+        True if login succeeded, False otherwise
+
+    """
+    console.print("Starting OAuth login process...")
+    console.print("Your browser will open for authentication.")
+    console.print("A temporary server will start on port 54545 for the OAuth callback...")
+
+    try:
+        asyncio.run(manager.login())
+        return True
+    except (OAuthError, httpx.HTTPError, CredentialsStorageError) as e:
+        logger.exception("login_failed", error=str(e), error_type=type(e).__name__)
+        return False
+    except Exception as e:  # noqa: BLE001 - CLI catch-all for login errors
+        logger.exception("login_failed_unexpected", error=str(e), error_type=type(e).__name__)
+        return False
+
+
+def _display_login_success(toolkit: Any, manager: "CredentialsManager") -> None:
+    """Display success message and credential info after login.
+
+    Args:
+        toolkit: Rich toolkit for formatted output
+        manager: Credentials manager instance
+
+    """
+    toolkit.print("Successfully logged in to Claude!", tag="success")
+    console.print("\n[dim]Credential information:[/dim]")
+
+    updated_validation = asyncio.run(manager.validate())
+    if updated_validation.valid and updated_validation.credentials:
+        oauth_token = updated_validation.credentials.claude_ai_oauth
+        console.print(f"  Subscription: {oauth_token.subscription_type or 'Unknown'}")
+        if oauth_token.scopes:
+            console.print(f"  Scopes: {', '.join(oauth_token.scopes)}")
+        exp_dt = oauth_token.expires_at_datetime
+        console.print(f"  Expires: {exp_dt.strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
 
 @app.command()
@@ -416,6 +454,7 @@ def renew(
         claude-code-proxy auth renew
         claude-code-proxy auth renew --docker
         claude-code-proxy auth renew --credential-file /path/to/credentials.json
+
     """
     toolkit = get_rich_toolkit()
     toolkit.print("[bold cyan]Claude Credentials Renewal[/bold cyan]", centered=True)

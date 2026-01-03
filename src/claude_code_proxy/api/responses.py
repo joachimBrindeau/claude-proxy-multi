@@ -29,6 +29,7 @@ class ProxyResponse(Response):
             headers: Headers to preserve from upstream
             media_type: Content type
             background: Background task
+
         """
         super().__init__(
             content=content,

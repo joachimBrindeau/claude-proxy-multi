@@ -25,6 +25,12 @@ class PermissionService:
     """Service for managing permission requests without UI dependencies."""
 
     def __init__(self, timeout_seconds: int = 30):
+        """Initialize the permission service.
+
+        Args:
+            timeout_seconds: Timeout for permission requests in seconds
+
+        """
         self._timeout_seconds = timeout_seconds
         self._requests: dict[str, PermissionRequest] = {}
         self._expiry_task: asyncio.Task[None] | None = None
@@ -33,11 +39,13 @@ class PermissionService:
         self._lock = asyncio.Lock()
 
     async def start(self) -> None:
+        """Start the permission service and expiry checker."""
         if self._expiry_task is None:
             self._expiry_task = asyncio.create_task(self._expiry_checker())
             logger.debug("permission_service_started")
 
     async def stop(self) -> None:
+        """Stop the permission service and cancel expiry checker."""
         self._shutdown = True
         if self._expiry_task:
             self._expiry_task.cancel()
@@ -58,6 +66,7 @@ class PermissionService:
 
         Raises:
             ValueError: If tool_name is empty or input is None
+
         """
         # Input validation
         if not tool_name or not tool_name.strip():
@@ -106,6 +115,7 @@ class PermissionService:
 
         Returns:
             Status of the request or None if not found
+
         """
         async with self._lock:
             request = self._requests.get(request_id)
@@ -125,6 +135,7 @@ class PermissionService:
 
         Returns:
             The request or None if not found
+
         """
         async with self._lock:
             return self._requests.get(request_id)
@@ -141,6 +152,7 @@ class PermissionService:
 
         Raises:
             ValueError: If request_id is empty
+
         """
         # Input validation
         if not request_id or not request_id.strip():
@@ -218,7 +230,7 @@ class PermissionService:
                 break
             except RuntimeError as e:
                 # Runtime errors during expiry checking (e.g., event loop issues)
-                logger.error(
+                logger.exception(
                     "expiry_checker_error",
                     error=str(e),
                     exc_info=True,
@@ -246,6 +258,7 @@ class PermissionService:
 
         Returns:
             An async queue that will receive events
+
         """
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         async with self._lock:
@@ -259,6 +272,7 @@ class PermissionService:
 
         Args:
             queue: The queue to unsubscribe
+
         """
         async with self._lock:
             if queue in self._event_queues:
@@ -269,6 +283,7 @@ class PermissionService:
 
         Args:
             event: The event data to emit
+
         """
         async with self._lock:
             queues = list(self._event_queues)
@@ -285,6 +300,7 @@ class PermissionService:
 
         Returns:
             List of pending requests
+
         """
         async with self._lock:
             pending = []
@@ -313,6 +329,7 @@ class PermissionService:
         Raises:
             asyncio.TimeoutError: If timeout is reached before resolution
             PermissionNotFoundError: If request ID is not found
+
         """
         async with self._lock:
             request = self._requests.get(request_id)

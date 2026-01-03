@@ -33,8 +33,8 @@ class APIAdapter(ABC):
 
         Raises:
             ValueError: If the request format is invalid or unsupported
+
         """
-        pass
 
     @abstractmethod
     def adapt_response(self, response: dict[str, Any]) -> dict[str, Any]:
@@ -48,8 +48,8 @@ class APIAdapter(ABC):
 
         Raises:
             ValueError: If the response format is invalid or unsupported
+
         """
-        pass
 
     @abstractmethod
     def adapt_stream(
@@ -65,6 +65,7 @@ class APIAdapter(ABC):
 
         Raises:
             ValueError: If the stream format is invalid or unsupported
+
         """
         # This should be implemented as an async generator
         # async def adapt_stream(self, stream): ...

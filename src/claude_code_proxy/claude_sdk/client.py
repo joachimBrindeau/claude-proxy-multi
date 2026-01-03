@@ -53,8 +53,7 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class ClaudeSDKClient:
-    """
-    Minimal Claude SDK client wrapper that handles core SDK interactions.
+    """Minimal Claude SDK client wrapper that handles core SDK interactions.
 
     This class provides a clean interface to the Claude Code SDK while handling
     error translation and basic query execution. Supports both stateless query()
@@ -80,6 +79,7 @@ class ClaudeSDKClient:
         Args:
             settings: Application settings for session pool configuration
             session_manager: Optional SessionManager instance for dependency injection
+
         """
         self._last_api_call_time_ms: float = 0.0
         self._settings = settings
@@ -93,7 +93,7 @@ class ClaudeSDKClient:
         try:
             yield
         except (CLINotFoundError, CLIConnectionError) as e:
-            logger.error(
+            logger.exception(
                 "claude_sdk_connection_failed",
                 error=str(e),
                 error_type=type(e).__name__,
@@ -102,7 +102,7 @@ class ClaudeSDKClient:
             )
             raise ServiceUnavailableError(f"Claude CLI not available: {str(e)}") from e
         except (ProcessError, CLIJSONDecodeError) as e:
-            logger.error(
+            logger.exception(
                 "claude_sdk_process_failed",
                 error=str(e),
                 error_type=type(e).__name__,
@@ -126,7 +126,7 @@ class ClaudeSDKClient:
         ) as e:
             # Catch remaining async/system errors: I/O errors, task cancellation, runtime errors
             # ValueError/TypeError: unexpected data format or type errors
-            logger.error(
+            logger.exception(
                 "claude_sdk_unexpected_error",
                 error=str(e),
                 error_type=type(e).__name__,
@@ -196,6 +196,7 @@ class ClaudeSDKClient:
 
         Returns:
             List of Claude SDK UserMessage objects
+
         """
         sdk_messages = []
 
@@ -261,8 +262,7 @@ class ClaudeSDKClient:
         request_id: str | None = None,
         session_id: str | None = None,
     ) -> StreamHandle:
-        """
-        Execute a query using the Claude Code SDK and return a StreamHandle.
+        """Execute a query using the Claude Code SDK and return a StreamHandle.
 
         Args:
             message: SDKMessage to send to Claude SDK
@@ -275,16 +275,16 @@ class ClaudeSDKClient:
 
         Raises:
             ClaudeSDKError: If the query fails
+
         """
         # Determine routing strategy
         if self._should_use_session_pool(session_id):
             return await self._create_session_pool_stream_handle(
                 message, options, request_id, session_id
             )
-        else:
-            return await self._create_direct_stream_handle(
-                message, options, request_id, session_id
-            )
+        return await self._create_direct_stream_handle(
+            message, options, request_id, session_id
+        )
 
     async def _create_direct_stream_handle(
         self,
@@ -508,7 +508,7 @@ class ClaudeSDKClient:
             OSError,
         ) as e:
             # Session pool query errors: SDK errors, connection issues, process failures
-            logger.error(
+            logger.exception(
                 "claude_sdk_session_pool_query_error",
                 error=str(e),
                 error_type=type(e).__name__,
@@ -529,8 +529,7 @@ class ClaudeSDKClient:
         session_id: str | None = None,
         request_id: str | None = None,
     ) -> tuple[Any, AsyncIterator[Any]]:
-        """
-        Wait for the first chunk from an async iterator with timeout.
+        """Wait for the first chunk from an async iterator with timeout.
 
         Args:
             message_iterator: The async iterator to get messages from
@@ -543,6 +542,7 @@ class ClaudeSDKClient:
 
         Raises:
             StreamTimeoutError: If no chunk is received within timeout
+
         """
         try:
             # Wait for the first chunk with timeout - don't care about message type
@@ -558,7 +558,7 @@ class ClaudeSDKClient:
             )
 
             if has_session_pool:
-                logger.error(
+                logger.exception(
                     "first_chunk_timeout",
                     session_id=session_id,
                     request_id=request_id,
@@ -566,7 +566,7 @@ class ClaudeSDKClient:
                     message="No chunk received within timeout, session pool will handle cleanup",
                 )
             else:
-                logger.error(
+                logger.exception(
                     "first_chunk_timeout",
                     session_id=session_id,
                     request_id=request_id,
@@ -579,7 +579,7 @@ class ClaudeSDKClient:
                         await self._session_manager.interrupt_session(session_id)
                     except (TimeoutError, asyncio.CancelledError, OSError) as e:
                         # Interrupt errors: task cancellation, timeout, or I/O errors
-                        logger.error(
+                        logger.exception(
                             "failed_to_interrupt_stuck_session",
                             session_id=session_id,
                             error=str(e),
@@ -605,8 +605,7 @@ class ClaudeSDKClient:
         | sdk_models.SystemMessage
         | sdk_models.ResultMessage
     ]:
-        """
-        Process messages from an async iterator, converting them to Pydantic models.
+        """Process messages from an async iterator, converting them to Pydantic models.
 
         Args:
             message_iterator: The async iterator of SDK messages
@@ -617,6 +616,7 @@ class ClaudeSDKClient:
 
         Yields:
             Converted Pydantic model messages (unless drain_mode is True)
+
         """
         async for sdk_msg in message_iterator:
             # Find matching type and convert
@@ -683,6 +683,7 @@ class ClaudeSDKClient:
 
         Returns:
             Task that completes when stream is drained
+
         """
 
         async def drain_stream() -> None:
@@ -711,7 +712,7 @@ class ClaudeSDKClient:
                 )
             except (TimeoutError, asyncio.CancelledError, OSError) as e:
                 # Stream drain errors: task cancellation, timeout, or I/O errors
-                logger.error(
+                logger.exception(
                     "claude_sdk_stream_drain_error",
                     session_id=session_id,
                     request_id=request_id,
@@ -754,11 +755,11 @@ class ClaudeSDKClient:
         return model_class.model_validate(message_dict)
 
     async def validate_health(self) -> bool:
-        """
-        Validate that the Claude SDK is healthy.
+        """Validate that the Claude SDK is healthy.
 
         Returns:
             True if healthy, False otherwise
+
         """
         try:
             logger.debug("health_check_start", component="claude_sdk")
@@ -773,7 +774,7 @@ class ClaudeSDKClient:
             return is_healthy
         except (ImportError, RuntimeError, OSError) as e:
             # Health check errors: import failures, runtime issues, or I/O errors
-            logger.error(
+            logger.exception(
                 "health_check_failed",
                 component="claude_sdk",
                 error=str(e),
@@ -789,6 +790,7 @@ class ClaudeSDKClient:
 
         Returns:
             True if session was found and interrupted, False otherwise
+
         """
         logger.debug("sdk_client_interrupt_session_started", session_id=session_id)
         if self._session_manager:
@@ -798,14 +800,12 @@ class ClaudeSDKClient:
                 has_session_manager=True,
             )
             return await self._session_manager.interrupt_session(session_id)
-        else:
-            logger.warning(
-                "client_interrupt_session_no_session_manager",
-                session_id=session_id,
-            )
-            return False
+        logger.warning(
+            "client_interrupt_session_no_session_manager",
+            session_id=session_id,
+        )
+        return False
 
     async def close(self) -> None:
         """Close the client and cleanup resources."""
         # Claude Code SDK doesn't require explicit cleanup
-        pass
