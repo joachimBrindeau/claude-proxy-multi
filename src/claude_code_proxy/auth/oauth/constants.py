@@ -34,10 +34,11 @@ Testing showed org:create_api_key scope fails with console redirect:
 This scope appears restricted to localhost redirect URIs for security.
 
 References
-==========
+----------
 - Anthropic OAuth Docs: https://docs.anthropic.com/en/api/oauth
 - Claude CLI source: Uses localhost redirect with org:create_api_key
 - Session: 2025-12-14 OAuth debugging with HAR analysis
+
 """
 
 # OAuth Authorization Server

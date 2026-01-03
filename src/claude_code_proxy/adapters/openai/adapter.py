@@ -52,6 +52,7 @@ class OpenAIAdapter(APIAdapter):
 
         Raises:
             ValueError: If the request format is invalid or unsupported
+
         """
         try:
             # Parse OpenAI request
@@ -329,6 +330,7 @@ class OpenAIAdapter(APIAdapter):
 
         Raises:
             ValueError: If the response format is invalid or unsupported
+
         """
         try:
             # Extract original model from response metadata if available
@@ -451,6 +453,7 @@ class OpenAIAdapter(APIAdapter):
 
         Raises:
             ValueError: If the stream format is invalid or unsupported
+
         """
         # Create stream processor with dict output format
         processor = OpenAIStreamProcessor(
@@ -465,7 +468,7 @@ class OpenAIAdapter(APIAdapter):
                 yield chunk  # type: ignore[misc]  # chunk is guaranteed to be dict when output_format="dict"
         except (orjson.JSONDecodeError, ValidationError) as e:
             # JSON parsing or validation errors during stream processing
-            logger.error(
+            logger.exception(
                 "streaming_conversion_failed",
                 error=str(e),
                 error_type=type(e).__name__,
@@ -580,7 +583,7 @@ class OpenAIAdapter(APIAdapter):
             }
             return mapping.get(tool_choice, {"type": "auto"})
 
-        elif isinstance(tool_choice, dict) and tool_choice.get("type") == "function":
+        if isinstance(tool_choice, dict) and tool_choice.get("type") == "function":
             func = tool_choice.get("function", {})
             return {
                 "type": "tool",
@@ -596,7 +599,7 @@ class OpenAIAdapter(APIAdapter):
         if isinstance(function_call, str):
             if function_call == "none":
                 return {"type": "none"}
-            elif function_call == "auto":
+            if function_call == "auto":
                 return {"type": "auto"}
 
         elif isinstance(function_call, dict):
@@ -661,6 +664,7 @@ class OpenAIAdapter(APIAdapter):
 
         Returns:
             OpenAI-formatted error response
+
         """
         # Extract error details from Anthropic format
         anthropic_error = error_body.get("error", {})

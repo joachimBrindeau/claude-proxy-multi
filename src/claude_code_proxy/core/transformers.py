@@ -34,8 +34,8 @@ class BaseTransformer(ABC):
 
         Raises:
             TransformationError: If transformation fails
+
         """
-        pass
 
     async def _collect_transformation_metrics(
         self,
@@ -55,6 +55,7 @@ class BaseTransformer(ABC):
             duration_ms: Time taken for transformation in milliseconds
             success: Whether transformation was successful
             error: Error message if transformation failed
+
         """
         if not self.metrics_collector:
             return
@@ -94,17 +95,17 @@ class BaseTransformer(ABC):
 
         Returns:
             Size in bytes
+
         """
         if data is None:
             return 0
-        elif isinstance(data, bytes):
+        if isinstance(data, bytes):
             return len(data)
-        elif isinstance(data, str):
+        if isinstance(data, str):
             return len(data.encode("utf-8"))
-        elif hasattr(data, "__len__"):
+        if hasattr(data, "__len__"):
             return len(str(data))
-        else:
-            return len(str(data))
+        return len(str(data))
 
 
 class RequestTransformer(BaseTransformer):
@@ -126,6 +127,7 @@ class RequestTransformer(BaseTransformer):
 
         Returns:
             The transformed request
+
         """
         import time
 
@@ -164,8 +166,8 @@ class RequestTransformer(BaseTransformer):
 
         Returns:
             The transformed request
+
         """
-        pass
 
 
 class ResponseTransformer(BaseTransformer):
@@ -182,6 +184,7 @@ class ResponseTransformer(BaseTransformer):
 
         Returns:
             The transformed response
+
         """
         import time
 
@@ -221,8 +224,8 @@ class ResponseTransformer(BaseTransformer):
 
         Returns:
             The transformed response
+
         """
-        pass
 
 
 @runtime_checkable
@@ -242,6 +245,7 @@ class ChainedTransformer(BaseTransformer):
 
         Args:
             transformers: List of transformers to apply in sequence
+
         """
         self.transformers = transformers
 
@@ -256,6 +260,7 @@ class ChainedTransformer(BaseTransformer):
 
         Returns:
             The result of applying all transformers
+
         """
         result = data
         for transformer in self.transformers:

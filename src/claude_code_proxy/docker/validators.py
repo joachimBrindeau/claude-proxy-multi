@@ -27,6 +27,7 @@ def _parse_ipv6_port_spec(port_part: str, port_spec: str) -> PortSpecParts:
 
     Raises:
         DockerError: If IPv6 format is invalid
+
     """
     ipv6_end = port_part.find("]:")
     if ipv6_end == -1:
@@ -69,6 +70,7 @@ def _validate_port_numbers(host_port: str, container_port: str, port_spec: str) 
 
     Raises:
         DockerError: If port numbers are invalid
+
     """
     try:
         host_port_num = int(host_port)
@@ -91,6 +93,7 @@ def _validate_ip_address(host_ip: str, port_spec: str) -> None:
 
     Raises:
         DockerError: If IP address format is invalid
+
     """
     # Common valid values - skip validation
     if not host_ip or host_ip in (
@@ -144,6 +147,7 @@ def validate_port_spec(port_spec: str) -> str:
 
     Raises:
         DockerError: If port specification is invalid
+
     """
     if not port_spec or not isinstance(port_spec, str):
         raise create_docker_error(
@@ -206,6 +210,7 @@ def create_docker_error(
 
     Returns:
         DockerError instance with all context information
+
     """
     return DockerError(
         message=message,

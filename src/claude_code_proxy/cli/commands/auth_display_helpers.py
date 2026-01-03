@@ -12,6 +12,11 @@ from rich.console import Console
 from rich.table import Table
 
 from claude_code_proxy.auth.models import OAuthToken, UserProfile
+from claude_code_proxy.core.constants import (
+    SECONDS_PER_DAY,
+    SECONDS_PER_HOUR,
+    SECONDS_PER_MINUTE,
+)
 
 
 def format_time_remaining(expires_at: datetime) -> str:
@@ -22,6 +27,7 @@ def format_time_remaining(expires_at: datetime) -> str:
 
     Returns:
         Formatted string with time remaining or "Expired"
+
     """
     now = datetime.now(UTC)
     time_diff = expires_at - now
@@ -30,8 +36,8 @@ def format_time_remaining(expires_at: datetime) -> str:
         return "[red]Expired[/red]"
 
     days = time_diff.days
-    hours = (time_diff.seconds % 86400) // 3600
-    minutes = (time_diff.seconds % 3600) // 60
+    hours = (time_diff.seconds % SECONDS_PER_DAY) // SECONDS_PER_HOUR
+    minutes = (time_diff.seconds % SECONDS_PER_HOUR) // SECONDS_PER_MINUTE
 
     return f"{days} days, {hours} hours, {minutes} minutes"
 
@@ -47,6 +53,7 @@ def display_account_section(
         console: Rich console for output
         oauth: OAuth token information
         profile: Account profile (may be None if unavailable)
+
     """
     console.print("\n[bold]Account[/bold]")
 
@@ -108,6 +115,7 @@ def create_credential_details_table(
 
     Returns:
         Formatted Rich table with credential details
+
     """
     table = Table(
         show_header=True,
@@ -163,6 +171,7 @@ def display_no_credentials_message(console: Console, storage_paths: list[Path]) 
     Args:
         console: Rich console for output
         storage_paths: List of paths that were checked
+
     """
     console.print("\n[dim]Expected locations:[/dim]")
     for path in storage_paths:

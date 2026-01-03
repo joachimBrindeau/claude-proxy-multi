@@ -21,6 +21,7 @@ class CredentialsAuthManager(BaseAuthManager):
 
         Args:
             credentials_manager: CredentialsManager instance, creates new if None
+
         """
         self._credentials_manager = credentials_manager or CredentialsManager()
 
@@ -32,6 +33,7 @@ class CredentialsAuthManager(BaseAuthManager):
 
         Raises:
             AuthenticationError: If authentication fails
+
         """
         try:
             return await self._credentials_manager.get_access_token()
@@ -50,6 +52,7 @@ class CredentialsAuthManager(BaseAuthManager):
 
         Raises:
             AuthenticationError: If authentication fails
+
         """
         try:
             return await self._credentials_manager.get_valid_credentials()
@@ -65,6 +68,7 @@ class CredentialsAuthManager(BaseAuthManager):
 
         Returns:
             True if authenticated, False otherwise
+
         """
         try:
             await self._credentials_manager.get_valid_credentials()
@@ -77,6 +81,7 @@ class CredentialsAuthManager(BaseAuthManager):
 
         Returns:
             UserProfile if available, None otherwise
+
         """
         try:
             return await self._credentials_manager.fetch_user_profile()

@@ -34,8 +34,7 @@ logger = structlog.get_logger(__name__)
 
 
 class ClaudeSDKService:
-    """
-    Service layer for Claude SDK operations orchestration.
+    """Service layer for Claude SDK operations orchestration.
 
     This class handles business logic coordination between the pure SDK client,
     authentication, metrics, and format conversion while maintaining clean
@@ -49,14 +48,14 @@ class ClaudeSDKService:
         settings: Settings | None = None,
         session_manager: SessionManager | None = None,
     ) -> None:
-        """
-        Initialize Claude SDK service.
+        """Initialize Claude SDK service.
 
         Args:
             sdk_client: Claude SDK client instance
             auth_manager: Authentication manager (optional)
             settings: Application settings (optional)
             session_manager: Session manager for dependency injection (optional)
+
         """
         self.sdk_client = sdk_client or ClaudeSDKClient(
             settings=settings, session_manager=session_manager
@@ -82,6 +81,7 @@ class ClaudeSDKService:
 
         Returns:
             SDKMessage ready to send to Claude SDK
+
         """
         # Find the last user message
         last_user_message = None
@@ -123,6 +123,7 @@ class ClaudeSDKService:
             ctx: Request context to add metadata to
             session_id: Optional session ID
             options: Claude Code options
+
         """
         if (
             session_id
@@ -187,8 +188,7 @@ class ClaudeSDKService:
         session_id: str | None = None,
         **kwargs: Any,
     ) -> MessageResponse | AsyncIterator[dict[str, Any]]:
-        """
-        Create a completion using Claude SDK with business logic orchestration.
+        """Create a completion using Claude SDK with business logic orchestration.
 
         Args:
             messages: List of messages in Anthropic format
@@ -206,8 +206,8 @@ class ClaudeSDKService:
         Raises:
             CCProxyError: If request fails
             ServiceUnavailableError: If service is unavailable
-        """
 
+        """
         # Extract system message and create options
         system_message = self.options_handler.extract_system_message(messages)
 
@@ -251,11 +251,10 @@ class ClaudeSDKService:
                 return self._stream_completion(
                     ctx, messages, options, model, session_id, timestamp
                 )
-            else:
-                result = await self._complete_non_streaming(
-                    ctx, messages, options, model, session_id, timestamp
-                )
-                return result
+            result = await self._complete_non_streaming(
+                ctx, messages, options, model, session_id, timestamp
+            )
+            return result
         except (CCProxyError, ServiceUnavailableError) as e:
             # Add error info to context for automatic access logging
             ctx.add_metadata(error_message=str(e), error_type=type(e).__name__)
@@ -275,6 +274,7 @@ class ClaudeSDKService:
             response: Response to add content to
             mode: SDK message mode
             pretty_format: Whether to use pretty formatting
+
         """
         content_block = self.message_converter._create_sdk_content_block(
             sdk_object=message,
@@ -315,6 +315,7 @@ class ClaudeSDKService:
             response: Response to add content to
             mode: SDK message mode
             pretty_format: Whether to use pretty formatting
+
         """
         if mode == SDKMessageMode.IGNORE or not response.content:
             return
@@ -351,6 +352,7 @@ class ClaudeSDKService:
 
         Raises:
             CCProxyError: If required messages not received
+
         """
         sdk_messages = []
         async for sdk_message in stream_handle.create_listener():
@@ -394,19 +396,22 @@ class ClaudeSDKService:
         session_id: str | None = None,
         timestamp: str | None = None,
     ) -> MessageResponse:
-        """
-        Complete a non-streaming request with business logic.
+        """Complete a non-streaming request with business logic.
 
         Args:
-            prompt: The formatted prompt
+            ctx: Request context with metadata
+            messages: List of messages to send
             options: Claude SDK options
             model: The model being used
+            session_id: Optional session identifier
+            timestamp: Optional timestamp for the request
 
         Returns:
             Response in Anthropic format
 
         Raises:
             CCProxyError: If completion fails
+
         """
         request_id = ctx.request_id
         logger.debug("claude_sdk_completion_start", request_id=request_id)
@@ -481,17 +486,19 @@ class ClaudeSDKService:
         session_id: str | None = None,
         timestamp: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        """
-        Stream completion responses with business logic.
+        """Stream completion responses with business logic.
 
         Args:
-            prompt: The formatted prompt
+            ctx: Request context with metadata
+            messages: List of messages to send
             options: Claude SDK options
             model: The model being used
-            ctx: Optional request context for metrics
+            session_id: Optional session identifier
+            timestamp: Optional timestamp for the request
 
         Yields:
             Response chunks in Anthropic format
+
         """
         request_id = ctx.request_id
         sdk_message_mode = (
@@ -563,7 +570,7 @@ class ClaudeSDKService:
             raise
         except StreamTimeoutError as e:
             # Send error events to the client
-            logger.error(
+            logger.exception(
                 "stream_timeout_error",
                 message=str(e),
                 session_id=e.session_id,
@@ -652,6 +659,7 @@ class ClaudeSDKService:
             stream: Whether streaming is enabled
             session_id: Optional session ID for Claude SDK integration
             timestamp: Optional timestamp prefix
+
         """
         # timestamp is already provided from context, no need for fallback
 
@@ -684,6 +692,7 @@ class ClaudeSDKService:
             request_id: Request identifier
             result: The result from _complete_non_streaming
             timestamp: Optional timestamp prefix
+
         """
         # timestamp is already provided from context, no need for fallback
 
@@ -713,6 +722,7 @@ class ClaudeSDKService:
             request_id: Request identifier
             chunk: The streaming chunk from process_stream
             timestamp: Optional timestamp prefix
+
         """
         # timestamp is already provided from context, no need for fallback
 
@@ -729,11 +739,11 @@ class ClaudeSDKService:
         )
 
     async def validate_health(self) -> bool:
-        """
-        Validate that the service is healthy.
+        """Validate that the service is healthy.
 
         Returns:
             True if healthy, False otherwise
+
         """
         try:
             return await self.sdk_client.validate_health()
@@ -741,7 +751,7 @@ class ClaudeSDKService:
             # OSError: Network/filesystem errors
             # RuntimeError: SDK internal errors
             # CancelledError/TimeoutError: Async operation issues
-            logger.error(
+            logger.exception(
                 "health_check_failed",
                 error=str(e),
                 error_type=type(e).__name__,
@@ -757,6 +767,7 @@ class ClaudeSDKService:
 
         Returns:
             True if session was found and interrupted, False otherwise
+
         """
         return await self.sdk_client.interrupt_session(session_id)
 

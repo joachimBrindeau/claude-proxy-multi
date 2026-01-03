@@ -8,5 +8,6 @@ def generate_client_id() -> str:
 
     Returns:
         str: Short URL-safe ID (22 characters)
+
     """
     return shortuuid.uuid()

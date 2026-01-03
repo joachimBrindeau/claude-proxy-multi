@@ -58,6 +58,7 @@ async def event_generator(
 
     Yields:
         Dict with event data for SSE
+
     """
     service = get_permission_service()
     queue = await service.subscribe_to_events()
@@ -123,6 +124,7 @@ async def stream_permissions(
 
     Returns:
         EventSourceResponse streaming permission events
+
     """
     return EventSourceResponse(
         event_generator(request),
@@ -143,12 +145,15 @@ async def get_permission(
 
     Args:
         permission_id: ID of the permission request
+        settings: Application settings (injected)
+        auth: Authentication dependency (injected)
 
     Returns:
         Information about the permission request
 
     Raises:
         HTTPException: If request not found
+
     """
     service = get_permission_service()
     try:
@@ -183,12 +188,15 @@ async def respond_to_permission(
     Args:
         permission_id: ID of the permission request
         response: The allow/deny response
+        settings: Application settings (injected)
+        auth: Authentication dependency (injected)
 
     Returns:
         Success response
 
     Raises:
         HTTPException: If request not found or already resolved
+
     """
     service = get_permission_service()
     permission_status = await service.get_status(permission_id)

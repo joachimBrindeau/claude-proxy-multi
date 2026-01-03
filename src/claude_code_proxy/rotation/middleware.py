@@ -62,6 +62,7 @@ class RotationMiddleware:
             app: ASGI application
             pool: Rotation pool for account selection
             max_retries: Maximum retry attempts on rate limit
+
         """
         self.app = app
         self.pool = pool
@@ -202,6 +203,7 @@ class RotationMiddleware:
             scope: ASGI scope
             account: Account to inject
             body: Request body
+
         """
         if "state" not in scope:
             scope["state"] = {}
@@ -225,6 +227,7 @@ class RotationMiddleware:
             response_headers: Response headers
             response_body_parts: Buffered response body parts
             account_name: Account name for rate limit marking
+
         """
         self.pool.mark_rate_limited(
             account_name, headers=_decode_headers(response_headers)
@@ -257,6 +260,7 @@ class RotationMiddleware:
             response_status_code: HTTP status code
             response_body_parts: Response body parts
             account_name: Account name for error marking
+
         """
         if response_status_code in (
             status.HTTP_401_UNAUTHORIZED,
@@ -284,6 +288,7 @@ class RotationMiddleware:
 
         Returns:
             Wrapped send callable
+
         """
 
         async def smart_send(message: Message) -> None:
@@ -491,6 +496,7 @@ def get_rotation_account(request: Request) -> Account | None:
 
     Returns:
         Account if set by middleware, None otherwise
+
     """
     account: Account | None = getattr(request.state, "rotation_account", None)
     return account
@@ -506,6 +512,7 @@ def get_rotation_token(request: Request) -> str | None:
 
     Returns:
         Access token if rotation account set, None otherwise
+
     """
     account = get_rotation_account(request)
     if account:

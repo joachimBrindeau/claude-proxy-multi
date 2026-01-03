@@ -72,12 +72,9 @@ class DockerAdapter:
                 docker_version = stdout.decode().strip()
                 logger.debug("docker_available", version=docker_version)
                 return True
-            else:
-                stderr_text = stderr.decode() if stderr else "unknown error"
-                logger.warning(
-                    "docker_command_failed", command=cmd_str, error=stderr_text
-                )
-                return False
+            stderr_text = stderr.decode() if stderr else "unknown error"
+            logger.warning("docker_command_failed", command=cmd_str, error=stderr_text)
+            return False
 
         except FileNotFoundError:
             logger.warning("docker_executable_not_found")
@@ -127,7 +124,6 @@ class DockerAdapter:
         ports: list[DockerPortSpec] | None = None,
     ) -> ProcessResult[T]:
         """Run a Docker container with specified configuration."""
-
         docker_cmd = ["docker", "run", "--rm"]
 
         # Add user context if provided and should be used
@@ -178,7 +174,7 @@ class DockerAdapter:
 
         except FileNotFoundError as e:
             error = create_docker_error(f"Docker executable not found: {e}", cmd_str, e)
-            logger.error("docker_executable_not_found", error=str(e))
+            logger.exception("docker_executable_not_found", error=str(e))
             raise error from e
 
         except (subprocess.SubprocessError, OSError) as e:
@@ -193,7 +189,7 @@ class DockerAdapter:
                     "env_vars_count": len(environment),
                 },
             )
-            logger.error("docker_container_run_error", error=str(e))
+            logger.exception("docker_container_run_error", error=str(e))
             raise error from e
 
     async def run(
@@ -249,21 +245,85 @@ class DockerAdapter:
         Raises:
             DockerError: If the container fails to execute
             OSError: If the command cannot be executed
+
+        """
+        import subprocess
+
+        docker_cmd = self._build_docker_run_cmd(
+            image, volumes, environment, command, user_context, entrypoint, ports
+        )
+
+        cmd_str = " ".join(shlex.quote(arg) for arg in docker_cmd)
+        logger.info("docker_execvp", command=cmd_str)
+
+        try:
+            if self._needs_sudo_sync():
+                logger.info("docker_using_sudo_for_execution")
+                docker_cmd = ["sudo"] + docker_cmd
+
+            os.execvp(docker_cmd[0], docker_cmd)
+
+        except FileNotFoundError as e:
+            error = create_docker_error(f"Docker executable not found: {e}", cmd_str, e)
+            logger.exception("docker_execvp_executable_not_found", error=str(e))
+            raise error from e
+
+        except OSError as e:
+            error = create_docker_error(
+                f"Failed to execute Docker command: {e}", cmd_str, e
+            )
+            logger.exception("docker_execvp_os_error", error=str(e))
+            raise error from e
+
+        except subprocess.SubprocessError as e:
+            error = create_docker_error(
+                f"Unexpected error executing Docker container: {e}",
+                cmd_str,
+                e,
+                {"image": image, "volumes_count": len(volumes), "env_vars_count": len(environment)},
+            )
+            logger.exception("docker_execvp_unexpected_error", error=str(e))
+            raise error from e
+
+    def _build_docker_run_cmd(
+        self,
+        image: str,
+        volumes: list[DockerVolume],
+        environment: DockerEnv,
+        command: list[str] | None,
+        user_context: DockerUserContext | None,
+        entrypoint: str | None,
+        ports: list[DockerPortSpec] | None,
+    ) -> list[str]:
+        """Build the docker run command list.
+
+        Args:
+            image: Docker image name/tag
+            volumes: List of volume mounts
+            environment: Environment variables
+            command: Optional command to run
+            user_context: Optional user context
+            entrypoint: Optional entrypoint override
+            ports: Optional port specifications
+
+        Returns:
+            List of command arguments for docker run
+
         """
         docker_cmd = ["docker", "run", "--rm", "-it"]
 
-        # Add user context if provided and should be used
+        # Add user context if provided
         if user_context and user_context.should_use_user_mapping():
             docker_user_flag = user_context.get_docker_user_flag()
             docker_cmd.extend(["--user", docker_user_flag])
             logger.debug("docker_user_mapping", user_flag=docker_user_flag)
 
-        # Add custom entrypoint if specified
+        # Add custom entrypoint
         if entrypoint:
             docker_cmd.extend(["--entrypoint", entrypoint])
             logger.debug("docker_custom_entrypoint", entrypoint=entrypoint)
 
-        # Add port publishing if specified
+        # Add port publishing
         if ports:
             for port_spec in ports:
                 validated_port = validate_port_spec(port_spec)
@@ -278,70 +338,38 @@ class DockerAdapter:
         for key, value in environment.items():
             docker_cmd.extend(["-e", f"{key}={value}"])
 
-        # Add image
+        # Add image and command
         docker_cmd.append(image)
-
-        # Add command if specified
         if command:
             docker_cmd.extend(command)
 
-        cmd_str = " ".join(shlex.quote(arg) for arg in docker_cmd)
-        logger.info("docker_execvp", command=cmd_str)
+        return docker_cmd
+
+    def _needs_sudo_sync(self) -> bool:
+        """Check if sudo is needed to run Docker (synchronous version).
+
+        Returns:
+            True if sudo is required, False otherwise
+
+        """
+        import subprocess
 
         try:
-            # Check if we need sudo (without running the actual command)
-            # Note: We can't use await here since this method replaces the process
-            # Use a simple check instead
-            try:
-                import subprocess
-
-                subprocess.run(
-                    ["docker", "info"], check=True, capture_output=True, text=True
-                )
-                needs_sudo = False
-            except subprocess.CalledProcessError as e:
-                needs_sudo = e.stderr and (
+            subprocess.run(
+                ["docker", "info"], check=True, capture_output=True, text=True
+            )
+            return False
+        except subprocess.CalledProcessError as e:
+            return bool(
+                e.stderr
+                and (
                     "permission denied" in e.stderr.lower()
                     or "dial unix" in e.stderr.lower()
                     or "connect: permission denied" in e.stderr.lower()
                 )
-            except (OSError, FileNotFoundError):
-                # Failed to run docker command
-                needs_sudo = False
-
-            if needs_sudo:
-                logger.info("docker_using_sudo_for_execution")
-                docker_cmd = ["sudo"] + docker_cmd
-
-            # Replace current process with Docker command
-            os.execvp(docker_cmd[0], docker_cmd)
-
-        except FileNotFoundError as e:
-            error = create_docker_error(f"Docker executable not found: {e}", cmd_str, e)
-            logger.error("docker_execvp_executable_not_found", error=str(e))
-            raise error from e
-
-        except OSError as e:
-            error = create_docker_error(
-                f"Failed to execute Docker command: {e}", cmd_str, e
             )
-            logger.error("docker_execvp_os_error", error=str(e))
-            raise error from e
-
-        except subprocess.SubprocessError as e:
-            # Subprocess-related errors during exec
-            error = create_docker_error(
-                f"Unexpected error executing Docker container: {e}",
-                cmd_str,
-                e,
-                {
-                    "image": image,
-                    "volumes_count": len(volumes),
-                    "env_vars_count": len(environment),
-                },
-            )
-            logger.error("docker_execvp_unexpected_error", error=str(e))
-            raise error from e
+        except (OSError, FileNotFoundError):
+            return False
 
     async def build_image(
         self,
@@ -352,7 +380,6 @@ class DockerAdapter:
         middleware: OutputMiddleware[T] | None = None,
     ) -> ProcessResult[T]:
         """Build a Docker image from a Dockerfile."""
-
         image_full_name = f"{image_name}:{image_tag}"
 
         # Check Docker availability
@@ -421,7 +448,7 @@ class DockerAdapter:
 
         except FileNotFoundError as e:
             error = create_docker_error(f"Docker executable not found: {e}", cmd_str, e)
-            logger.error("docker_build_executable_not_found", error=str(e))
+            logger.exception("docker_build_executable_not_found", error=str(e))
             raise error from e
 
         except (subprocess.SubprocessError, OSError) as e:
@@ -433,7 +460,7 @@ class DockerAdapter:
                 {"image": image_full_name, "dockerfile_dir": str(dockerfile_dir)},
             )
 
-            logger.error(
+            logger.exception(
                 "docker_build_unexpected_error", image=image_full_name, error=str(e)
             )
             raise error from e
@@ -490,12 +517,9 @@ class DockerAdapter:
                             "docker_image_exists_with_sudo", image=image_full_name
                         )
                         return True
-                    else:
-                        # Image doesn't exist even with sudo
-                        logger.debug(
-                            "docker_image_does_not_exist", image=image_full_name
-                        )
-                        return False
+                    # Image doesn't exist even with sudo
+                    logger.debug("docker_image_does_not_exist", image=image_full_name)
+                    return False
                 except (subprocess.CalledProcessError, OSError, FileNotFoundError):
                     # Image doesn't exist even with sudo
                     logger.debug("Docker image does not exist: %s", image_full_name)
@@ -521,7 +545,6 @@ class DockerAdapter:
         middleware: OutputMiddleware[T] | None = None,
     ) -> ProcessResult[T]:
         """Pull a Docker image from registry."""
-
         image_full_name = f"{image_name}:{image_tag}"
 
         # Check Docker availability
@@ -554,7 +577,7 @@ class DockerAdapter:
 
         except FileNotFoundError as e:
             error = create_docker_error(f"Docker executable not found: {e}", cmd_str, e)
-            logger.error("docker_pull_executable_not_found", error=str(e))
+            logger.exception("docker_pull_executable_not_found", error=str(e))
             raise error from e
 
         except (subprocess.SubprocessError, OSError) as e:
@@ -566,7 +589,7 @@ class DockerAdapter:
                 {"image": image_full_name},
             )
 
-            logger.error(
+            logger.exception(
                 "docker_pull_unexpected_error", image=image_full_name, error=str(e)
             )
             raise error from e
@@ -579,8 +602,7 @@ def create_docker_adapter(
     additional_args: list[str] | None = None,
     user_context: DockerUserContext | None = None,
 ) -> DockerAdapterProtocol:
-    """
-    Factory function to create a DockerAdapter instance.
+    """Create a DockerAdapter instance.
 
     Args:
         image: Docker image to use (optional)
@@ -596,5 +618,6 @@ def create_docker_adapter(
         >>> adapter = create_docker_adapter()
         >>> if adapter.is_available():
         ...     adapter.run_container("ubuntu:latest", [], {})
+
     """
     return DockerAdapter()

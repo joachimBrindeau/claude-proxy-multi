@@ -80,8 +80,7 @@ def link(text: str, link: str) -> str:
 
 
 def merge_claude_code_options(base_options: Any, **overrides: Any) -> Any:
-    """
-    Create a new ClaudeCodeOptions instance by merging base options with overrides.
+    """Create a new ClaudeCodeOptions instance by merging base options with overrides.
 
     Args:
         base_options: Base ClaudeCodeOptions instance to copy from
@@ -89,6 +88,7 @@ def merge_claude_code_options(base_options: Any, **overrides: Any) -> Any:
 
     Returns:
         New ClaudeCodeOptions instance with merged options
+
     """
     with patched_typing():
         from claude_code_sdk import ClaudeCodeOptions

@@ -31,6 +31,7 @@ def get_cached_settings(request: Request) -> Settings:
 
     Raises:
         RuntimeError: If settings are not available in app state
+
     """
     settings = getattr(request.app.state, "settings", None)
     if settings is None:
@@ -57,6 +58,7 @@ def get_cached_claude_service(request: Request) -> ClaudeSDKService:
 
     Raises:
         RuntimeError: If ClaudeSDKService is not available in app state
+
     """
     claude_service = getattr(request.app.state, "claude_service", None)
     if claude_service is None:
@@ -86,6 +88,7 @@ def get_claude_service(
 
     Returns:
         Claude SDK service instance
+
     """
     logger.debug("Creating Claude SDK service instance")
 
@@ -119,6 +122,7 @@ def get_credentials_manager(
 
     Returns:
         Credentials manager instance
+
     """
     logger.debug("Creating credentials manager instance")
     return CredentialsManager(config=settings.auth)
@@ -140,6 +144,7 @@ def get_proxy_service(
 
     Returns:
         Proxy service instance
+
     """
     logger.debug("get_proxy_service")
     # Create HTTP client for proxy

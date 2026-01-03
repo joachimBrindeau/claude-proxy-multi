@@ -20,6 +20,7 @@ class ConfirmationHandlerProtocol(Protocol):
 
         Returns:
             bool: True if the user confirmed, False otherwise
+
         """
         ...
 
@@ -29,5 +30,6 @@ class ConfirmationHandlerProtocol(Protocol):
         Args:
             request_id: The ID of the request to cancel
             reason: The reason for cancellation
+
         """
         ...

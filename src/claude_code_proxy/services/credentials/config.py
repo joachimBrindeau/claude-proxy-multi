@@ -17,9 +17,10 @@ def _get_default_storage_paths() -> list[str]:
     # Allow tests to override credential paths
     if os.getenv("CCPROXY_TEST_MODE") == "true":
         # Use a test-specific location that won't pollute real credentials
+        # nosec B108 - test mode paths intentionally use /tmp for isolation
         return [
-            "/tmp/claude-code-proxy-test/.config/claude/.credentials.json",
-            "/tmp/claude-code-proxy-test/.claude/.credentials.json",
+            "/tmp/claude-code-proxy-test/.config/claude/.credentials.json",  # nosec B108
+            "/tmp/claude-code-proxy-test/.claude/.credentials.json",  # nosec B108
         ]
 
     return [

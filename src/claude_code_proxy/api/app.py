@@ -31,6 +31,7 @@ from claude_code_proxy.api.routes.mcp import setup_mcp
 from claude_code_proxy.api.routes.permissions import router as permissions_router
 from claude_code_proxy.api.routes.proxy import router as proxy_router
 from claude_code_proxy.api.routes.root import router as root_router
+from claude_code_proxy.api.routes.settings import router as settings_router
 from claude_code_proxy.api.routes.status import router as status_router
 from claude_code_proxy.auth.oauth.routes import router as oauth_router
 from claude_code_proxy.config.settings import Settings, get_settings
@@ -52,11 +53,13 @@ from claude_code_proxy.utils.startup_helpers import (
     flush_streaming_batches_shutdown,
     initialize_claude_detection_startup,
     initialize_claude_sdk_startup,
+    initialize_model_resolver_startup,
     initialize_permission_service_startup,
     setup_permission_service_shutdown,
     setup_scheduler_shutdown,
     setup_scheduler_startup,
     setup_session_manager_shutdown,
+    shutdown_model_resolver,
     validate_claude_authentication_startup,
 )
 
@@ -70,6 +73,11 @@ LIFECYCLE_COMPONENTS: list[LifecycleComponent] = [
         "name": "Claude Authentication",
         "startup": validate_claude_authentication_startup,
         "shutdown": None,  # One-time validation, no cleanup needed
+    },
+    {
+        "name": "Model Resolver",
+        "startup": initialize_model_resolver_startup,
+        "shutdown": shutdown_model_resolver,
     },
     {
         "name": "Version Check",
@@ -170,6 +178,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     Returns:
         Configured FastAPI application instance.
+
     """
     if settings is None:
         settings = get_settings()
@@ -228,6 +237,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Include rotation status router for account monitoring
     app.include_router(status_router, tags=["rotation-status"])
 
+    # Include settings router for model resolution configuration
+    app.include_router(settings_router, tags=["settings"])
+
     app.include_router(oauth_router, prefix="/oauth", tags=["oauth"])
 
     # Claude SDK routes
@@ -266,5 +278,6 @@ def get_app() -> FastAPI:
 
     Returns:
         FastAPI application instance.
+
     """
     return create_app()

@@ -25,6 +25,7 @@ def should_log_requests() -> bool:
 
     Returns:
         True if CCPROXY_LOG_REQUESTS is set to 'true' (case-insensitive)
+
     """
     return os.environ.get("CCPROXY_LOG_REQUESTS", "false").lower() == "true"
 
@@ -34,6 +35,7 @@ def get_request_log_dir() -> Path | None:
 
     Returns:
         Path object if CCPROXY_REQUEST_LOG_DIR is set and valid, None otherwise
+
     """
     log_dir = os.environ.get("CCPROXY_REQUEST_LOG_DIR")
     if not log_dir:
@@ -45,7 +47,7 @@ def get_request_log_dir() -> Path | None:
         return path
     except OSError as e:
         # OSError: Directory creation errors (permissions, invalid path)
-        logger.error(
+        logger.exception(
             "failed_to_create_request_log_dir",
             log_dir=log_dir,
             error=str(e),
@@ -58,6 +60,7 @@ def get_timestamp_prefix() -> str:
 
     Returns:
         Timestamp string in YYYYMMDDhhmmss format (UTC)
+
     """
     return datetime.now(UTC).strftime("%Y%m%d%H%M%S")
 
@@ -75,6 +78,7 @@ async def write_request_log(
         log_type: Type of log (e.g., 'middleware_request', 'upstream_response')
         data: Data to log as JSON
         timestamp: Optional timestamp prefix (defaults to current time)
+
     """
     if not should_log_requests():
         return
@@ -105,7 +109,7 @@ async def write_request_log(
 
     except OSError as e:
         # OSError: File write errors (permissions, disk full, I/O)
-        logger.error(
+        logger.exception(
             "failed_to_write_request_log",
             request_id=request_id,
             log_type=log_type,
@@ -127,6 +131,7 @@ async def write_streaming_log(
         log_type: Type of log (e.g., 'middleware_streaming', 'upstream_streaming')
         data: Raw bytes to log
         timestamp: Optional timestamp prefix (defaults to current time)
+
     """
     if not should_log_requests():
         return
@@ -158,7 +163,7 @@ async def write_streaming_log(
 
     except OSError as e:
         # OSError: File write errors (permissions, disk full, I/O)
-        logger.error(
+        logger.exception(
             "failed_to_write_streaming_log",
             request_id=request_id,
             log_type=log_type,
@@ -180,6 +185,7 @@ async def append_streaming_log(
         log_type: Type of log (e.g., 'middleware_streaming', 'upstream_streaming')
         data: Raw bytes to append
         timestamp: Optional timestamp prefix (defaults to current time)
+
     """
     if not should_log_requests():
         return
@@ -274,7 +280,7 @@ async def _flush_streaming_batch(batch_key: str) -> None:
 
     except OSError as e:
         # OSError: File append errors (permissions, disk full, I/O)
-        logger.error(
+        logger.exception(
             "failed_to_flush_streaming_batch",
             request_id=batch["request_id"],
             log_type=batch["log_type"],

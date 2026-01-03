@@ -56,6 +56,7 @@ class StreamingHandler:
             proxy_url: Optional proxy URL for requests
             ssl_context: SSL context for verification
             proxy_mode: Current proxy operation mode
+
         """
         self.response_transformer = response_transformer
         self.openai_adapter = openai_adapter
@@ -81,6 +82,7 @@ class StreamingHandler:
 
         Returns:
             StreamingResponse or error response tuple
+
         """
         # Log the outgoing request if verbose API logging is enabled
         await self.verbose_logger.log_api_request(request_data, ctx)
@@ -128,6 +130,7 @@ class StreamingHandler:
 
         Returns:
             Tuple of (status_code, headers, body)
+
         """
         error_content = await response.aread()
 
@@ -178,6 +181,7 @@ class StreamingHandler:
 
         Returns:
             StreamingResponse with content generator
+
         """
         response_headers: dict[str, str] = {}
         response_status = 200
@@ -246,6 +250,7 @@ class StreamingHandler:
 
         Returns:
             Async generator yielding stream chunks
+
         """
         # Initialize streaming metrics collector
         from claude_code_proxy.utils.streaming_metrics import StreamingMetricsCollector
@@ -329,7 +334,7 @@ class StreamingHandler:
                 asyncio.CancelledError,
             ) as e:
                 # HTTP errors, timeouts, or async cancellation during streaming
-                logger.exception("streaming_error", error=str(e), exc_info=True)
+                logger.exception("streaming_error", error=str(e))
                 error_message = f'data: {{"error": "Streaming error: {str(e)}"}}\n\n'
                 yield error_message.encode("utf-8")
 
@@ -350,6 +355,7 @@ class StreamingHandler:
 
         Yields:
             Transformed OpenAI format chunks
+
         """
         logger.debug("sse_transform_start", path=original_path)
 
@@ -390,6 +396,7 @@ class StreamingHandler:
 
         Yields:
             Raw Anthropic format chunks
+
         """
         logger.debug("anthropic_streaming_start")
         chunk_count = 0
@@ -455,6 +462,7 @@ class StreamingHandler:
 
         Yields:
             Transformed OpenAI SSE format chunks
+
         """
 
         async def sse_to_dict_stream() -> AsyncGenerator[dict[str, object], None]:

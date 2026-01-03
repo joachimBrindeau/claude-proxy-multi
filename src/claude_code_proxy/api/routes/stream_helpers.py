@@ -21,6 +21,7 @@ def get_request_context(request: Request) -> RequestContext:
 
     Raises:
         HTTPException: If request context is missing
+
     """
     request_context = getattr(request.state, "context", None)
     if request_context is None:
@@ -40,6 +41,7 @@ def extract_session_id_from_metadata(
 
     Returns:
         Session ID if present in metadata, None otherwise
+
     """
     if not message_request.metadata:
         return None
@@ -59,6 +61,7 @@ async def create_openai_stream_generator(
 
     Yields:
         SSE-formatted OpenAI chunks
+
     """
     async for openai_chunk in adapter.adapt_stream(response):  # type: ignore[attr-defined]
         yield b"data: " + orjson.dumps(openai_chunk) + b"\n\n"
@@ -75,6 +78,7 @@ async def create_anthropic_stream_generator(
 
     Yields:
         SSE-formatted Anthropic chunks
+
     """
     async for chunk in response:
         if not chunk:
@@ -87,13 +91,28 @@ async def create_anthropic_stream_generator(
             yield b"data: " + orjson.dumps(chunk) + b"\n\n"
 
 
-def create_streaming_headers() -> dict[str, str]:
+def create_streaming_headers(
+    actual_model: str | None = None,
+    fallback_occurred: bool = False,
+) -> dict[str, str]:
     """Create standard headers for SSE streaming.
+
+    Args:
+        actual_model: The actual model used (if different from requested)
+        fallback_occurred: Whether model fallback occurred due to 403
 
     Returns:
         Dictionary of headers for SSE responses
+
     """
-    return {
+    headers = {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
     }
+
+    # Add X-Actual-Model header when fallback occurred
+    if fallback_occurred and actual_model:
+        headers["X-Actual-Model"] = actual_model
+        headers["X-Model-Fallback"] = "true"
+
+    return headers

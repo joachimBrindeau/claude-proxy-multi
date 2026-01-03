@@ -30,6 +30,7 @@ async def get_or_fetch_profile(
 
     Returns:
         Account profile if available, None otherwise
+
     """
     # Try to load saved profile first
     profile = await manager.get_account_profile()
@@ -53,6 +54,7 @@ async def fetch_and_save_profile(
 
     Returns:
         Account profile if successfully fetched, None otherwise
+
     """
     try:
         # First try to get a valid access token (with refresh if needed)
@@ -90,6 +92,7 @@ async def reload_credentials_after_refresh(
 
     Returns:
         Reloaded credentials, or None if loading fails
+
     """
     try:
         return await manager.load()
@@ -99,12 +102,13 @@ async def reload_credentials_after_refresh(
 
 
 def get_profile_sync(manager: CredentialsManager) -> UserProfile | None:
-    """Synchronous wrapper to get or fetch profile.
+    """Get or fetch profile synchronously.
 
     Args:
         manager: Credentials manager instance
 
     Returns:
         Account profile if available, None otherwise
+
     """
     return asyncio.run(get_or_fetch_profile(manager))

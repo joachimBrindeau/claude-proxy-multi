@@ -17,6 +17,7 @@ Example:
     python oauth_proxy.py https://my-server.example.com
 
 Then go to your server's /accounts page and click "Add Account".
+
 """
 
 import http.server
@@ -131,7 +132,7 @@ class OAuthProxyHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b"Not found")
 
     def log_message(self, format: str, *args: Any) -> None:
-        """Custom log formatting."""
+        """Format and print log messages."""
         print(f"[{self.log_date_time_string()}] {format % args}")
 
 

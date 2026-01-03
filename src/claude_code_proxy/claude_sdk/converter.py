@@ -20,17 +20,14 @@ with patched_typing():
 
 
 class MessageConverter:
-    """
-    Handles conversion between Anthropic API format and Claude SDK format.
-    """
+    """Handles conversion between Anthropic API format and Claude SDK format."""
 
     @staticmethod
     def _format_json_data(
         data: dict[str, Any],
         pretty_format: bool = True,
     ) -> str:
-        """
-        Format JSON data with optional indentation and newlines.
+        """Format JSON data with optional indentation and newlines.
 
         Args:
             data: Dictionary to format as JSON
@@ -38,23 +35,21 @@ class MessageConverter:
 
         Returns:
             Formatted JSON string
-        """
 
+        """
         if pretty_format:
             # Pretty format with indentation and proper spacing
             result: str = orjson.dumps(data, option=orjson.OPT_INDENT_2).decode()
             return result
-        else:
-            # Compact format without indentation or spacing
-            compact: str = orjson.dumps(data).decode()
-            return compact
+        # Compact format without indentation or spacing
+        compact: str = orjson.dumps(data).decode()
+        return compact
 
     @staticmethod
     def _create_xml_formatted_text(
         data: dict[str, Any], tag_name: str, pretty_format: bool = True
     ) -> str:
-        """
-        Create XML-formatted text from data with consistent formatting.
+        """Create XML-formatted text from data with consistent formatting.
 
         Args:
             data: Dictionary data to format as JSON and wrap in XML
@@ -63,6 +58,7 @@ class MessageConverter:
 
         Returns:
             Formatted XML string
+
         """
         formatted_json = MessageConverter._format_json_data(data, pretty_format)
         escaped_json = MessageConverter._escape_content_for_xml(
@@ -71,8 +67,7 @@ class MessageConverter:
 
         if pretty_format:
             return f"<{tag_name}>\n{escaped_json}\n</{tag_name}>\n"
-        else:
-            return f"<{tag_name}>{escaped_json}</{tag_name}>"
+        return f"<{tag_name}>{escaped_json}</{tag_name}>"
 
     @staticmethod
     def _create_streaming_chunks_with_content(
@@ -80,8 +75,7 @@ class MessageConverter:
         index: int,
         text_content: str | None = None,
     ) -> list[tuple[str, dict[str, Any]]]:
-        """
-        Create streaming chunks with optional text delta content.
+        """Create streaming chunks with optional text delta content.
 
         Args:
             content_block: Content block for content_block_start
@@ -90,6 +84,7 @@ class MessageConverter:
 
         Returns:
             List of streaming chunks
+
         """
         chunks = [
             (
@@ -128,8 +123,7 @@ class MessageConverter:
 
     @staticmethod
     def _escape_content_for_xml(content: str, pretty_format: bool = True) -> str:
-        """
-        Escape content for inclusion in XML tags.
+        """Escape content for inclusion in XML tags.
 
         Args:
             content: Content to escape
@@ -137,25 +131,25 @@ class MessageConverter:
 
         Returns:
             Escaped or unescaped content based on formatting mode
+
         """
         if pretty_format:
             # Pretty format: no escaping, content as-is
             return content
-        else:
-            # Compact format: escape special XML characters
+        # Compact format: escape special XML characters
 
-            return html.escape(content)
+        return html.escape(content)
 
     @staticmethod
     def format_messages_to_prompt(messages: list[dict[str, Any]]) -> str:
-        """
-        Convert Anthropic messages format to a single prompt string.
+        """Convert Anthropic messages format to a single prompt string.
 
         Args:
             messages: List of messages in Anthropic format
 
         Returns:
             Single prompt string formatted for Claude SDK
+
         """
         prompt_parts = []
 
@@ -280,8 +274,7 @@ class MessageConverter:
         mode: SDKMessageMode = SDKMessageMode.FORWARD,
         pretty_format: bool = True,
     ) -> "MessageResponse":
-        """
-        Convert Claude SDK messages to Anthropic API response format.
+        """Convert Claude SDK messages to Anthropic API response format.
 
         Args:
             assistant_message: The assistant message from Claude SDK
@@ -292,6 +285,7 @@ class MessageConverter:
 
         Returns:
             Response in Anthropic API format
+
         """
         # Extract token usage from result message
         usage = result_message.usage_model
@@ -349,8 +343,7 @@ class MessageConverter:
     def create_streaming_start_chunks(
         message_id: str, model: str, input_tokens: int = 0
     ) -> list[tuple[str, dict[str, Any]]]:
-        """
-        Create the initial streaming chunks for Anthropic API format.
+        """Create the initial streaming chunks for Anthropic API format.
 
         Args:
             message_id: The message ID
@@ -359,6 +352,7 @@ class MessageConverter:
 
         Returns:
             List of tuples (event_type, chunk) for initial streaming chunks
+
         """
         return [
             # First, send message_start with event type
@@ -388,14 +382,14 @@ class MessageConverter:
 
     @staticmethod
     def create_streaming_delta_chunk(text: str) -> tuple[str, dict[str, Any]]:
-        """
-        Create a streaming delta chunk for Anthropic API format.
+        """Create a streaming delta chunk for Anthropic API format.
 
         Args:
             text: The text content to include
 
         Returns:
             Tuple of (event_type, chunk)
+
         """
         return (
             "content_block_delta",
@@ -410,8 +404,7 @@ class MessageConverter:
     def create_streaming_end_chunks(
         stop_reason: str = "end_turn", stop_sequence: str | None = None
     ) -> list[tuple[str, dict[str, Any]]]:
-        """
-        Create the final streaming chunks for Anthropic API format.
+        """Create the final streaming chunks for Anthropic API format.
 
         Args:
             stop_reason: The reason for stopping
@@ -419,6 +412,7 @@ class MessageConverter:
 
         Returns:
             List of tuples (event_type, chunk) for final streaming chunks
+
         """
         return [
             # Then, send message_delta with stop reason and usage
@@ -439,11 +433,11 @@ class MessageConverter:
 
     @staticmethod
     def create_ping_chunk() -> tuple[str, dict[str, Any]]:
-        """
-        Create a ping chunk for keeping the connection alive.
+        """Create a ping chunk for keeping the connection alive.
 
         Returns:
             Tuple of (event_type, chunk)
+
         """
         return ("ping", {"type": "ping"})
 
@@ -458,8 +452,7 @@ class MessageConverter:
         xml_tag: str = "sdk_block",
         forward_converter: Callable[[Any], dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
-        """
-        Generic method to create content blocks for SDK objects in non-streaming responses.
+        """Create content blocks for SDK objects in non-streaming responses.
 
         Args:
             sdk_object: The SDK object to convert
@@ -470,15 +463,15 @@ class MessageConverter:
 
         Returns:
             Content block dict for the SDK object, or None if mode is IGNORE
+
         """
         if mode == SDKMessageMode.IGNORE:
             return None
-        elif mode == SDKMessageMode.FORWARD:
+        if mode == SDKMessageMode.FORWARD:
             if forward_converter:
                 return forward_converter(sdk_object)
-            else:
-                return sdk_object.model_dump(mode="json")
-        elif mode == SDKMessageMode.FORMATTED:
+            return sdk_object.model_dump(mode="json")
+        if mode == SDKMessageMode.FORMATTED:
             object_data = sdk_object.model_dump(mode="json")
             formatted_json = MessageConverter._format_json_data(
                 object_data, pretty_format
@@ -508,8 +501,7 @@ class MessageConverter:
         xml_tag: str = "sdk_block",
         sdk_block_converter: Callable[[Any], dict[str, Any]] | None = None,
     ) -> list[tuple[str, dict[str, Any]]]:
-        """
-        Generic method to create streaming chunks for SDK content blocks.
+        """Create streaming chunks for SDK content blocks.
 
         Args:
             sdk_object: The SDK object (SystemMessage, ToolUseBlock, or ToolResultBlock)
@@ -521,10 +513,11 @@ class MessageConverter:
 
         Returns:
             List of tuples (event_type, chunk) for streaming chunks
+
         """
         if mode == SDKMessageMode.IGNORE:
             return []
-        elif mode == SDKMessageMode.FORWARD:
+        if mode == SDKMessageMode.FORWARD:
             content_block = (
                 sdk_block_converter(sdk_object)
                 if sdk_block_converter
@@ -534,7 +527,7 @@ class MessageConverter:
                 content_block=content_block,
                 index=index,
             )
-        elif mode == SDKMessageMode.FORMATTED:
+        if mode == SDKMessageMode.FORMATTED:
             object_data = sdk_object.model_dump(mode="json")
             formatted_text = MessageConverter._create_xml_formatted_text(
                 object_data, xml_tag, pretty_format

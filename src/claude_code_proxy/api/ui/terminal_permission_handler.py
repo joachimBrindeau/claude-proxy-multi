@@ -41,6 +41,12 @@ class ConfirmationScreen(ModalScreen[bool]):
     ]
 
     def __init__(self, request: PermissionRequest) -> None:
+        """Initialize the permission confirmation screen.
+
+        Args:
+            request: Permission request to display
+
+        """
         super().__init__()
         self.request = request
         self.start_time = time.time()
@@ -113,6 +119,7 @@ class ConfirmationScreen(ModalScreen[bool]):
         Args:
             allowed: Whether the request was allowed
             message: Message to display
+
         """
         # Update the question to show the result
         question_widget = self.query_one("#question", Label)
@@ -220,6 +227,12 @@ class ConfirmationApp(App[bool]):
     ]
 
     def __init__(self, request: PermissionRequest) -> None:
+        """Initialize the permission confirmation app.
+
+        Args:
+            request: Permission request to display
+
+        """
         super().__init__()
         self.theme = "textual-ansi"
         self.request = request
@@ -294,6 +307,7 @@ class ConfirmationApp(App[bool]):
         Args:
             allowed: Whether the request was allowed
             message: Message to display
+
         """
         # Update the question to show the result
         question_widget = self.query_one("#question", Label)
@@ -378,6 +392,7 @@ class TerminalPermissionHandler:
 
         Returns:
             bool: True if result was set successfully, False if future was cancelled
+
         """
         if future.cancelled():
             return False
@@ -399,6 +414,7 @@ class TerminalPermissionHandler:
 
         Returns:
             bool: True if exception was set successfully, False if future was cancelled
+
         """
         if future.cancelled():
             return False
@@ -426,7 +442,7 @@ class TerminalPermissionHandler:
                 break
             except (RuntimeError, OSError) as e:
                 # Runtime errors (event loop) or OS errors during queue processing
-                logger.error("queue_processing_error", error=str(e), exc_info=True)
+                logger.exception("queue_processing_error", error=str(e))
 
     def _is_request_processable(
         self, request: PermissionRequest, future: asyncio.Future[bool]
@@ -471,7 +487,7 @@ class TerminalPermissionHandler:
             )
         except (RuntimeError, OSError) as e:
             # Runtime errors (Textual app) or OS errors during confirmation
-            logger.error(
+            logger.exception(
                 "confirmation_app_error",
                 request_id=request.id,
                 error=str(e),
@@ -502,6 +518,7 @@ class TerminalPermissionHandler:
 
         Returns:
             bool: True if the user confirmed, False otherwise
+
         """
         try:
             logger.info(
@@ -530,7 +547,7 @@ class TerminalPermissionHandler:
 
         except (RuntimeError, OSError, asyncio.CancelledError) as e:
             # Runtime errors, OS errors, or cancellation during confirmation handling
-            logger.error(
+            logger.exception(
                 "confirmation_handling_error",
                 request_id=request.id,
                 error=str(e),
@@ -544,6 +561,7 @@ class TerminalPermissionHandler:
         Args:
             request_id: The ID of the request to cancel
             reason: The reason for cancellation
+
         """
         logger.info("cancelling_confirmation", request_id=request_id, reason=reason)
         self._cancelled_requests.add(request_id)
@@ -560,6 +578,7 @@ class TerminalPermissionHandler:
         Args:
             app: The active ConfirmationApp to cancel
             reason: The reason for cancellation
+
         """
         try:
             # Determine the message and result based on reason
@@ -578,7 +597,7 @@ class TerminalPermissionHandler:
 
         except (RuntimeError, OSError) as e:
             # Runtime errors (Textual app) or OS errors during dialog cancellation
-            logger.error(
+            logger.exception(
                 "cancel_dialog_error",
                 error=str(e),
                 exc_info=True,

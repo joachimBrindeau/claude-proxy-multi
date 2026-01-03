@@ -32,6 +32,7 @@ class TokenProvider:
 
         Args:
             credentials_manager: Manager for OAuth credentials
+
         """
         self.credentials_manager = credentials_manager
 
@@ -51,6 +52,7 @@ class TokenProvider:
 
         Raises:
             HTTPException: If no valid token is available
+
         """
         # Check for rotation account first (set by RotationMiddleware)
         if request is not None:
@@ -123,7 +125,7 @@ class TokenProvider:
             # OSError: File system errors reading credentials
             # ValueError: Invalid credential format
             # RuntimeError: Token provider internal errors
-            logger.error("oauth_token_retrieval_failed", error=str(e), exc_info=True)
+            logger.exception("oauth_token_retrieval_failed", error=str(e))
             raise HTTPException(
                 status_code=401,
                 detail="Authentication failed",

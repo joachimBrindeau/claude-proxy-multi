@@ -14,8 +14,8 @@ class TokenStorage(ABC):
 
         Returns:
             Parsed credentials if found and valid, None otherwise
+
         """
-        pass
 
     @abstractmethod
     async def save(self, credentials: ClaudeCredentials) -> bool:
@@ -26,8 +26,8 @@ class TokenStorage(ABC):
 
         Returns:
             True if saved successfully, False otherwise
+
         """
-        pass
 
     @abstractmethod
     async def exists(self) -> bool:
@@ -35,8 +35,8 @@ class TokenStorage(ABC):
 
         Returns:
             True if credentials exist, False otherwise
+
         """
-        pass
 
     @abstractmethod
     async def delete(self) -> bool:
@@ -44,8 +44,8 @@ class TokenStorage(ABC):
 
         Returns:
             True if deleted successfully, False otherwise
+
         """
-        pass
 
     @abstractmethod
     def get_location(self) -> str:
@@ -53,5 +53,5 @@ class TokenStorage(ABC):
 
         Returns:
             Human-readable description of where credentials are stored
+
         """
-        pass

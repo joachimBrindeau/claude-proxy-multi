@@ -70,6 +70,7 @@ class SessionPool:
 
         Returns:
             New session client after interrupt completes
+
         """
         logger.warning(
             "session_pool_interrupting_session",
@@ -111,6 +112,7 @@ class SessionPool:
 
         Returns:
             Session client (possibly new if first chunk timeout)
+
         """
         # Validate precondition: active_stream_handle must exist (caller responsibility)
         if session_client.active_stream_handle is None:
@@ -183,6 +185,7 @@ class SessionPool:
 
         Returns:
             Session client (possibly new if terminated)
+
         """
         logger.debug(
             "session_pool_active_stream_detected",
@@ -424,7 +427,7 @@ class SessionPool:
                 break
             except (TimeoutError, OSError, RuntimeError) as e:
                 # Cleanup errors: timeout during cleanup, I/O failures, or runtime issues
-                logger.error("session_cleanup_error", error=str(e), exc_info=True)
+                logger.exception("session_cleanup_error", error=str(e))
 
     async def _cleanup_sessions(self) -> None:
         """Remove expired, idle, and stuck sessions."""
@@ -491,6 +494,7 @@ class SessionPool:
 
         Returns:
             True if session was found and interrupted, False otherwise
+
         """
         async with self._lock:
             if session_id not in self.sessions:
@@ -512,7 +516,7 @@ class SessionPool:
             # TimeoutError: Interrupt timeout exceeded
             # CancelledError: Interrupt was cancelled
             # OSError: Connection or system errors
-            logger.error(
+            logger.exception(
                 "session_interrupt_failed",
                 session_id=session_id,
                 error=str(e)
@@ -529,6 +533,7 @@ class SessionPool:
 
         Returns:
             Number of sessions that were interrupted
+
         """
         # Get snapshot of all sessions
         async with self._lock:
@@ -547,7 +552,7 @@ class SessionPool:
                 interrupted_count += 1
             except (TimeoutError, asyncio.CancelledError, OSError) as e:
                 # Session interrupt errors: task cancellation, timeout, or I/O failures
-                logger.error(
+                logger.exception(
                     "session_interrupt_failed_during_all",
                     session_id=session_id,
                     error=str(e),
@@ -569,6 +574,7 @@ class SessionPool:
 
         Returns:
             True if session exists, False otherwise
+
         """
         async with self._lock:
             return session_id in self.sessions

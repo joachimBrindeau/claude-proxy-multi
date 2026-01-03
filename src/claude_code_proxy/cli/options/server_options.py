@@ -58,6 +58,7 @@ class ServerOptions:
             log_level: Logging level
             log_file: Path to JSON log file
             use_terminal_confirmation_handler: Enable terminal UI for confirmation prompts
+
         """
         self.port = port
         self.host = host

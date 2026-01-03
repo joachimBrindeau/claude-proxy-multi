@@ -31,6 +31,7 @@ class DockerAdapterProtocol(Protocol):
 
         Returns:
             True if Docker is available, False otherwise
+
         """
         ...
 
@@ -64,6 +65,7 @@ class DockerAdapterProtocol(Protocol):
 
         Raises:
             DockerError: If the container fails to run
+
         """
         ...
 
@@ -95,6 +97,7 @@ class DockerAdapterProtocol(Protocol):
 
         Raises:
             DockerError: If the container fails to run
+
         """
         ...
 
@@ -125,6 +128,7 @@ class DockerAdapterProtocol(Protocol):
         Raises:
             DockerError: If the container fails to execute
             OSError: If the command cannot be executed
+
         """
         ...
 
@@ -150,6 +154,7 @@ class DockerAdapterProtocol(Protocol):
 
         Raises:
             DockerError: If the image fails to build
+
         """
         ...
 
@@ -164,6 +169,7 @@ class DockerAdapterProtocol(Protocol):
 
         Returns:
             True if the image exists locally, False otherwise
+
         """
         ...
 
@@ -185,5 +191,6 @@ class DockerAdapterProtocol(Protocol):
 
         Raises:
             DockerError: If the image fails to pull
+
         """
         ...

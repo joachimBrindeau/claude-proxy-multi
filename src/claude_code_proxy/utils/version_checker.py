@@ -28,11 +28,11 @@ class VersionCheckState(BaseModel):
 
 
 async def fetch_latest_github_version() -> str | None:
-    """
-    Fetch the latest version from GitHub releases API.
+    """Fetch the latest version from GitHub releases API.
 
     Returns:
         Latest version string or None if unable to fetch
+
     """
     url = (
         "https://api.github.com/repos/joachimbrindeau/claude-code-proxy/releases/latest"
@@ -81,18 +81,17 @@ async def fetch_latest_github_version() -> str | None:
 
 
 def get_current_version() -> str:
-    """
-    Get the current version of claude-code-proxy.
+    """Get the current version of claude-code-proxy.
 
     Returns:
         Current version string
+
     """
     return __version__
 
 
 def compare_versions(current: str, latest: str) -> bool:
-    """
-    Compare version strings to determine if an update is available.
+    """Compare version strings to determine if an update is available.
 
     Args:
         current: Current version string
@@ -100,6 +99,7 @@ def compare_versions(current: str, latest: str) -> bool:
 
     Returns:
         True if latest version is newer than current
+
     """
     try:
         current_parsed = pkg_version.parse(current)
@@ -114,7 +114,7 @@ def compare_versions(current: str, latest: str) -> bool:
     except (ValueError, TypeError) as e:
         # ValueError: Invalid version string format
         # TypeError: Non-string input to version parser
-        logger.error(
+        logger.exception(
             "version_comparison_failed",
             current=current,
             latest=latest,
@@ -125,14 +125,14 @@ def compare_versions(current: str, latest: str) -> bool:
 
 
 async def load_check_state(path: Path) -> VersionCheckState | None:
-    """
-    Load version check state from file.
+    """Load version check state from file.
 
     Args:
         path: Path to state file
 
     Returns:
         VersionCheckState if file exists and is valid, None otherwise
+
     """
     if not path.exists():
         return None
@@ -156,12 +156,12 @@ async def load_check_state(path: Path) -> VersionCheckState | None:
 
 
 async def save_check_state(path: Path, state: VersionCheckState) -> None:
-    """
-    Save version check state to file.
+    """Save version check state to file.
 
     Args:
         path: Path to state file
         state: VersionCheckState to save
+
     """
     try:
         # Ensure directory exists
@@ -186,11 +186,11 @@ async def save_check_state(path: Path, state: VersionCheckState) -> None:
 
 
 def get_version_check_state_path() -> Path:
-    """
-    Get the path to the version check state file.
+    """Get the path to the version check state file.
 
     Returns:
         Path to version_check.json in claude-code-proxy config directory
+
     """
     return get_claude_code_proxy_config_dir() / "version_check.json"
 

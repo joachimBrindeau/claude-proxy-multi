@@ -58,6 +58,7 @@ class AccountCredentials:
 
         Returns:
             True if token should be refreshed
+
         """
         return self.expires_in_seconds < buffer_seconds
 
@@ -90,7 +91,7 @@ class Account:
     credentials: AccountCredentials
 
     # Runtime state (not persisted to file)
-    state: str = "available"  # available, rate_limited, auth_error, disabled
+    state: str = "available"  # available, rate_limited, auth_error, disabled, refreshing
     rate_limited_until: int | None = None  # Unix timestamp ms when rate limit resets
     last_used: int | None = None  # Unix timestamp ms of last request
     last_error: str | None = None  # Most recent error message
@@ -141,6 +142,7 @@ class Account:
         Args:
             reset_time: Unix timestamp (ms) when rate limit resets.
                        If None, defaults to 1 hour from now.
+
         """
         self.state = "rate_limited"
         if reset_time is None:
@@ -160,10 +162,11 @@ class Account:
 
         Args:
             error: Error message describing the auth failure
+
         """
         self.state = "auth_error"
         self.last_error = error
-        logger.error("account_auth_error", account=self.name, error=error)
+        logger.exception("account_auth_error", account=self.name, error=error)
 
     def mark_available(self) -> None:
         """Mark account as available (reset from rate_limited or auth_error)."""
@@ -172,6 +175,28 @@ class Account:
         self.rate_limited_until = None
         self.last_error = None
         logger.info("account_available", account=self.name, previous_state=old_state)
+
+    def mark_refreshing(self) -> None:
+        """Mark account as currently refreshing token.
+
+        While refreshing, the account should not be selected for requests
+        to prevent using an expired token during the refresh window.
+        """
+        self.state = "refreshing"
+        logger.debug("account_refreshing", account=self.name)
+
+    def mark_refresh_complete(self, success: bool = True) -> None:
+        """Mark token refresh as complete.
+
+        Args:
+            success: Whether the refresh succeeded. If True, marks available.
+                    If False, keeps current state (likely auth_error).
+        """
+        if success and self.state == "refreshing":
+            self.mark_available()
+        logger.debug(
+            "account_refresh_complete", account=self.name, success=success
+        )
 
     def mark_used(self) -> None:
         """Record that this account was used for a request."""
@@ -182,6 +207,7 @@ class Account:
 
         Returns:
             True if account was restored to available
+
         """
         if self.state != "rate_limited":
             return False
@@ -201,6 +227,7 @@ class Account:
 
         Args:
             new_credentials: New credentials to use
+
         """
         self.credentials = new_credentials
         logger.debug("account_credentials_updated", account=self.name)
@@ -219,6 +246,7 @@ class Account:
             tokens_remaining: Remaining tokens this period
             requests_limit: Max requests per period
             requests_remaining: Remaining requests this period
+
         """
         self.tokens_limit = tokens_limit
         self.tokens_remaining = tokens_remaining
@@ -297,10 +325,11 @@ def validate_token_format(token: str, token_type: str) -> bool:
 
     Returns:
         True if token matches expected format
+
     """
     if token_type == "access":
         return bool(ACCESS_TOKEN_PATTERN.match(token))
-    elif token_type == "refresh":
+    if token_type == "refresh":
         return bool(REFRESH_TOKEN_PATTERN.match(token))
     return False
 
@@ -318,6 +347,7 @@ def load_accounts(path: Path | None = None) -> AccountsFile:
         FileNotFoundError: If file doesn't exist
         json.JSONDecodeError: If file is invalid JSON
         ValueError: If file structure is invalid
+
     """
     if path is None:
         path = DEFAULT_ACCOUNTS_PATH
@@ -333,8 +363,8 @@ def load_accounts(path: Path | None = None) -> AccountsFile:
         data = orjson.loads(f.read())
 
     if not isinstance(data, dict):
-        raise ValueError(
-            f"Invalid accounts file format: expected object, got {type(data)}"
+        raise TypeError(
+            f"Invalid accounts file format: expected dict, got {type(data).__name__}"
         )
 
     if "accounts" not in data:
@@ -361,6 +391,7 @@ def save_accounts(accounts_file: AccountsFile, path: Path | None = None) -> bool
 
     Returns:
         True if saved successfully
+
     """
     if path is None:
         path = DEFAULT_ACCOUNTS_PATH
@@ -387,5 +418,5 @@ def save_accounts(accounts_file: AccountsFile, path: Path | None = None) -> bool
 
     except OSError as e:
         # OSError: File system errors (permissions, disk full, path issues)
-        logger.error("accounts_save_failed", path=str(path), error=str(e))
+        logger.exception("accounts_save_failed", path=str(path), error=str(e))
         return False

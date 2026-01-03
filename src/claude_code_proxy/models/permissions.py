@@ -87,6 +87,7 @@ class PermissionRequest(BaseModel):
 
         Returns:
             Tuple of normalized timezone-aware datetimes
+
         """
         # If dt1 is timezone-aware, convert dt2 to timezone-aware if needed
         if dt1.tzinfo is not None:

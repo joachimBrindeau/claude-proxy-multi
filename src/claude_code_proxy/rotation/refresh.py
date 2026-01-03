@@ -60,6 +60,7 @@ class TokenRefreshScheduler:
             pool: Rotation pool to manage
             check_interval: Seconds between refresh checks
             refresh_buffer: Refresh when expiring within this many seconds
+
         """
         self.pool = pool
         self.check_interval = check_interval
@@ -68,8 +69,15 @@ class TokenRefreshScheduler:
         self._http_client: httpx.AsyncClient | None = None
         self._running = False
 
-    async def start(self) -> None:
-        """Start the refresh scheduler."""
+    async def start(self, block_until_initial_refresh: bool = True) -> None:
+        """Start the refresh scheduler.
+
+        Args:
+            block_until_initial_refresh: If True, blocks until the initial refresh
+                completes. This prevents race conditions where requests use expired
+                tokens before refresh finishes.
+
+        """
         if self._running:
             logger.warning("refresh_scheduler_already_running")
             return
@@ -94,8 +102,13 @@ class TokenRefreshScheduler:
             refresh_buffer=self.refresh_buffer,
         )
 
-        # Run initial check immediately
-        asyncio.create_task(self._check_and_refresh_all())
+        # Run initial check - block if requested to prevent race conditions
+        if block_until_initial_refresh:
+            logger.info("token_refresh_blocking_on_initial_check")
+            await self._check_and_refresh_all()
+            logger.info("token_refresh_initial_check_complete")
+        else:
+            asyncio.create_task(self._check_and_refresh_all())
 
     async def stop(self) -> None:
         """Stop the refresh scheduler."""
@@ -122,6 +135,10 @@ class TokenRefreshScheduler:
             if account.state == "auth_error":
                 continue
 
+            # Skip accounts currently being refreshed
+            if account.state == "refreshing":
+                continue
+
             # Check if token needs refresh
             if account.credentials.needs_refresh(self.refresh_buffer):
                 logger.info(
@@ -139,10 +156,14 @@ class TokenRefreshScheduler:
 
         Returns:
             True if refresh succeeded
+
         """
         account = self.pool.get_account(account_name)
         if not account:
             return False
+
+        # Mark account as refreshing to prevent concurrent usage
+        account.mark_refreshing()
 
         def before_sleep_log(retry_state: Any) -> None:
             """Log retry attempts before sleeping."""
@@ -177,9 +198,8 @@ class TokenRefreshScheduler:
                         account_name, new_credentials, persist=True
                     )
 
-                    # If account was rate limited due to expired token, restore it
-                    if account.state == "rate_limited":
-                        self.pool.mark_available(account_name)
+                    # Mark refresh complete - this will restore to available
+                    account.mark_refresh_complete(success=True)
 
                     logger.info(
                         "token_refresh_success",
@@ -195,7 +215,7 @@ class TokenRefreshScheduler:
             is_expired = "expired" in response_text.lower()
             if e.status_code == 400 and (is_invalid_grant or is_expired):
                 # Refresh token itself is invalid - needs manual re-auth
-                logger.error(
+                logger.exception(
                     "refresh_token_expired",
                     account=account_name,
                     error=str(e),
@@ -203,25 +223,31 @@ class TokenRefreshScheduler:
                 self.pool.mark_auth_error(
                     account_name, "Refresh token expired. Please re-authenticate."
                 )
+                # Mark refresh complete with failure (keeps auth_error state)
+                account.mark_refresh_complete(success=False)
                 return False
 
             # Other token exchange errors - log and continue
-            logger.error(
+            logger.exception(
                 "token_refresh_failed",
                 account=account_name,
                 error=str(e),
             )
+            # Mark refresh complete with failure
+            account.mark_refresh_complete(success=False)
             return False
 
         except RetryError:
             # All retries failed
-            logger.error(
+            logger.exception(
                 "token_refresh_failed",
                 account=account_name,
                 attempts=MAX_REFRESH_RETRIES,
             )
             # Don't mark as auth_error for transient failures
             # The token might still be valid for a while
+            # Mark refresh complete with failure
+            account.mark_refresh_complete(success=False)
             return False
 
     async def _refresh_token(self, refresh_token_value: str) -> AccountCredentials:
@@ -235,6 +261,7 @@ class TokenRefreshScheduler:
 
         Raises:
             TokenExchangeError: If token refresh fails
+
         """
         data = await refresh_token_async(refresh_token_value)
 
@@ -263,6 +290,7 @@ class TokenRefreshScheduler:
 
         Returns:
             True if refresh succeeded
+
         """
         return await self._refresh_with_retry(account_name)
 
@@ -279,6 +307,7 @@ def get_refresh_scheduler() -> TokenRefreshScheduler:
 
     Raises:
         RuntimeError: If scheduler not initialized
+
     """
     if _scheduler is None:
         raise RuntimeError("Token refresh scheduler not initialized")
@@ -293,6 +322,7 @@ def init_refresh_scheduler(pool: RotationPool) -> TokenRefreshScheduler:
 
     Returns:
         Initialized TokenRefreshScheduler
+
     """
     global _scheduler
     _scheduler = TokenRefreshScheduler(pool)

@@ -26,6 +26,7 @@ class JsonFileTokenStorage(TokenStorage):
 
         Args:
             file_path: Path to the JSON credentials file
+
         """
         self.file_path = file_path
 
@@ -38,6 +39,7 @@ class JsonFileTokenStorage(TokenStorage):
         Raises:
             CredentialsInvalidError: If the JSON file is invalid
             CredentialsStorageError: If there's an error reading the file
+
         """
         if not await self.exists():
             logger.debug("credentials_file_not_found", path=str(self.file_path))
@@ -82,6 +84,7 @@ class JsonFileTokenStorage(TokenStorage):
 
         Raises:
             CredentialsStorageError: If there's an error writing the file
+
         """
         try:
             # Convert to dict with proper aliases
@@ -125,6 +128,7 @@ class JsonFileTokenStorage(TokenStorage):
 
         Returns:
             True if file exists, False otherwise
+
         """
         return self.file_path.exists() and self.file_path.is_file()
 
@@ -136,6 +140,7 @@ class JsonFileTokenStorage(TokenStorage):
 
         Raises:
             CredentialsStorageError: If there's an error deleting the file
+
         """
         deleted = False
 
@@ -162,5 +167,6 @@ class JsonFileTokenStorage(TokenStorage):
 
         Returns:
             Path to the JSON file with keyring info if available
+
         """
         return str(self.file_path)

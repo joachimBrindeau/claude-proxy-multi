@@ -71,6 +71,7 @@ class StreamWorker:
             request_id: Optional request ID for logging
             session_client: Optional session client for state management
             stream_handle: Optional stream handle for message lifecycle tracking
+
         """
         self.worker_id = worker_id
         self._message_iterator = message_iterator
@@ -120,6 +121,7 @@ class StreamWorker:
 
         Args:
             timeout: Maximum time to wait for worker to stop
+
         """
         if self._worker_task and not self._worker_task.done():
             logger.debug(
@@ -170,6 +172,7 @@ class StreamWorker:
 
         Returns:
             True if completed successfully, False if timed out
+
         """
         if not self._worker_task:
             return True
@@ -188,11 +191,12 @@ class StreamWorker:
 
         Returns:
             The worker's message queue
+
         """
         return self._message_queue
 
     async def _run_worker(self) -> None:
-        """Main worker loop that consumes messages and distributes them."""
+        """Consume messages and distribute them to subscribers."""
         try:
             self.status = WorkerStatus.RUNNING
 
@@ -306,7 +310,7 @@ class StreamWorker:
             self.status = WorkerStatus.ERROR
             await self._message_queue.broadcast_error(e)
 
-            logger.error(
+            logger.exception(
                 "stream_worker_error",
                 worker_id=self.worker_id,
                 error=str(e),
@@ -336,6 +340,7 @@ class StreamWorker:
 
         Returns:
             Number of messages drained
+
         """
         if self.status not in (WorkerStatus.RUNNING, WorkerStatus.STARTING):
             return 0
@@ -385,7 +390,7 @@ class StreamWorker:
 
         except (TimeoutError, asyncio.CancelledError, OSError) as e:
             # Drain errors: task cancellation, iteration timeout, or I/O failures
-            logger.error(
+            logger.exception(
                 "stream_worker_drain_error",
                 worker_id=self.worker_id,
                 error=str(e),
@@ -399,6 +404,7 @@ class StreamWorker:
 
         Returns:
             Dictionary of worker statistics
+
         """
         runtime = None
         if self._started_at:

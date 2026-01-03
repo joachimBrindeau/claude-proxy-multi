@@ -17,6 +17,7 @@ class ServerHeaderMiddleware:
         Args:
             app: The ASGI application
             server_name: The default server name to use
+
         """
         self.app = app
         self.server_name = server_name

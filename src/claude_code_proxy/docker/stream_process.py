@@ -9,10 +9,10 @@ Example:
     from claude_code_proxy.docker.stream_process import run_command, DefaultOutputMiddleware
 
     # Create custom middleware to add timestamps
-    from datetime import datetime
+    from datetime import UTC, datetime
     class TimestampMiddleware(DefaultOutputMiddleware):
         async def process(self, line: str, stream_type: str) -> str:
-            timestamp = datetime.now().strftime('%H:%M:%S')
+            timestamp = datetime.now(UTC).strftime('%H:%M:%S')
             return f"[{timestamp}] {await super().process(line, stream_type)}"
 
     # Run a command with custom output handling
@@ -20,6 +20,7 @@ Example:
         "ls -la", middleware=TimestampMiddleware()
     )
     ```
+
 """
 
 import asyncio
@@ -56,6 +57,7 @@ class OutputMiddleware(Generic[T]):
 
         Raises:
             NotImplementedError: Subclasses must implement this method
+
         """
         raise NotImplementedError()
 
@@ -73,6 +75,7 @@ class DefaultOutputMiddleware(OutputMiddleware[str]):
         Args:
             stdout_prefix: Prefix for stdout lines (default: "")
             stderr_prefix: Prefix for stderr lines (default: "ERROR: ")
+
         """
         self.stdout_prefix = stdout_prefix
         self.stderr_prefix = stderr_prefix
@@ -86,6 +89,7 @@ class DefaultOutputMiddleware(OutputMiddleware[str]):
 
         Returns:
             The original line (unmodified)
+
         """
         prefix = self.stdout_prefix if stream_type == "stdout" else self.stderr_prefix
         print(f"{prefix}{line}")
@@ -110,6 +114,7 @@ class ChainedOutputMiddleware(OutputMiddleware[T]):
         # Process: line -> progress_middleware -> logger_middleware -> final result
         result = docker_adapter.run_container("image", [], {}, middleware=chained)
         ```
+
     """
 
     def __init__(self, middleware_chain: list[OutputMiddleware[Any]]) -> None:
@@ -121,6 +126,7 @@ class ChainedOutputMiddleware(OutputMiddleware[T]):
 
         Raises:
             ValueError: If middleware_chain is empty
+
         """
         if not middleware_chain:
             raise ValueError("Middleware chain cannot be empty")
@@ -136,6 +142,7 @@ class ChainedOutputMiddleware(OutputMiddleware[T]):
 
         Returns:
             Output from the final middleware in the chain
+
         """
         current_output: Any = line
 
@@ -149,7 +156,7 @@ class ChainedOutputMiddleware(OutputMiddleware[T]):
 def create_chained_middleware(
     middleware_chain: list[OutputMiddleware[Any]],
 ) -> ChainedOutputMiddleware[Any]:
-    """Factory function to create a chained middleware.
+    """Create a chained middleware.
 
     Args:
         middleware_chain: List of middleware components to chain together
@@ -174,6 +181,7 @@ def create_chained_middleware(
         # Use with docker adapter
         result = docker_adapter.run_container("image", [], {}, middleware=chained)
         ```
+
     """
     return ChainedOutputMiddleware(middleware_chain)
 
@@ -210,6 +218,7 @@ async def run_command(
 
         rc, stdout, stderr = await run_command("ls -l", CustomMiddleware())
         ```
+
     """
     if middleware is None:
         # Cast is needed because T is unbound at this point
@@ -235,6 +244,7 @@ async def run_command(
 
         Returns:
             List of processed output lines
+
         """
         captured: list[T] = []
         while True:

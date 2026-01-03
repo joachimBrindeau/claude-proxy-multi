@@ -80,6 +80,7 @@ class ProxyService:
             proxy_mode: Transformation mode - "minimal" or "full"
             target_base_url: Base URL for the target API
             app_state: FastAPI app state for accessing detection data
+
         """
         self.proxy_client = proxy_client
         self.credentials_manager = credentials_manager
@@ -150,12 +151,11 @@ class ProxyService:
         if ca_bundle and Path(ca_bundle).exists():
             logger.info("ca_bundle_configured", ca_bundle=ca_bundle)
             return ca_bundle
-        elif ssl_verify in ("false", "0", "no"):
+        if ssl_verify in ("false", "0", "no"):
             logger.warning("ssl_verification_disabled")
             return False
-        else:
-            logger.debug("ssl_verification_default")
-            return True
+        logger.debug("ssl_verification_default")
+        return True
 
     async def handle_request(
         self,
@@ -183,6 +183,7 @@ class ProxyService:
 
         Raises:
             HTTPException: If request fails
+
         """
         # Extract request metadata
         model, streaming = extract_metadata(body)
@@ -235,8 +236,7 @@ class ProxyService:
                 return await self.streaming.handle(
                     transformed_request, path, timeout, ctx
                 )
-            else:
-                logger.debug("non_streaming_response_detected")
+            logger.debug("non_streaming_response_detected")
 
             # Log the outgoing request if verbose API logging is enabled
             await self.verbose_logger.log_api_request(transformed_request, ctx)

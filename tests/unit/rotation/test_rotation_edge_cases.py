@@ -261,3 +261,110 @@ async def test_rotation_index_wraps_correctly(temp_accounts_file: Path) -> None:
     )
     assert selected_names[1] == selected_names[4] == selected_names[7]
     assert selected_names[2] == selected_names[5] == selected_names[8]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_token_refresh_blocks_startup(tmp_path: Path) -> None:
+    """Test that token refresh blocks on startup to prevent race conditions.
+    
+    Verifies:
+    - Accounts start in 'refreshing' state during refresh
+    - Accounts become 'available' after successful refresh
+    - Blocking parameter controls whether startup waits
+    """
+    from datetime import UTC, datetime
+    from unittest.mock import AsyncMock, patch
+    
+    from claude_code_proxy.rotation.refresh import TokenRefreshScheduler
+    
+    # Create accounts file with expired tokens
+    accounts_path = tmp_path / "accounts.json"
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    expired_time = now_ms - 3600000  # 1 hour ago
+    
+    accounts_data = {
+        "version": 1,
+        "accounts": {
+            "test-account": {
+                "accessToken": "sk-ant-oat01-test",
+                "refreshToken": "sk-ant-ort01-test",
+                "expiresAt": expired_time,  # Expired
+            }
+        },
+    }
+    accounts_path.write_text(json.dumps(accounts_data, indent=2))
+    
+    pool = RotationPool(accounts_path=accounts_path)
+    scheduler = TokenRefreshScheduler(pool, check_interval=60, refresh_buffer=600)
+    
+    # Mock the refresh operation to verify blocking behavior
+    refresh_called = False
+    states_during_refresh = []
+
+    async def mock_refresh(account_name: str) -> bool:
+        nonlocal refresh_called, states_during_refresh
+        refresh_called = True
+
+        account = pool.get_account(account_name)
+        assert account is not None
+
+        # Mark as refreshing (this is what the real method does)
+        account.mark_refreshing()
+        states_during_refresh.append(account.state)
+
+        # Simulate successful refresh
+        await asyncio.sleep(0.1)  # Small delay to simulate async operation
+        account.mark_refresh_complete(success=True)
+        states_during_refresh.append(account.state)
+        return True
+
+    scheduler._refresh_with_retry = mock_refresh  # type: ignore[method-assign]
+    
+    # Start with blocking enabled (default)
+    await scheduler.start(block_until_initial_refresh=True)
+
+    # Verify refresh was called
+    assert refresh_called, "Token refresh should have been called"
+
+    # Verify state transitions: refreshing -> available
+    assert len(states_during_refresh) == 2, "Should have recorded two states"
+    assert states_during_refresh[0] == "refreshing", "First state should be refreshing"
+    assert states_during_refresh[1] == "available", "Second state should be available"
+
+    # Verify account is now available
+    account = pool.get_account("test-account")
+    assert account is not None
+    assert account.state == "available", "Account should be available after refresh"
+
+    await scheduler.stop()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_refreshing_state_prevents_selection(temp_accounts_file: Path) -> None:
+    """Test that accounts in 'refreshing' state are not selected.
+    
+    Verifies:
+    - Accounts marked as refreshing are skipped during selection
+    - Other accounts can still be selected
+    - Refresh completion restores account to rotation
+    """
+    pool = RotationPool(accounts_path=temp_accounts_file)
+    
+    # Mark first account as refreshing
+    accounts = pool.get_all_accounts()
+    first_account = accounts[0]
+    first_account.mark_refreshing()
+    
+    # Request an account - should skip the refreshing one
+    selected = await pool.get_next_available()
+    assert selected is not None
+    assert selected.name != first_account.name, "Should not select refreshing account"
+    
+    # Complete refresh
+    first_account.mark_refresh_complete(success=True)
+    
+    # Now the account should be available again
+    assert first_account.state == "available"
+    assert first_account.is_available

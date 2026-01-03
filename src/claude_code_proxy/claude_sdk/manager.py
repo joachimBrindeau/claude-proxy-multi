@@ -1,5 +1,4 @@
-"""
-Claude SDK Session Manager - Pure dependency injection architecture.
+"""Claude SDK Session Manager - Pure dependency injection architecture.
 
 This module provides a SessionManager class that encapsulates session pool lifecycle
 management using dependency injection patterns without any global state.
@@ -33,6 +32,7 @@ class SessionManager:
 
         Args:
             settings: Settings containing session pool configuration
+
         """
         self._settings = settings
         self._session_pool: SessionPool | None = None
@@ -105,7 +105,6 @@ class SessionManager:
         options: ClaudeCodeOptions,
     ) -> SessionClient:
         """Get session-aware client."""
-
         logger = structlog.get_logger(__name__)
         logger.debug(
             "session_manager_get_session_client",
@@ -134,6 +133,7 @@ class SessionManager:
 
         Returns:
             True if session was found and interrupted, False otherwise
+
         """
         if not self._session_pool:
             logger.warning(
@@ -154,6 +154,7 @@ class SessionManager:
 
         Returns:
             Number of sessions that were interrupted
+
         """
         if not self._session_pool:
             logger.warning("session_manager_interrupt_all_no_pool")
@@ -169,11 +170,12 @@ class SessionManager:
         return await self._session_pool.get_stats()
 
     def reset_for_testing(self) -> None:
-        """Synchronous reset for test environments.
+        """Reset state synchronously for test environments.
 
         Warning:
             This method should only be used in tests. It does not properly
             shut down the session pool - use shutdown() for production code.
+
         """
         self._session_pool = None
 
@@ -194,6 +196,7 @@ class SessionManager:
 
         Returns:
             True if session exists, False otherwise
+
         """
         if not self._session_pool:
             return False

@@ -21,8 +21,10 @@ class LoggerOutputMiddleware(OutputMiddleware[str]):
         """Initialize middleware with custom prefixes.
 
         Args:
+            logger: Logger instance for output
             stdout_prefix: Prefix for stdout lines (default: "")
             stderr_prefix: Prefix for stderr lines (default: "")
+
         """
         self.logger = logger
         self.stderr_prefix = stderr_prefix
@@ -37,6 +39,7 @@ class LoggerOutputMiddleware(OutputMiddleware[str]):
 
         Returns:
             The original line (unmodified)
+
         """
         if stream_type == "stdout":
             self.logger.info(
@@ -54,7 +57,7 @@ def create_logger_middleware(
     stdout_prefix: str = "",
     stderr_prefix: str = "",
 ) -> LoggerOutputMiddleware:
-    """Factory function to create a LoggerOutputMiddleware instance.
+    """Create a LoggerOutputMiddleware instance.
 
     Args:
         logger_instance: Logger instance to use (defaults to module logger)
@@ -63,6 +66,7 @@ def create_logger_middleware(
 
     Returns:
         Configured LoggerOutputMiddleware instance
+
     """
     if logger_instance is None:
         logger_instance = logger
@@ -76,7 +80,7 @@ def create_chained_docker_middleware(
     stdout_prefix: str = "",
     stderr_prefix: str = "",
 ) -> OutputMiddleware[Any]:
-    """Factory function to create chained middleware for Docker operations.
+    """Create chained middleware for Docker operations.
 
     Args:
         middleware_chain: List of middleware components to chain together

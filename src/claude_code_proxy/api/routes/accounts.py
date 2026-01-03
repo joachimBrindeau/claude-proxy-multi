@@ -14,80 +14,25 @@ Security:
 
 from pathlib import Path
 
+import orjson
 import structlog
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
+
+# Import models from validators to avoid duplication
+from claude_code_proxy.core.validators import (
+    AccountsExport,
+    AccountsImport,
+    ImportResult,
+)
 
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
-
-# ============================================================================
-# Request/Response Models
-# ============================================================================
-
-
-class Account(BaseModel):
-    """OAuth account entity."""
-
-    id: str = Field(..., description="Unique account identifier (UUID v4)")
-    email: str = Field(..., description="User's Claude account email address")
-    access_token: str = Field(..., description="OAuth access token (JWT format)")
-    refresh_token: str = Field(..., description="OAuth refresh token (JWT format)")
-    expires_at: int = Field(..., description="Access token expiration (Unix seconds)")
-    created_at: int = Field(
-        ..., description="Account creation timestamp (Unix seconds)"
-    )
-    updated_at: int = Field(
-        ..., description="Last modification timestamp (Unix seconds)"
-    )
-    is_active: bool = Field(..., description="Whether account is enabled")
-    metadata: dict[str, str] | None = Field(
-        default=None,
-        description="Optional metadata about installation context",
-    )
-
-
-class AccountsExport(BaseModel):
-    """Response model for account export."""
-
-    accounts: list[Account] = Field(..., description="List of all OAuth accounts")
-    schema_version: str = Field(..., description="Data format version (semver)")
-
-
-class AccountsImport(BaseModel):
-    """Request model for account import."""
-
-    accounts: list[Account] = Field(..., description="List of accounts to import")
-    schema_version: str = Field(
-        ..., description="Data format version (must be compatible)"
-    )
-
-    @field_validator("schema_version")
-    @classmethod
-    def validate_schema_version(cls, value: str) -> str:
-        """Validate schema version compatibility."""
-        # Currently only supporting version 1.0.0
-        if not value.startswith("1."):
-            raise ValueError(
-                f"Schema version {value} not compatible with current version 1.0.0"
-            )
-        return value
-
-
-class ImportResult(BaseModel):
-    """Response model for import operation."""
-
-    status: str = Field(..., description="Overall import status")
-    imported: int = Field(..., description="Number of new accounts imported")
-    updated: int = Field(..., description="Number of existing accounts updated")
-    skipped: int = Field(..., description="Number of accounts skipped")
-    errors: list[dict[str, str]] = Field(
-        ..., description="List of accounts that failed validation"
-    )
+# Schema version for account export/import format
+ACCOUNTS_SCHEMA_VERSION = "1.0.0"
 
 
 # ============================================================================
@@ -109,6 +54,7 @@ async def export_accounts() -> JSONResponse:
 
     Raises:
         HTTPException 500: If accounts.json cannot be read.
+
     """
     try:
         # Read accounts from storage
@@ -119,29 +65,26 @@ async def export_accounts() -> JSONResponse:
             return JSONResponse(
                 content={
                     "accounts": [],
-                    "schema_version": "1.0.0",
+                    "schema_version": ACCOUNTS_SCHEMA_VERSION,
                 }
             )
 
-        # Read existing accounts
-        import json
-
-        with accounts_file.open() as f:
-            data = json.load(f)
+        # Read existing accounts using orjson (faster than stdlib json)
+        data = orjson.loads(accounts_file.read_bytes())
 
         # Return with schema version
         return JSONResponse(
             content={
                 "accounts": data.get("accounts", []),
-                "schema_version": "1.0.0",
+                "schema_version": ACCOUNTS_SCHEMA_VERSION,
             }
         )
 
     except Exception as e:  # noqa: BLE001 - catch-all for file I/O errors
-        logger.error("accounts_export_failed", error=str(e), exc_info=True)
+        logger.exception("accounts_export_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to read accounts.json. See server logs for details. Error: {e}",
+            detail="Failed to read accounts. See server logs for details.",
         ) from e
 
 
@@ -170,6 +113,7 @@ async def import_accounts(data: AccountsImport) -> ImportResult:
         HTTPException 409: Duplicate emails within import data.
         HTTPException 422: Validation errors (invalid tokens, bad field formats).
         HTTPException 500: File write errors.
+
     """
     # Validate no duplicate emails in import data
     emails = [acc.email for acc in data.accounts]
@@ -183,15 +127,12 @@ async def import_accounts(data: AccountsImport) -> ImportResult:
     try:
         # Read existing accounts
         accounts_file = _get_accounts_file_path()
-        existing_accounts = {}
+        existing_accounts: dict[str, dict] = {}
 
         if accounts_file.exists():
-            import json
-
-            with accounts_file.open() as f:
-                existing_data = json.load(f)
-                for acc in existing_data.get("accounts", []):
-                    existing_accounts[acc["email"]] = acc
+            existing_data = orjson.loads(accounts_file.read_bytes())
+            for acc in existing_data.get("accounts", []):
+                existing_accounts[acc["email"]] = acc
 
         # Merge accounts
         imported_count = 0
@@ -207,20 +148,17 @@ async def import_accounts(data: AccountsImport) -> ImportResult:
                 existing_accounts[account.email] = account.model_dump()
                 imported_count += 1
 
-        # Write back to file
+        # Write back to file using orjson (faster, with pretty printing)
         accounts_file.parent.mkdir(parents=True, exist_ok=True)
-
-        import json
-
-        with accounts_file.open("w") as f:
-            json.dump(
+        accounts_file.write_bytes(
+            orjson.dumps(
                 {
                     "accounts": list(existing_accounts.values()),
-                    "schema_version": "1.0.0",
+                    "schema_version": ACCOUNTS_SCHEMA_VERSION,
                 },
-                f,
-                indent=2,
+                option=orjson.OPT_INDENT_2,
             )
+        )
 
         return ImportResult(
             status="success",
@@ -234,10 +172,10 @@ async def import_accounts(data: AccountsImport) -> ImportResult:
         # Re-raise HTTP exceptions
         raise
     except Exception as e:  # noqa: BLE001 - catch-all for file I/O errors
-        logger.error("accounts_import_failed", error=str(e), exc_info=True)
+        logger.exception("accounts_import_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to write accounts.json. Error: {e}",
+            detail="Failed to write accounts. See server logs for details.",
         ) from e
 
 
@@ -251,6 +189,7 @@ def _get_accounts_file_path() -> Path:
 
     Returns:
         Path to accounts.json configured via CCPROXY_ACCOUNTS_PATH or default.
+
     """
     from claude_code_proxy.rotation.startup import get_accounts_path
 

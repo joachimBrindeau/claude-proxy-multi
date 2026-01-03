@@ -19,6 +19,7 @@ def build_docker_environment(
 
     Returns:
         Dictionary of environment variables for Docker container
+
     """
     docker_env = docker_env or []
     docker_env_dict = {}
@@ -55,6 +56,7 @@ def display_docker_configuration(
         docker_volume: List of volume mounts
         docker_home: Override home directory path
         docker_workspace: Override workspace directory path
+
     """
     toolkit = get_rich_toolkit()
 
@@ -143,6 +145,7 @@ def create_docker_configuration(
 
     Returns:
         Tuple of (image, volumes, environment, command, user_context, additional_args)
+
     """
     from ..docker import _create_docker_adapter_from_settings
 
@@ -190,6 +193,7 @@ def execute_docker_container(
         environment: Environment variables
         command: Command to execute in container
         user_context: User context for container execution
+
     """
     from claude_code_proxy.docker import create_docker_adapter
 

@@ -25,6 +25,7 @@ class KeyringTokenStorage(TokenStorage):
         Args:
             service_name: Name of the service in the keyring
             username: Username to associate with the stored credentials
+
         """
         self.service_name = service_name
         self.username = username
@@ -38,6 +39,7 @@ class KeyringTokenStorage(TokenStorage):
         Raises:
             CredentialsStorageError: If the stored data is invalid
             CredentialsStorageError: If there's an error reading from keyring
+
         """
         try:
             import keyring
@@ -108,6 +110,7 @@ class KeyringTokenStorage(TokenStorage):
 
         Raises:
             CredentialsStorageError: If there's an error writing to keyring
+
         """
         try:
             import keyring
@@ -143,6 +146,7 @@ class KeyringTokenStorage(TokenStorage):
 
         Returns:
             True if credentials exist, False otherwise
+
         """
         try:
             import keyring
@@ -164,6 +168,7 @@ class KeyringTokenStorage(TokenStorage):
 
         Raises:
             CredentialsStorageError: If there's an error deleting from keyring
+
         """
         try:
             import keyring
@@ -194,5 +199,6 @@ class KeyringTokenStorage(TokenStorage):
 
         Returns:
             Description of the keyring storage location
+
         """
         return f"OS keyring (service: {self.service_name}, user: {self.username})"

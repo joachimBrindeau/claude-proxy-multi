@@ -46,6 +46,7 @@ class QueueListener:
 
         Args:
             listener_id: Optional ID for the listener, generated if not provided
+
         """
         self.listener_id = listener_id or str(uuid.uuid4())
         self._queue: asyncio.Queue[QueueMessage] = asyncio.Queue()
@@ -60,6 +61,7 @@ class QueueListener:
 
         Raises:
             asyncio.QueueEmpty: If queue is empty and closed
+
         """
         if self._closed and self._queue.empty():
             raise asyncio.QueueEmpty("Listener is closed")
@@ -71,6 +73,7 @@ class QueueListener:
 
         Args:
             message: Message to queue
+
         """
         if not self._closed:
             await self._queue.put(message)
@@ -120,6 +123,7 @@ class MessageQueue:
 
         Args:
             max_listeners: Maximum number of concurrent listeners
+
         """
         self._listeners: dict[str, QueueListener] = {}
         self._lock = asyncio.Lock()
@@ -140,6 +144,7 @@ class MessageQueue:
 
         Raises:
             RuntimeError: If max listeners exceeded
+
         """
         async with self._lock:
             if len(self._listeners) >= self._max_listeners:
@@ -163,6 +168,7 @@ class MessageQueue:
 
         Args:
             listener_id: ID of the listener to remove
+
         """
         async with self._lock:
             if listener_id in self._listeners:
@@ -181,6 +187,7 @@ class MessageQueue:
 
         Returns:
             True if at least one listener is registered
+
         """
         async with self._lock:
             return len(self._listeners) > 0
@@ -190,6 +197,7 @@ class MessageQueue:
 
         Returns:
             Number of active listeners
+
         """
         async with self._lock:
             return len(self._listeners)
@@ -202,6 +210,7 @@ class MessageQueue:
 
         Returns:
             Number of listeners that received the message
+
         """
         self._total_messages_received += 1
 
@@ -256,6 +265,7 @@ class MessageQueue:
 
         Args:
             error: The error to broadcast
+
         """
         async with self._lock:
             queue_msg = QueueMessage(type=MessageType.ERROR, error=error)
@@ -326,6 +336,7 @@ class MessageQueue:
 
         Returns:
             Dictionary of queue statistics
+
         """
         return {
             "active_listeners": len(self._listeners),

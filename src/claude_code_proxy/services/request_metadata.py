@@ -22,6 +22,7 @@ def extract_metadata(body: bytes | None) -> tuple[str | None, bool]:
 
     Returns:
         Tuple of (model, streaming)
+
     """
     if not body:
         return None, False
@@ -43,6 +44,7 @@ def extract_message_type(body: bytes | None) -> str:
 
     Returns:
         Message type: "tool_use", "long", "medium", or "short"
+
     """
     if not body:
         return "short"
@@ -59,10 +61,9 @@ def extract_message_type(body: bytes | None) -> str:
             content = str(messages[-1].get("content", ""))
             if len(content) > 200:
                 return "long"
-            elif len(content) < 50:
+            if len(content) < 50:
                 return "short"
-            else:
-                return "medium"
+            return "medium"
     except (ValueError, UnicodeDecodeError):
         pass
 
@@ -77,6 +78,7 @@ def is_streaming_request(headers: dict[str, str]) -> bool:
 
     Returns:
         True if response should be streamed
+
     """
     # Check if client requested streaming
     accept_header = headers.get("accept", "").lower()
@@ -97,6 +99,7 @@ def redact_sensitive_headers(headers: dict[str, str]) -> dict[str, str]:
 
     Returns:
         Headers dictionary with sensitive values redacted
+
     """
     return {
         k: "[REDACTED]" if k.lower() in SENSITIVE_HEADERS else v

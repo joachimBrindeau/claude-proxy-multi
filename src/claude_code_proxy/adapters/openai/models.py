@@ -263,7 +263,7 @@ class OpenAIChatCompletionRequest(BaseModel):
         if value is not None:
             if isinstance(value, str):
                 return value
-            elif isinstance(value, list):
+            if isinstance(value, list):
                 if len(value) > 4:
                     raise ValueError("Maximum 4 stop sequences allowed")
                 return value

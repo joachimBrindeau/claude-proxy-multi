@@ -100,8 +100,7 @@ class ClaudeDetectionService:
                     # Handle "1.0.60 (Claude Code)" format - extract just the version number
                     return version_line.split("(")[0].strip()
                 return version_line
-            else:
-                raise RuntimeError(f"Claude version command failed: {result.stderr}")
+            raise RuntimeError(f"Claude version command failed: {result.stderr}")
 
         except (subprocess.TimeoutExpired, FileNotFoundError, RuntimeError) as e:
             logger.warning("claude_version_detection_failed", error=str(e))
@@ -235,7 +234,7 @@ class ClaudeDetectionService:
         except (ValueError, KeyError, TypeError) as e:
             # ValueError/KeyError: Pydantic validation failures for missing/invalid headers
             # TypeError: Invalid header types
-            logger.error("header_extraction_failed", error=str(e))
+            logger.exception("header_extraction_failed", error=str(e))
             raise ValueError(f"Failed to extract required headers: {e}") from e
 
     def _extract_system_prompt(self, body: bytes) -> SystemPromptData:
@@ -254,7 +253,7 @@ class ClaudeDetectionService:
             # UnicodeDecodeError: Body encoding issues
             # ValueError: Missing system field or validation errors
             # KeyError: Missing expected fields
-            logger.error("system_prompt_extraction_failed", error=str(e))
+            logger.exception("system_prompt_extraction_failed", error=str(e))
             raise ValueError(f"Failed to extract system prompt: {e}") from e
 
     def _get_fallback_data(self) -> ClaudeCacheData:

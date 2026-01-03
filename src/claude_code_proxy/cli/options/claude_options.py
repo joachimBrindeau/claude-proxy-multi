@@ -171,6 +171,7 @@ class ClaudeOptions:
             sdk_session_pool: Enable session-aware Claude SDK client pooling
             system_prompt_injection_mode: System prompt injection mode
             builtin_permissions: Enable built-in permission handling infrastructure
+
         """
         self.max_thinking_tokens = max_thinking_tokens
         self.allowed_tools = allowed_tools

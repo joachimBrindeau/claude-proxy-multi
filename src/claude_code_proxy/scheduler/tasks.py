@@ -21,8 +21,7 @@ logger = structlog.get_logger(__name__)
 
 
 class BaseScheduledTask(ABC):
-    """
-    Abstract base class for all scheduled tasks.
+    """Abstract base class for all scheduled tasks.
 
     Provides common functionality for task lifecycle management, error handling,
     and exponential backoff for failed executions.
@@ -36,8 +35,7 @@ class BaseScheduledTask(ABC):
         max_backoff_seconds: float = 300.0,
         jitter_factor: float = 0.25,
     ):
-        """
-        Initialize scheduled task.
+        """Initialize scheduled task.
 
         Args:
             name: Human-readable task name
@@ -45,6 +43,7 @@ class BaseScheduledTask(ABC):
             enabled: Whether the task is enabled
             max_backoff_seconds: Maximum backoff delay for failed tasks
             jitter_factor: Jitter factor for backoff randomization (0.0-1.0)
+
         """
         self.name = name
         self.interval_seconds = max(1.0, interval_seconds)
@@ -59,17 +58,15 @@ class BaseScheduledTask(ABC):
 
     @abstractmethod
     async def run(self) -> bool:
-        """
-        Execute the scheduled task.
+        """Execute the scheduled task.
 
         Returns:
             True if execution was successful, False otherwise
+
         """
-        pass
 
     async def setup(self) -> None:
-        """
-        Perform any setup required before task execution starts.
+        """Perform any setup required before task execution starts.
 
         Called once when the task is first started. Override if needed.
         Default implementation does nothing.
@@ -78,8 +75,7 @@ class BaseScheduledTask(ABC):
         return
 
     async def cleanup(self) -> None:
-        """
-        Perform any cleanup required after task execution stops.
+        """Perform any cleanup required after task execution stops.
 
         Called once when the task is stopped. Override if needed.
         Default implementation does nothing.
@@ -88,14 +84,14 @@ class BaseScheduledTask(ABC):
         return
 
     def calculate_next_delay(self) -> float:
-        """
-        Calculate the delay before the next task execution.
+        """Calculate the delay before the next task execution.
 
         Returns exponential backoff delay for failed tasks, or normal interval
         for successful tasks, with optional jitter.
 
         Returns:
             Delay in seconds before next execution
+
         """
         if self._consecutive_failures == 0:
             base_delay = self.interval_seconds
@@ -146,7 +142,7 @@ class BaseScheduledTask(ABC):
             OSError,  # file system issues (e.g., config file access)
         ) as e:
             self._running = False
-            logger.error(
+            logger.exception(
                 "task_start_failed",
                 task_name=self.name,
                 error=str(e),
@@ -176,7 +172,7 @@ class BaseScheduledTask(ABC):
             OSError,  # file system cleanup errors
             TimeoutError,  # async cleanup timeout
         ) as e:
-            logger.error(
+            logger.exception(
                 "task_cleanup_failed",
                 task_name=self.name,
                 error=str(e),
@@ -184,7 +180,7 @@ class BaseScheduledTask(ABC):
             )
 
     async def _run_loop(self) -> None:
-        """Main execution loop for the scheduled task."""
+        """Execute the main loop for the scheduled task."""
         while self._running:
             try:
                 start_time = time.time()
@@ -238,7 +234,7 @@ class BaseScheduledTask(ABC):
                 RuntimeError,  # general runtime errors in task execution
             ) as e:
                 self._consecutive_failures += 1
-                logger.error(
+                logger.exception(
                     "task_execution_error",
                     task_name=self.name,
                     error=str(e),
@@ -266,11 +262,11 @@ class BaseScheduledTask(ABC):
         return self._last_run_time
 
     def get_status(self) -> dict[str, Any]:
-        """
-        Get current task status information.
+        """Get current task status information.
 
         Returns:
             Dictionary with task status details
+
         """
         return {
             "name": self.name,
@@ -293,14 +289,14 @@ class PoolStatsTask(BaseScheduledTask):
         enabled: bool = True,
         pool_manager: Any | None = None,
     ):
-        """
-        Initialize pool stats task.
+        """Initialize pool stats task.
 
         Args:
             name: Task name
             interval_seconds: Interval between stats display
             enabled: Whether task is enabled
             pool_manager: Injected pool manager instance
+
         """
         super().__init__(
             name=name,
@@ -319,11 +315,11 @@ class PoolStatsTask(BaseScheduledTask):
             )
 
     def _collect_general_pool_stats(self) -> dict[str, Any] | None:
-        """
-        Collect general pool statistics from pool manager.
+        """Collect general pool statistics from pool manager.
 
         Returns:
             Dictionary containing general pool stats or None if pool not available
+
         """
         general_pool = getattr(self._pool_manager, "_pool", None)
         if not general_pool:
@@ -335,8 +331,7 @@ class PoolStatsTask(BaseScheduledTask):
     def _format_general_pool_stats(
         self, general_pool: Any, general_stats: Any
     ) -> dict[str, Any]:
-        """
-        Format general pool statistics into structured dictionary.
+        """Format general pool statistics into structured dictionary.
 
         Args:
             general_pool: General pool instance
@@ -344,6 +339,7 @@ class PoolStatsTask(BaseScheduledTask):
 
         Returns:
             Dictionary with formatted general pool stats
+
         """
         return {
             "enabled": bool(general_pool),
@@ -366,11 +362,11 @@ class PoolStatsTask(BaseScheduledTask):
         }
 
     async def _collect_session_pool_stats(self) -> dict[str, Any] | None:
-        """
-        Collect session pool statistics from pool manager.
+        """Collect session pool statistics from pool manager.
 
         Returns:
             Dictionary containing session pool stats or None if pool not available
+
         """
         session_pool = getattr(self._pool_manager, "_session_pool", None)
         if not session_pool:
@@ -382,14 +378,14 @@ class PoolStatsTask(BaseScheduledTask):
     def _format_session_pool_stats(
         self, session_stats: dict[str, Any] | None
     ) -> dict[str, Any]:
-        """
-        Format session pool statistics into structured dictionary.
+        """Format session pool statistics into structured dictionary.
 
         Args:
             session_stats: Raw session stats dictionary
 
         Returns:
             Dictionary with formatted session pool stats
+
         """
         if not session_stats:
             return {
@@ -433,7 +429,7 @@ class PoolStatsTask(BaseScheduledTask):
             RuntimeError,  # pool stats collection errors
             TimeoutError,  # async pool stats timeout
         ) as e:
-            logger.error(
+            logger.exception(
                 "pool_stats_task_error",
                 task_name=self.name,
                 error=str(e),
@@ -454,8 +450,7 @@ class VersionUpdateCheckTask(BaseScheduledTask):
         *,
         skip_first_scheduled_run: bool = True,
     ):
-        """
-        Initialize version update check task.
+        """Initialize version update check task.
 
         Args:
             name: Task name
@@ -463,6 +458,7 @@ class VersionUpdateCheckTask(BaseScheduledTask):
             enabled: Whether task is enabled
             version_check_cache_ttl_hours: Maximum cache age (hours) used at startup before contacting GitHub
             skip_first_scheduled_run: If True, first scheduled loop execution is skipped
+
         """
         super().__init__(
             name=name,
@@ -477,12 +473,13 @@ class VersionUpdateCheckTask(BaseScheduledTask):
     def _log_version_comparison(
         self, current_version: str, latest_version: str, *, source: str | None = None
     ) -> None:
-        """
-        Log version comparison results with appropriate warning level.
+        """Log version comparison results with appropriate warning level.
 
         Args:
             current_version: Current version string
             latest_version: Latest version string
+            source: Optional source identifier for the version
+
         """
         from claude_code_proxy.utils.version_checker import compare_versions
 
@@ -606,8 +603,96 @@ class VersionUpdateCheckTask(BaseScheduledTask):
             OSError,  # file I/O errors (state file read/write)
             PydanticValidationError,  # VersionCheckState validation failure
         ) as e:
-            logger.error(
+            logger.exception(
                 "version_check_task_error",
+                task_name=self.name,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            return False
+
+
+class ModelRefreshTask(BaseScheduledTask):
+    """Task for periodically refreshing model resolver cache.
+
+    Fetches latest model information from Anthropic's API and updates
+    the model resolver's cached tier-to-model mappings.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        interval_seconds: float,
+        enabled: bool = True,
+    ):
+        """Initialize model refresh task.
+
+        Args:
+            name: Task name
+            interval_seconds: Interval between model cache refreshes
+            enabled: Whether task is enabled
+
+        """
+        super().__init__(
+            name=name,
+            interval_seconds=interval_seconds,
+            enabled=enabled,
+        )
+        # Skip first run since startup already initializes the resolver
+        self._first_run = True
+
+    async def run(self) -> bool:
+        """Refresh model resolver cache."""
+        try:
+            # Skip first run to avoid duplicate refresh after startup
+            if self._first_run:
+                self._first_run = False
+                logger.debug(
+                    "model_refresh_first_run_skipped",
+                    task_name=self.name,
+                    message="Skipping first run - startup already initialized",
+                )
+                return True
+
+            from claude_code_proxy.services.model_resolver import get_model_resolver
+
+            resolver = get_model_resolver()
+            if not resolver:
+                logger.debug(
+                    "model_refresh_no_resolver",
+                    task_name=self.name,
+                    message="Model resolver not initialized",
+                )
+                return True  # Not an error, just no resolver available
+
+            # Check if refresh is needed (cache is stale)
+            if not resolver.is_stale():
+                logger.debug(
+                    "model_refresh_cache_fresh",
+                    task_name=self.name,
+                    last_refresh=str(resolver.last_refresh),
+                )
+                return True
+
+            # Perform the refresh
+            await resolver.refresh()
+
+            logger.debug(
+                "model_refresh_completed",
+                task_name=self.name,
+                cached_tiers=list(resolver.get_cached_mappings().keys()),
+            )
+            return True
+
+        except (
+            httpx.HTTPError,  # Anthropic API HTTP errors
+            httpx.TimeoutException,  # Anthropic API timeout
+            httpx.ConnectError,  # Anthropic API connection failure
+            RuntimeError,  # Resolver internal errors
+            ValueError,  # Invalid response data
+        ) as e:
+            logger.exception(
+                "model_refresh_task_error",
                 task_name=self.name,
                 error=str(e),
                 error_type=type(e).__name__,

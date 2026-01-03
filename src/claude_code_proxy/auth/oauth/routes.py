@@ -32,6 +32,11 @@ from claude_code_proxy.auth.oauth.token_exchange import (
 )
 from claude_code_proxy.auth.storage import JsonFileTokenStorage as JsonFileStorage
 from claude_code_proxy.config.auth import OAuthSettings
+from claude_code_proxy.core.constants import (
+    CACHE_MAXSIZE_MEDIUM,
+    MILLISECONDS_PER_SECOND,
+    OAUTH_FLOW_TTL,
+)
 from claude_code_proxy.exceptions import CredentialsStorageError
 from claude_code_proxy.rotation.startup import (
     InvalidAccountsPathError,
@@ -45,7 +50,7 @@ router = APIRouter(tags=["oauth"])
 
 # Store for pending OAuth flows with 10-minute TTL to prevent memory leaks
 # OAuth flows should complete within minutes; abandoned flows are auto-cleaned
-_pending_flows: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=1000, ttl=600)  # type: ignore[no-any-unimported]
+_pending_flows: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=CACHE_MAXSIZE_MEDIUM, ttl=OAUTH_FLOW_TTL)  # type: ignore[no-any-unimported]
 
 # Path to the OAuth proxy script
 _OAUTH_PROXY_SCRIPT_PATH = Path(__file__).parent / "scripts" / "oauth_proxy.py"
@@ -283,7 +288,7 @@ async def oauth_callback(
         # Handle OAuth error from provider
         if error:
             error_msg = error_description or error or "OAuth authentication failed"
-            logger.error(
+            logger.exception(
                 "oauth_callback_error",
                 error=error,
                 description=error_description,
@@ -340,10 +345,9 @@ async def oauth_callback(
                 "oauth_login_successful", state=state, account_name=account_name
             )
             return _success_html(account_name)
-        else:
-            error_msg = "Failed to exchange authorization code for tokens"
-            logger.error("oauth_token_exchange_failed", state=state)
-            return _error_html("Login Failed", f"Error: {error_msg}", status_code=500)
+        error_msg = "Failed to exchange authorization code for tokens"
+        logger.error("oauth_token_exchange_failed", state=state)
+        return _error_html("Login Failed", f"Error: {error_msg}", status_code=500)
 
     except (
         httpx.HTTPError,
@@ -352,23 +356,21 @@ async def oauth_callback(
         ValueError,
         KeyError,
     ) as e:
-        logger.error(
+        logger.exception(
             "oauth_callback_known_error",
             error_type=type(e).__name__,
             error=str(e),
             state=state,
-            exc_info=True,
         )
         _update_flow_error(state, str(e))
         return _error_html("Login Error", f"An error occurred: {e}", status_code=500)
 
     except Exception as e:  # noqa: BLE001 - Catch-all for user-facing OAuth callback
-        logger.error(
+        logger.exception(
             "oauth_callback_unexpected_error",
             error_type=type(e).__name__,
             error=str(e),
             state=state,
-            exc_info=True,
         )
         _update_flow_error(state, str(e))
         return _error_html(
@@ -442,15 +444,14 @@ async def exchange_oauth_code(body: OAuthExchangeRequest) -> JSONResponse:
                 },
                 status_code=200,
             )
-        else:
-            logger.error("oauth_code_exchange_failed", account_name=account_name)
-            return JSONResponse(
-                content={
-                    "success": False,
-                    "error": "Failed to exchange code for tokens. The code may be invalid or expired.",
-                },
-                status_code=400,
-            )
+        logger.error("oauth_code_exchange_failed", account_name=account_name)
+        return JSONResponse(
+            content={
+                "success": False,
+                "error": "Failed to exchange code for tokens. The code may be invalid or expired.",
+            },
+            status_code=400,
+        )
 
     except (
         httpx.HTTPError,
@@ -459,7 +460,7 @@ async def exchange_oauth_code(body: OAuthExchangeRequest) -> JSONResponse:
         ValueError,
         KeyError,
     ) as e:
-        logger.error("oauth_exchange_error", error=str(e), exc_info=True)
+        logger.exception("oauth_exchange_error", error=str(e))
         return JSONResponse(
             content={"success": False, "error": f"Unexpected error: {e}"},
             status_code=500,
@@ -472,7 +473,7 @@ async def get_oauth_proxy_script() -> PlainTextResponse:
     try:
         content = _OAUTH_PROXY_SCRIPT_PATH.read_text()
     except FileNotFoundError:
-        logger.error("oauth_proxy_script_not_found", path=str(_OAUTH_PROXY_SCRIPT_PATH))
+        logger.exception("oauth_proxy_script_not_found", path=str(_OAUTH_PROXY_SCRIPT_PATH))
         return PlainTextResponse(content="# Script not found", status_code=404)
 
     return PlainTextResponse(
@@ -519,7 +520,7 @@ async def _exchange_code_for_tokens(
         expires_in = result.get("expires_in")
         expires_at = None
         if expires_in:
-            expires_at = int((datetime.now(UTC).timestamp() + expires_in) * 1000)
+            expires_at = int((datetime.now(UTC).timestamp() + expires_in) * MILLISECONDS_PER_SECOND)
 
         # Extract token data
         access_token = result.get("access_token")
@@ -546,7 +547,7 @@ async def _exchange_code_for_tokens(
         )
 
     except TokenExchangeError as e:
-        logger.error(
+        logger.exception(
             "token_exchange_failed",
             status_code=e.status_code,
             error_detail=e.response_text,
@@ -561,11 +562,10 @@ async def _exchange_code_for_tokens(
         ValueError,
         KeyError,
     ) as e:
-        logger.error(
+        logger.exception(
             "token_exchange_exception",
             error_type=type(e).__name__,
             error=str(e),
-            exc_info=True,
         )
         return False
 

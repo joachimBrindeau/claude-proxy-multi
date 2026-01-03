@@ -13,8 +13,7 @@ logger = structlog.get_logger(__name__)
 
 
 class TaskRegistry:
-    """
-    Registry for managing scheduled task registration and discovery.
+    """Registry for managing scheduled task registration and discovery.
 
     Provides a centralized way to register and retrieve scheduled tasks,
     enabling dynamic task management and configuration.
@@ -25,8 +24,7 @@ class TaskRegistry:
         self._tasks: dict[str, type[BaseScheduledTask]] = {}
 
     def register(self, name: str, task_class: type[BaseScheduledTask]) -> None:
-        """
-        Register a scheduled task class.
+        """Register a scheduled task class.
 
         Args:
             name: Unique name for the task
@@ -34,6 +32,7 @@ class TaskRegistry:
 
         Raises:
             TaskRegistrationError: If task name is already registered or invalid
+
         """
         if name in self._tasks:
             raise TaskRegistrationError(f"Task '{name}' is already registered")
@@ -47,14 +46,14 @@ class TaskRegistry:
         logger.debug("task_registered", task_name=name, task_class=task_class.__name__)
 
     def unregister(self, name: str) -> None:
-        """
-        Unregister a scheduled task.
+        """Unregister a scheduled task.
 
         Args:
             name: Name of the task to unregister
 
         Raises:
             TaskRegistrationError: If task is not registered
+
         """
         if name not in self._tasks:
             raise TaskRegistrationError(f"Task '{name}' is not registered")
@@ -63,8 +62,7 @@ class TaskRegistry:
         logger.debug("task_unregistered", task_name=name)
 
     def get(self, name: str) -> type[BaseScheduledTask]:
-        """
-        Get a registered task class by name.
+        """Get a registered task class by name.
 
         Args:
             name: Name of the task to retrieve
@@ -74,6 +72,7 @@ class TaskRegistry:
 
         Raises:
             TaskRegistrationError: If task is not registered
+
         """
         if name not in self._tasks:
             raise TaskRegistrationError(f"Task '{name}' is not registered")
@@ -81,23 +80,23 @@ class TaskRegistry:
         return self._tasks[name]
 
     def list_tasks(self) -> list[str]:
-        """
-        Get list of all registered task names.
+        """Get list of all registered task names.
 
         Returns:
             List of registered task names
+
         """
         return list(self._tasks.keys())
 
     def is_registered(self, name: str) -> bool:
-        """
-        Check if a task is registered.
+        """Check if a task is registered.
 
         Args:
             name: Task name to check
 
         Returns:
             True if task is registered, False otherwise
+
         """
         return name in self._tasks
 
@@ -107,11 +106,11 @@ class TaskRegistry:
         logger.debug("task_registry_cleared")
 
     def get_registry_info(self) -> dict[str, Any]:
-        """
-        Get information about the current registry state.
+        """Get information about the current registry state.
 
         Returns:
             Dictionary with registry information
+
         """
         return {
             "total_tasks": len(self._tasks),
@@ -125,11 +124,11 @@ _global_registry: TaskRegistry | None = None
 
 
 def get_task_registry() -> TaskRegistry:
-    """
-    Get the global task registry instance.
+    """Get the global task registry instance.
 
     Returns:
         Global TaskRegistry instance
+
     """
     global _global_registry
 
@@ -140,12 +139,12 @@ def get_task_registry() -> TaskRegistry:
 
 
 def register_task(name: str, task_class: type[BaseScheduledTask]) -> None:
-    """
-    Register a task in the global registry.
+    """Register a task in the global registry.
 
     Args:
         name: Unique name for the task
         task_class: Task class that inherits from BaseScheduledTask
+
     """
     registry = get_task_registry()
     registry.register(name, task_class)

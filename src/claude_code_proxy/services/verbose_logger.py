@@ -41,6 +41,7 @@ class VerboseLogger:
         Args:
             verbose_api: Enable verbose API request/response logging
             verbose_streaming: Enable verbose streaming chunk logging
+
         """
         self.verbose_api = verbose_api
         self.verbose_streaming = verbose_streaming
@@ -53,6 +54,7 @@ class VerboseLogger:
         Args:
             request_data: Transformed request data
             ctx: Request context for observability
+
         """
         if not self.verbose_api:
             return
@@ -111,6 +113,7 @@ class VerboseLogger:
             headers: Response headers
             body: Response body bytes
             ctx: Request context for observability
+
         """
         if not self.verbose_api:
             return
@@ -176,6 +179,7 @@ class VerboseLogger:
             status_code: HTTP status code
             headers: Response headers
             is_openai: Whether this is an OpenAI format request
+
         """
         if not self.verbose_api:
             return
@@ -205,6 +209,7 @@ class VerboseLogger:
             ctx: Request context
             chunk: Raw chunk bytes
             timestamp: Optional timestamp (uses context timestamp if not provided)
+
         """
         request_id = ctx.request_id
         ts = timestamp or ctx.get_log_timestamp_prefix()

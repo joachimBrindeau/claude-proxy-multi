@@ -37,6 +37,7 @@ class AccountsFileHandler(FileSystemEventHandler):
             accounts_path: Path to accounts.json
             on_change: Callback to invoke on file change (sync or async)
             debounce_seconds: Debounce interval to avoid duplicate events
+
         """
         super().__init__()
         self._accounts_path = accounts_path
@@ -51,6 +52,7 @@ class AccountsFileHandler(FileSystemEventHandler):
 
         Args:
             loop: Event loop to use for scheduling callbacks
+
         """
         self._loop = loop
 
@@ -59,6 +61,7 @@ class AccountsFileHandler(FileSystemEventHandler):
 
         Args:
             event: File system event
+
         """
         if event.is_directory:
             return
@@ -113,6 +116,7 @@ class AccountsFileHandler(FileSystemEventHandler):
 
         Args:
             event: File system event
+
         """
         # Treat creation the same as modification
         self.on_modified(event)
@@ -139,6 +143,7 @@ class AccountsFileWatcher:
             accounts_path: Path to accounts.json
             on_reload: Callback to invoke when file changes
             debounce_seconds: Debounce interval
+
         """
         self._accounts_path = Path(accounts_path).expanduser()
         self._on_reload = on_reload
@@ -216,6 +221,7 @@ def get_file_watcher() -> AccountsFileWatcher | None:
 
     Returns:
         AccountsFileWatcher instance or None if not initialized
+
     """
     return _watcher
 
@@ -232,6 +238,7 @@ def init_file_watcher(
 
     Returns:
         Initialized AccountsFileWatcher
+
     """
     global _watcher
     _watcher = AccountsFileWatcher(accounts_path, on_reload)

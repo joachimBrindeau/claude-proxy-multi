@@ -15,6 +15,7 @@ Example:
     ...     print(f"Error: {capacity.error}")
     >>> else:
     ...     print(f"Tokens remaining: {capacity.tokens_remaining_percent:.1f}%")
+
 """
 
 import contextlib
@@ -140,6 +141,7 @@ def _build_capacity_request(
 
     Returns:
         Tuple of (headers, body) for the request
+
     """
     headers = {
         "Content-Type": "application/json",
@@ -211,6 +213,7 @@ def _process_capacity_response(
 
     Returns:
         CapacityInfo with parsed rate limit data and any errors
+
     """
     info = _parse_rate_limit_headers(response.headers)
 
@@ -220,13 +223,21 @@ def _process_capacity_response(
             "capacity_check_auth_error",
             account=account_name,
             status=response.status_code,
+            response_preview=response.text[:200],
         )
     elif response.status_code == 429:
-        info.error = "Account is currently rate limited"
+        # For 429, we still have rate limit headers - this is not an "error"
+        # if we can see the limits. Only set error if headers are missing.
+        if info.tokens_limit is None and info.requests_limit is None:
+            info.error = "Rate limited (no limit info available)"
+        # Note: Don't set error if we have limit info - the is_rate_limited property
+        # will indicate the account is rate limited
         logger.info(
             "capacity_check_rate_limited",
             account=account_name,
             status=response.status_code,
+            tokens_remaining=info.tokens_remaining,
+            requests_remaining=info.requests_remaining,
         )
     elif response.status_code == 503:
         info.error = "Anthropic API temporarily unavailable - try again"
@@ -343,6 +354,7 @@ async def _perform_capacity_check(
 
     Raises:
         _TransientCapacityError: For retryable errors (503, 529)
+
     """
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(proxy_url, headers=headers, json=body)
@@ -366,6 +378,7 @@ def _handle_capacity_check_error(
 
     Returns:
         CapacityInfo with error message
+
     """
     if isinstance(error, httpx.TimeoutException):
         return _make_error_info("Request timed out")
@@ -411,6 +424,7 @@ async def check_capacity_async(
 
     Returns:
         CapacityInfo with rate limit information or error
+
     """
     headers, body = _build_capacity_request(account_name, model)
 
@@ -466,6 +480,7 @@ def check_capacity_sync(
 
     Returns:
         CapacityInfo with rate limit information or error
+
     """
     warnings.warn(
         "check_capacity_sync() blocks the event loop. "

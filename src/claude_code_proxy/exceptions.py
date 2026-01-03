@@ -130,13 +130,9 @@ class AuthenticationError(CCProxyError):
 class AuthenticationRequiredError(AuthenticationError):
     """Authentication is required but not provided."""
 
-    pass
-
 
 class InvalidTokenError(AuthenticationError):
     """Invalid or expired token."""
-
-    pass
 
 
 class InsufficientPermissionsError(CCProxyError):
@@ -201,6 +197,17 @@ class ModelNotFoundError(NotFoundError):
         super().__init__(f"Model '{model}' not found")
 
 
+class ModelResolutionError(CCProxyError):
+    """Error resolving model alias to actual model ID."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            message,
+            error_type=ErrorType.INTERNAL_SERVER,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 # ============================================================================
 # Configuration & Validation Errors
 # ============================================================================
@@ -226,55 +233,37 @@ class ConfigValidationError(CCProxyError):
 class CredentialsError(AuthenticationError):
     """Base credentials error."""
 
-    pass
-
 
 class CredentialsNotFoundError(CredentialsError):
     """Credentials not found error."""
-
-    pass
 
 
 class CredentialsExpiredError(CredentialsError):
     """Credentials expired error."""
 
-    pass
-
 
 class CredentialsInvalidError(CredentialsError):
     """Credentials are invalid or malformed."""
-
-    pass
 
 
 class CredentialsStorageError(CredentialsError):
     """Error occurred during credentials storage operations."""
 
-    pass
-
 
 class OAuthError(AuthenticationError):
     """Base OAuth error."""
-
-    pass
 
 
 class OAuthLoginError(OAuthError):
     """OAuth login failed."""
 
-    pass
-
 
 class OAuthTokenRefreshError(OAuthError):
     """OAuth token refresh failed."""
 
-    pass
-
 
 class OAuthCallbackError(OAuthError):
     """OAuth callback failed."""
-
-    pass
 
 
 class TokenExchangeError(OAuthError):
@@ -300,8 +289,6 @@ class TokenExchangeError(OAuthError):
 
 class PermissionRequestError(CCProxyError):
     """Base exception for permission request-related errors."""
-
-    pass
 
 
 class PermissionNotFoundError(PermissionRequestError):
@@ -345,8 +332,6 @@ class PermissionAlreadyResolvedError(PermissionRequestError):
 class ClaudeSDKError(CCProxyError):
     """Base Claude SDK error."""
 
-    pass
-
 
 class StreamTimeoutError(ClaudeSDKError):
     """Stream timeout error when no SDK message is received within timeout."""
@@ -365,19 +350,13 @@ class StreamTimeoutError(ClaudeSDKError):
 class SchedulerError(CCProxyError):
     """Base exception for scheduler-related errors."""
 
-    pass
-
 
 class TaskRegistrationError(SchedulerError):
     """Raised when task registration fails."""
 
-    pass
-
 
 class TaskNotFoundError(SchedulerError):
     """Raised when attempting to access a task that doesn't exist."""
-
-    pass
 
 
 class TaskExecutionError(SchedulerError):
@@ -391,8 +370,6 @@ class TaskExecutionError(SchedulerError):
 
 class SchedulerShutdownError(SchedulerError):
     """Raised when scheduler shutdown encounters an error."""
-
-    pass
 
 
 # ============================================================================
@@ -445,6 +422,7 @@ __all__ = [
     "TimeoutError",
     "ServiceUnavailableError",
     "ModelNotFoundError",
+    "ModelResolutionError",
     # Configuration
     "ConfigValidationError",
     # Credentials & OAuth
