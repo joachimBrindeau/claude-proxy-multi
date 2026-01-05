@@ -1,0 +1,34 @@
+app = "claude-code-proxy"
+primary_region = "lax"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8000"
+  SERVER__HOST = "0.0.0.0"
+  SERVER__LOG_LEVEL = "INFO"
+  CCPROXY_ACCOUNTS_PATH = "/data/accounts.json"
+  CCPROXY_ROTATION_ENABLED = "true"
+  CCPROXY_HOT_RELOAD = "true"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+[mounts]
+  source = "claude_code_proxy_data"
+  destination = "/data"

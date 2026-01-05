@@ -1,0 +1,503 @@
+[project]
+name = "claude-code-proxy"
+# version = "0.1.0"
+dynamic = ["version"]
+description = "High-performance Claude Code multi-account proxy server with Anthropic API compatibility for managing multiple Claude accounts."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "aiofiles>=24.1.0",
+  "apscheduler>=3.10.0",
+  "cachetools>=6.2.4",
+  "claude-code-sdk>=0.0.19",
+  "diskcache>=5.6.3",
+  "fastapi-mcp>=0.4.0",
+  "fastapi[standard]>=0.115.14",
+  "httpx>=0.28.1",
+  "httpx-sse>=0.4.1",
+  "jinja2>=3.1.0",
+  "jsonschema>=0.33.2",
+  "keyring>=25.6.0",
+  "orjson>=3.11.5",
+  "packaging>=23.0",
+  "platformdirs>=4.3.6",
+  "pybreaker>=1.4.1",
+  "pydantic>=2.8.0",
+  "pydantic-settings>=2.4.0",
+  "pyjwt>=2.10.1",
+  "python-dateutil>=2.9.0",
+  "rich>=13.0.0",
+  "rich-toolkit>=0.14.8",
+  "shortuuid>=1.0.13",
+  "structlog>=25.4.0",
+  "tenacity>=9.1.2",
+  "textual>=3.7.1",
+  "tomli>=2.0.0; python_version<'3.11'",
+  "tomli-w>=1.1.0",
+  "typer>=0.16.0",
+  "typing-extensions>=4.0.0",
+  "uvicorn>=0.34.0",
+  "watchdog>=3.0.0",
+  # SQLite persistence with SQLModel
+  "sqlmodel>=0.0.31",
+  "aiosqlite>=0.22.0",
+  "alembic>=1.17.0",
+  "greenlet>=3.0.0",
+]
+
+[build-system]
+# Using hatchling to used git tag for version
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+# requires = ["uv"]
+# build-backend = "uv.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/claude_code_proxy/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/claude_code_proxy"]
+include = [
+    "src/claude_code_proxy/data/*.json",
+    "src/claude_code_proxy/py.typed",
+]
+
+[project.scripts]
+claude-code-proxy = "claude_code_proxy.cli:main"
+claude-code-proxy-api = "claude_code_proxy.cli:main"
+claude-code-proxy-perm = "claude_code_proxy.cli.commands.permission:main"
+
+[dependency-groups]
+dev = [
+  # Type checking
+  "mypy>=1.16.1",
+  "pyright>=1.1.400",
+  "types-pyyaml>=6.0.12.20250516",
+  "types-aiofiles>=24.0.0",
+  "types-python-dateutil>=2.9.0.20251115",
+  # Linting and formatting
+  "ruff>=0.14.10",
+  # Testing
+  "pytest>=7.0.0",
+  "pytest-asyncio>=0.23.0",
+  "pytest-cov>=4.0.0",
+  "pytest-env>=0.8.0",
+  "pytest-timeout>=2.1.0",
+  "pytest-mock>=3.12.0",
+  "pytest-xdist>=3.5.0",
+  "pytest-html>=4.1.0",
+  "pytest-benchmark>=4.0.0",
+  "pytest-httpx>=0.35.0",
+  "pytest-randomly>=3.16.0",
+  "hypothesis>=6.122.0",
+  "mutmut>=3.2.0",
+  "tox>=4.27.0",
+  # Pre-commit and CI
+  "pre-commit>=4.2.0",
+  # Security scanning
+  "bandit>=1.9.2",
+  "safety>=3.7.0",
+  "pip-audit>=2.10.0",
+  "detect-secrets>=1.5.0",
+  # Note: semgrep conflicts with fastapi-mcp (tomli version mismatch)
+  # Code quality analysis
+  "vulture>=2.14",
+  "radon>=6.0.1",
+  "xenon>=0.9.3",
+  # TODO: interrogate 1.7.0 depends on deprecated `py` package (CVE-2022-42969)
+  # Track: https://github.com/econchick/interrogate/issues/185
+  # The CVE is low severity (ReDoS via SVN repos) and only affects dev environment
+  "interrogate>=1.7.0",
+  "deptry>=0.23.0",
+  "codespell>=2.4.1",
+  "tryceratops>=2.4.1",
+  "import-linter>=2.1",
+  # Dependency management
+  "pip-licenses>=5.5.0",
+  # SDK and utilities
+  "anthropic>=0.57.1",
+  "textual-dev>=1.7.0",
+  "httpx>=0.28.1",
+  # Binary building
+  "pyinstaller>=6.0.0",
+]
+security = [
+  "keyring>=25.0.0", # Optional keyring support for secure credential storage
+]
+schema = ["pydantic>=2.8.0", "check-jsonschema>=0.33.2"]
+
+[tool.coverage.run]
+data_file = ".coverage/coverage"
+source = ["src/claude_code_proxy", "tests"]
+include = ["src/claude_code_proxy/*", "tests/*"]
+omit = [
+  "src/claude_code_proxy/_version.py",
+  "src/claude_code_proxy/__main__.py",
+  "tests/conftest.py",
+  "*/migrations/*",
+  "*/__pycache__/*",
+  "*/.*",
+]
+branch = true
+parallel = true
+concurrency = ["thread", "multiprocessing"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+skip_empty = true
+sort = "Cover"
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "from typing import",
+  "VERSION_TUPLE = Tuple",
+  "class .*Protocol.*:",
+  "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = ".coverage/html"
+title = "Claude Code Proxy Coverage Report"
+
+[tool.coverage.xml]
+output = ".coverage/coverage.xml"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # Pyflakes
+  "I",   # isort
+  "N",   # pep8-naming
+  "UP",  # pyupgrade
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "SIM", # flake8-simplify
+  "PTH", # flake8-use-pathlib
+]
+
+ignore = [
+  "E501",   # Line too long (handled by formatter)
+  "B008",   # Do not perform function calls in argument defaults
+  "N806",   # Variable in function should be lowercase (for pandas df, etc)
+  "SIM108", # Use ternary operator (sometimes less readable)
+  "F401",   # Imported but unused
+  "F841",   # Local variable assigned but never used
+]
+
+exclude = [
+  ".git",
+  ".venv",
+  "venv",
+  "__pycache__",
+  "build",
+  "dist",
+  "*.egg-info",
+]
+
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["claude_code_proxy"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.lint.per-file-ignores]
+# relax on scripts and tests
+"scripts/*" = ["T201"]       # check for print statements
+"tests/*" = ["N802", "N803"] # arg/function name should be lowercase
+# TypedDict patch requires early imports before other modules (Python <3.12 compatibility)
+"src/claude_code_proxy/__init__.py" = ["E402"]
+"src/claude_code_proxy/cli/main.py" = ["E402"]
+"tests/conftest.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+show_column_numbers = true
+follow_imports = "normal"
+exclude = ["^[^/]+\\.py$", "site/", "tests.depracted/", "examples/"]
+
+# Enable all strict mode flags
+strict = true
+# The following settings are enabled by --strict:
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_any_unimported = true
+warn_unreachable = true
+
+# if we need to disable certain strict checks
+# disallow_incomplete_defs = false
+# disallow_untyped_decorators = false
+
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+# ignore_errors = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+warn_unused_ignores = false
+# Ignore call-arg and attr-defined for test flexibility
+disable_error_code = ["call-arg", "attr-defined"]
+
+# Third-party libraries without type stubs
+[[tool.mypy.overrides]]
+module = [
+    "watchdog.*",
+    "apscheduler.*",
+    "shortuuid",
+    "tenacity",
+    "tenacity.*",
+    "orjson",
+    "diskcache",
+    "pybreaker",
+    "dateutil.*",
+    "cachetools",
+]
+ignore_missing_imports = true
+
+# Claude SDK has dynamic attributes
+[[tool.mypy.overrides]]
+module = "claude_code_sdk.*"
+ignore_missing_imports = true
+disable_error_code = ["attr-defined"]
+
+# Files that use watchdog subclasses - need to ignore subclassing Any
+[[tool.mypy.overrides]]
+module = "claude_code_proxy.rotation.file_watcher"
+disallow_subclassing_any = false
+disallow_any_unimported = false
+
+# Claude SDK options file uses dynamic attributes
+[[tool.mypy.overrides]]
+module = "claude_code_proxy.claude_sdk.options"
+disable_error_code = ["attr-defined"]
+
+# Files with intentional Any from untyped imports
+[[tool.mypy.overrides]]
+module = [
+    "claude_code_proxy.utils.id_generator",
+    "claude_code_proxy.core.async_utils",
+]
+disallow_any_unimported = false
+disallow_subclassing_any = false
+disable_error_code = ["no-any-return", "no-any-unimported", "misc", "operator", "unused-ignore"]
+
+# Retry decorators can modify return types
+[[tool.mypy.overrides]]
+module = [
+    "claude_code_proxy.rotation.capacity_check",
+    "claude_code_proxy.rotation.refresh",
+]
+disable_error_code = ["return"]
+
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+timeout = 30
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+  "--disable-warnings",
+  "--tb=short",
+  "-v",
+  "--cov=src/claude_code_proxy",
+  "--cov=tests",
+  "--cov-report=term-missing",
+  "--cov-report=html:.coverage/html",
+  "--cov-report=xml:.coverage/coverage.xml",
+  "--cov-branch",
+  # "--cov-fail-under=80",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+norecursedirs = [
+  ".git",
+  ".tox",
+  "dist",
+  "build",
+  "*.egg",
+  "venv",
+  ".venv",
+  ".devenv",
+  "node_modules",
+  "__pycache__",
+]
+filterwarnings = [
+  "ignore::UserWarning",
+  "ignore::DeprecationWarning",
+  "ignore::PendingDeprecationWarning",
+]
+
+# Set test mode to prevent pollution of real credential files
+env = [
+  "CLAUDE_CODE_PROXY_TEST_MODE=true",
+  "PYTEST_CURRENT_TEST=true",
+  "LOG_LEVEL=WARNING",
+]
+
+# Test markers for different test categories and tiers
+markers = [
+  # Primary test categories
+  "unit: Fast unit tests (< 1s each) that don't require external dependencies",
+  "integration: Integration tests (< 30s each) that test component interactions",
+  "slow: Slow tests (> 30s each) - use sparingly",
+
+  # External dependency markers
+  "real_api: Tests that make real API calls to external services (requires API keys)",
+  "docker: Tests that require Docker to be running",
+  "network: Tests that require network access but don't make real API calls",
+
+  # Feature-specific markers
+  "auth: Authentication and authorization tests",
+  "streaming: SSE/streaming response tests",
+  "api: API endpoint tests",
+  "config: Configuration and settings tests",
+  "cli: Command-line interface tests",
+  "metrics: Metrics and monitoring tests",
+  "sdk: SDK endpoint tests using Anthropic SDK client (requires running server)",
+
+  # Test quality markers
+  "flaky: Tests that may be unreliable and need investigation",
+  "skip_ci: Tests to skip in CI environment",
+]
+
+[tool.pytest_timeout]
+timeout = 300
+timeout_method = "thread"
+
+[tool.bandit]
+exclude_dirs = ["tests", "docs", "scripts", "examples"]
+skips = [
+  "B101",  # assert_used - asserts are fine in application code
+  "B110",  # try_except_pass - sometimes needed for optional features
+  "B113",  # request_without_timeout - httpx has timeouts by default
+  "B105",  # hardcoded_password_string - too many false positives (URLs, token types)
+  "B311",  # random for non-crypto - used for jitter timing, not security
+  "B404",  # subprocess import - needed for git/claude detection
+  "B603",  # subprocess_without_shell - safer than shell=True
+  "B606",  # start_process_with_no_shell - safer than using shell
+  "B607",  # start_process_with_partial_path - system commands
+  "B108",  # hardcoded_tmp_directory - test mode paths
+]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+include = ["src/claude_code_proxy"]
+exclude = ["**/__pycache__", ".venv", "tests", "examples", "scripts"]
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-module = true
+ignore-nested-functions = true
+ignore-nested-classes = true
+fail-under = 40
+exclude = ["tests", "docs", "scripts", "examples", ".venv"]
+verbose = 0
+quiet = false
+color = true
+
+[tool.deptry]
+exclude = ["tests", "docs", "scripts", "examples", ".venv"]
+ignore = ["DEP002", "DEP003"]  # Ignore missing/transitive deps warnings for now
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["textual", "rich_toolkit"]  # These are correctly installed
+DEP002 = ["tomli"]  # Conditional dependency for Python < 3.11
+
+[tool.codespell]
+skip = ".git,.venv,venv,*.lock,*.json,htmlcov,*.xml,*.html"
+ignore-words-list = "crate,ot,te,nd"
+check-filenames = true
+check-hidden = false
+
+[tool.xenon]
+max-absolute = "B"
+max-modules = "B"
+max-average = "A"
+exclude = ["tests", ".venv"]
+
+[tool.vulture]
+min_confidence = 80
+exclude = ["tests/", ".venv/", "examples/"]
+ignore_names = ["visit_*", "do_*", "setUp", "tearDown"]
+
+[tool.tryceratops]
+# TRY300: Style preference for else blocks - too many false positives
+# TRY003: Long exception messages - often necessary for clear error messages
+# TRY301: Re-raise in try blocks - intentional pattern for exception chaining
+ignore = ["TRY300", "TRY003", "TRY301"]
+exclude = ["tests/", ".venv/"]
+
+[tool.tox]
+legacy_tox_ini = """
+  [tox]
+  envlist = py311,py312,py313
+
+  [testenv]
+  deps =
+      pytest
+      pytest-asyncio
+      pytest-cov
+      pytest-timeout
+      pytest-env
+      pytest-httpx
+
+  commands = pytest {posargs}
+  """
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["claude_code_proxy*"]
+
+[tool.uv]
+package = true
+
+# Note: fastapi-mcp is now available on PyPI (v0.4.0+), no git source needed

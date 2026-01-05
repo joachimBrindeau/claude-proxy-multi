@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "cloudflare": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@cloudflare/mcp-server-cloudflare"]
+    },
+    "chromadb": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "chroma-mcp",
+        "--client-type", "http",
+        "--host", "chroma.database.klarc.eu",
+        "--port", "443",
+        "--ssl", "true",
+        "--custom-auth-credentials", "ba51fe607f0490af36ac12a7ea785133ca00b37301ec5992a8b2b372204db2c4"
+      ]
+    }
+  }
+}

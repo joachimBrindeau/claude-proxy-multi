@@ -1,0 +1,20 @@
+[Unit]
+Description=CCProxy API Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={{WORKING_DIR}}
+ExecStart={{UV_PATH}} run ccproxy serve
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ccproxy
+Environment="PATH={{USER_PATH}}"
+Environment="HOME={{USER_HOME}}"
+Environment="UV_PROJECT={{UV_PROJECT}}"
+{{EXTRA_ENV}}
+
+[Install]
+WantedBy=default.target

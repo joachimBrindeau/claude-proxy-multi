@@ -1,0 +1,21 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "claude-code-proxy-api --host 0.0.0.0 --port $PORT",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  },
+  "variables": {
+    "SERVER__HOST": "0.0.0.0",
+    "SERVER__LOG_LEVEL": "INFO",
+    "CCPROXY_ACCOUNTS_PATH": "/data/accounts.json",
+    "CCPROXY_ROTATION_ENABLED": "true",
+    "CCPROXY_HOT_RELOAD": "true"
+  }
+}

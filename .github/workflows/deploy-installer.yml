@@ -1,0 +1,82 @@
+name: Deploy Installer to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/install.sh'
+      - '.github/workflows/deploy-installer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-installer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare GitHub Pages content
+        run: |
+          # Create deployment directory
+          mkdir -p gh-pages-deploy
+
+          # Copy installer script as index (no extension for curl compatibility)
+          cp scripts/install.sh gh-pages-deploy/index
+
+          # Add CNAME for custom domain
+          echo "joachimbrindeau.github.io/claude-proxy-multi/install.sh" > gh-pages-deploy/CNAME
+
+          # Make index executable
+          chmod +x gh-pages-deploy/index
+
+          # Create README for gh-pages branch
+          cat > gh-pages-deploy/README.md << 'EOF'
+          # Claude Code Proxy Installer
+
+          This branch contains the installer script hosted at https://joachimbrindeau.github.io/claude-proxy-multi/install.sh
+
+          ## Installation
+
+          ```bash
+          curl https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash
+          ```
+
+          Or with options:
+
+          ```bash
+          curl https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash -s -- --help
+          ```
+
+          ## Source
+
+          The installer script is automatically deployed from `scripts/install.sh` on the main branch.
+
+          **Do not edit files on this branch directly** - they will be overwritten on the next deployment.
+          EOF
+
+          echo "✅ Prepared GitHub Pages content:"
+          ls -lah gh-pages-deploy/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages-deploy
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "Deploy installer from ${{ github.sha }}"
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Installer deployed to GitHub Pages"
+          echo ""
+          echo "The installer will be available at:"
+          echo "  https://joachimbrindeau.github.io/claude-proxy-multi/install.sh"
+          echo ""
+          echo "Note: DNS and SSL may take up to 24 hours to propagate"
+          echo "      See docs/development/github-pages-setup.md for setup instructions"

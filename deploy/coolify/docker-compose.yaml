@@ -1,0 +1,33 @@
+services:
+  ccproxy:
+    image: ghcr.io/joachimbrindeau/claude-proxy-multi:latest
+    container_name: ccproxy
+    restart: unless-stopped
+    networks:
+      - coolify
+    environment:
+      - SERVER__HOST=0.0.0.0
+      - SERVER__PORT=8000
+      - SERVER__LOG_LEVEL=INFO
+      - CCPROXY_ACCOUNTS_PATH=/data/home/.claude/accounts.json
+      - CCPROXY_ROTATION_ENABLED=true
+      - CCPROXY_HOT_RELOAD=true
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /home/joachim/docker/ccproxy-multi/data:/data/home
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  coolify:
+    external: true

@@ -1,0 +1,153 @@
+apiVersion: {{ include "claude-code-proxy.deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ include "claude-code-proxy.fullname" . }}
+  labels:
+    {{- include "claude-code-proxy.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "claude-code-proxy.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "claude-code-proxy.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "claude-code-proxy.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "claude-code-proxy.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            # Server configuration
+            - name: SERVER__HOST
+              value: {{ .Values.env.server.host | quote }}
+            - name: SERVER__PORT
+              value: {{ .Values.env.server.port | quote }}
+            - name: SERVER__LOG_LEVEL
+              value: {{ .Values.env.server.logLevel | quote }}
+
+            # Multi-account rotation configuration
+            - name: CCPROXY_ACCOUNTS_PATH
+              value: {{ .Values.env.rotation.accountsPath | quote }}
+            - name: CCPROXY_ROTATION_ENABLED
+              value: {{ .Values.env.rotation.enabled | quote }}
+            - name: CCPROXY_HOT_RELOAD
+              value: {{ .Values.env.rotation.hotReload | quote }}
+
+            # Capacity check configuration
+            {{- if .Values.env.capacityCheck.url }}
+            - name: CCPROXY_CAPACITY_CHECK_URL
+              value: {{ .Values.env.capacityCheck.url | quote }}
+            {{- end }}
+            {{- if .Values.env.capacityCheck.model }}
+            - name: CCPROXY_CAPACITY_CHECK_MODEL
+              value: {{ .Values.env.capacityCheck.model | quote }}
+            {{- end }}
+
+            # OAuth configuration
+            {{- if .Values.env.oauth.redirectUri }}
+            - name: CCPROXY_OAUTH_REDIRECT_URI
+              value: {{ .Values.env.oauth.redirectUri | quote }}
+            {{- end }}
+
+            # Debug configuration
+            - name: CCPROXY_VERBOSE_API
+              value: {{ .Values.env.debug.verboseApi | quote }}
+            - name: CCPROXY_VERBOSE_STREAMING
+              value: {{ .Values.env.debug.verboseStreaming | quote }}
+            - name: CCPROXY_LOG_REQUESTS
+              value: {{ .Values.env.debug.logRequests | quote }}
+            {{- if .Values.env.debug.requestLogDir }}
+            - name: CCPROXY_REQUEST_LOG_DIR
+              value: {{ .Values.env.debug.requestLogDir | quote }}
+            {{- end }}
+
+            # User/Group ID for Docker
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- if .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /data
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "claude-code-proxy.pvcName" . }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}

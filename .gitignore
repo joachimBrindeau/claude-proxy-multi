@@ -1,0 +1,113 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+build/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage/
+*.lcov
+.tox/
+.nox/
+.playwright-mcp/
+
+# Type checking & Linting
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# UV / Virtualenv
+.uv/
+.venv/
+.python-version
+
+# DevEnv
+.direnv/
+.devenv/
+.devenv.flake.nix
+.envrc
+
+# Nix
+result
+result-*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Docker
+.docker/
+*.tar
+*.tar.gz
+
+# Documentation
+site/
+docs/.cache/
+.mkdocs_cache/
+
+# Logs
+logs/
+*.log
+request_logs/
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+accounts.json
+credentials.json
+*.pem
+*.key
+secrets.*
+
+# Runtime data directory (keep README and examples)
+runtime/accounts.json
+runtime/.credentials.json
+runtime/projects/
+runtime/shell-snapshots/
+runtime/todos/
+runtime/debug/
+!runtime/README.md
+!runtime/*.example
+
+# Project specific
+.aider*
+**/.claude/settings.local.json
+src/ccproxy/_version.py
+src/claude_code_proxy/_version.py
+*.bak
+.serena
+workspace/
+data/home
+
+# Claude & SpecKit (protected directories)
+.claude/
+specs/
+.specify/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+config/

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <!-- Package Metadata -->
+    <id>claude-code-proxy</id>
+    <version>0.1.0</version>
+    <packageSourceUrl>https://github.com/joachimbrindeau/claude-proxy-multi</packageSourceUrl>
+    <owners>joachimbrindeau</owners>
+
+    <!-- Title and Description -->
+    <title>Claude Code Proxy</title>
+    <authors>Joachim Brindeau</authors>
+    <projectUrl>https://github.com/joachimbrindeau/claude-proxy-multi</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/joachimbrindeau/claude-proxy-multi/main/docs/assets/icon.png</iconUrl>
+    <licenseUrl>https://github.com/joachimbrindeau/claude-proxy-multi/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/joachimbrindeau/claude-proxy-multi</projectSourceUrl>
+    <docsUrl>https://github.com/joachimbrindeau/claude-proxy-multi/blob/main/README.md</docsUrl>
+    <bugTrackerUrl>https://github.com/joachimbrindeau/claude-proxy-multi/issues</bugTrackerUrl>
+    <tags>claude anthropic proxy api oauth multi-account rate-limit python</tags>
+    <summary>Multi-account Claude Code proxy server with automatic rotation and rate limit failover</summary>
+    <description>
+# Claude Code Proxy Multi-Account
+
+Multi-account Claude Code proxy server with automatic rotation and rate limit failover.
+
+## Features
+
+- **3x+ throughput** by distributing requests across multiple Claude accounts
+- **Zero downtime** with automatic failover when accounts hit rate limits
+- **Hands-off operation** with proactive token refresh before expiration
+- **Live updates** via hot-reload - add/remove accounts without restart
+
+## Installation
+
+After installation, the Windows Service will be registered but not started automatically.
+
+Start the service:
+```powershell
+Start-Service claude-code-proxy
+```
+
+Access the web UI to add Claude accounts:
+```
+http://localhost:8000/accounts
+```
+
+## Configuration
+
+Data directory: `%APPDATA%\claude-code-proxy\data`
+Accounts file: `%APPDATA%\claude-code-proxy\data\accounts.json`
+
+## Service Management
+
+```powershell
+# Start service
+Start-Service claude-code-proxy
+
+# Stop service
+Stop-Service claude-code-proxy
+
+# Restart service
+Restart-Service claude-code-proxy
+
+# Check status
+Get-Service claude-code-proxy
+```
+
+## Documentation
+
+https://github.com/joachimbrindeau/claude-proxy-multi/blob/main/docs/installation/windows.md
+    </description>
+    <releaseNotes>https://github.com/joachimbrindeau/claude-proxy-multi/releases/tag/v0.1.0</releaseNotes>
+
+    <!-- Dependencies -->
+    <dependencies>
+      <dependency id="python" version="3.11.0" />
+    </dependencies>
+  </metadata>
+
+  <files>
+    <!-- Install/Uninstall Scripts -->
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

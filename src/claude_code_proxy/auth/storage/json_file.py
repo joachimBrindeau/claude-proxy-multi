@@ -1,0 +1,172 @@
+"""JSON file storage implementation for token storage."""
+
+import contextlib
+from pathlib import Path
+
+import orjson
+import pydantic
+from structlog import get_logger
+
+from claude_code_proxy.auth.models import ClaudeCredentials
+from claude_code_proxy.auth.storage.base import TokenStorage
+from claude_code_proxy.exceptions import (
+    CredentialsInvalidError,
+    CredentialsStorageError,
+)
+
+
+logger = get_logger(__name__)
+
+
+class JsonFileTokenStorage(TokenStorage):
+    """JSON file storage implementation for Claude credentials with keyring fallback."""
+
+    def __init__(self, file_path: Path):
+        """Initialize JSON file storage.
+
+        Args:
+            file_path: Path to the JSON credentials file
+
+        """
+        self.file_path = file_path
+
+    async def load(self) -> ClaudeCredentials | None:
+        """Load credentials from JSON file .
+
+        Returns:
+            Parsed credentials if found and valid, None otherwise
+
+        Raises:
+            CredentialsInvalidError: If the JSON file is invalid
+            CredentialsStorageError: If there's an error reading the file
+
+        """
+        if not await self.exists():
+            logger.debug("credentials_file_not_found", path=str(self.file_path))
+            return None
+
+        try:
+            logger.debug(
+                "credentials_load_start", source="file", path=str(self.file_path)
+            )
+            with self.file_path.open("rb") as f:
+                data = orjson.loads(f.read())
+
+            credentials = ClaudeCredentials.model_validate(data)
+            logger.debug("credentials_load_completed", source="file")
+
+            return credentials
+
+        except pydantic.ValidationError as e:
+            # Pydantic validation errors when parsing credential data
+            raise CredentialsInvalidError(
+                f"Invalid credential data in {self.file_path}: {e}"
+            ) from e
+        except (orjson.JSONDecodeError, ValueError) as e:
+            # JSON parsing errors or invalid data format
+            raise CredentialsInvalidError(
+                f"Failed to parse credentials file {self.file_path}: {e}"
+            ) from e
+        except (OSError, PermissionError) as e:
+            # File system errors: file not readable, permission denied, etc.
+            raise CredentialsStorageError(
+                f"Error loading credentials from {self.file_path}: {e}"
+            ) from e
+
+    async def save(self, credentials: ClaudeCredentials) -> bool:
+        """Save credentials to both keyring and JSON file.
+
+        Args:
+            credentials: Credentials to save
+
+        Returns:
+            True if saved successfully, False otherwise
+
+        Raises:
+            CredentialsStorageError: If there's an error writing the file
+
+        """
+        try:
+            # Convert to dict with proper aliases
+            data = credentials.model_dump(by_alias=True, mode="json")
+
+            # Always save to file as well
+            # Ensure parent directory exists
+            self.file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Use atomic write: write to temp file then rename
+            temp_path = self.file_path.with_suffix(".tmp")
+
+            try:
+                with temp_path.open("wb") as f:
+                    f.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
+
+                # Set appropriate file permissions (read/write for owner only)
+                temp_path.chmod(0o600)
+
+                # Atomically replace the original file
+                Path.replace(temp_path, self.file_path)
+
+                logger.debug(
+                    "credentials_save_completed",
+                    source="file",
+                    path=str(self.file_path),
+                )
+                return True
+            finally:
+                # Clean up temp file if it exists
+                if temp_path.exists():
+                    with contextlib.suppress(OSError):
+                        temp_path.unlink()
+
+        except (OSError, PermissionError) as e:
+            # File system errors: write failed, permission denied, disk full, etc.
+            raise CredentialsStorageError(f"Error saving credentials: {e}") from e
+
+    async def exists(self) -> bool:
+        """Check if credentials file exists.
+
+        Returns:
+            True if file exists, False otherwise
+
+        """
+        return self.file_path.exists() and self.file_path.is_file()
+
+    async def delete(self) -> bool:
+        """Delete credentials from both keyring and file.
+
+        Returns:
+            True if deleted successfully, False otherwise
+
+        Raises:
+            CredentialsStorageError: If there's an error deleting the file
+
+        """
+        deleted = False
+
+        # Delete from file
+        try:
+            if await self.exists():
+                self.file_path.unlink()
+                logger.debug(
+                    "credentials_delete_completed",
+                    source="file",
+                    path=str(self.file_path),
+                )
+                deleted = True
+        except (OSError, PermissionError) as e:
+            # File system errors: delete failed, permission denied, etc.
+            if not deleted:  # Only raise if we failed to delete from both
+                raise CredentialsStorageError(f"Error deleting credentials: {e}") from e
+            logger.debug("credentials_delete_partial", source="file", error=str(e))
+
+        return deleted
+
+    def get_location(self) -> str:
+        """Get the storage location description.
+
+        Returns:
+            Path to the JSON file with keyring info if available
+
+        """
+        return str(self.file_path)
