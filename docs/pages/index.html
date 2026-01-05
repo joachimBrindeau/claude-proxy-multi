@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code Proxy - Multi-account Claude API Proxy</title>
+    <meta name="description" content="High-performance Claude Code multi-account proxy server with automatic rotation and Anthropic API compatibility.">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --border: #262626;
+            --text: #fafafa;
+            --text-muted: #a1a1a1;
+            --accent: #c4a052;
+            --accent-dim: #8b7035;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .tagline {
+            color: var(--text-muted);
+            font-size: 1.25rem;
+        }
+
+        .features {
+            display: grid;
+            gap: 1.5rem;
+            margin-bottom: 4rem;
+        }
+
+        .feature {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .feature h3 {
+            color: var(--accent);
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .install {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .install h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .code-block {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block code {
+            color: var(--accent);
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--border);
+            border: none;
+            color: var(--text-muted);
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent-dim);
+            color: var(--text);
+        }
+
+        .links {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .link {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .link:hover {
+            border-color: var(--accent-dim);
+            color: var(--text);
+        }
+
+        .link.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg);
+            font-weight: 500;
+        }
+
+        .link.primary:hover {
+            background: var(--accent-dim);
+            border-color: var(--accent-dim);
+            color: var(--text);
+        }
+
+        footer {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Claude Code Proxy</h1>
+            <p class="tagline">Multi-account Claude API proxy with automatic rotation</p>
+        </header>
+
+        <div class="features">
+            <div class="feature">
+                <h3>Multi-Account Rotation</h3>
+                <p>Automatically rotate between multiple Claude accounts to maximize throughput and avoid rate limits.</p>
+            </div>
+            <div class="feature">
+                <h3>API Compatible</h3>
+                <p>Drop-in replacement for the Anthropic API. Works with existing SDKs and tools.</p>
+            </div>
+            <div class="feature">
+                <h3>Web UI</h3>
+                <p>Manage accounts, monitor usage, and configure settings through a built-in web interface.</p>
+            </div>
+        </div>
+
+        <div class="install">
+            <h2>Quick Install</h2>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode()">Copy</button>
+                <code>curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash</code>
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="https://github.com/joachimbrindeau/claude-proxy-multi" class="link primary">GitHub</a>
+            <a href="https://github.com/joachimbrindeau/claude-proxy-multi#readme" class="link">Documentation</a>
+            <a href="https://github.com/joachimbrindeau/claude-proxy-multi/releases" class="link">Releases</a>
+        </div>
+
+        <footer>
+            <p>MIT License &middot; <a href="https://github.com/joachimbrindeau">@joachimbrindeau</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function copyCode() {
+            const code = 'curl -fsSL https://joachimbrindeau.github.io/claude-proxy-multi/install.sh | bash';
+            navigator.clipboard.writeText(code);
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+    </script>
+</body>
+</html>
