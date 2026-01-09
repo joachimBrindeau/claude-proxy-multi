@@ -14,6 +14,7 @@ services:
       - CCPROXY_HOT_RELOAD=true
       - CCPROXY_API_KEYS_ENABLED=true
       - CCPROXY_API_KEY_SECRET=6167a9bb282120efc303e959097b793a23ffb4a9723aad4be5f321c39497243f
+      - AUTH__STORAGE__CREDENTIALS_DIR=/data/home/.config/claude-code-proxy
       - PUID=1000
       - PGID=1000
     volumes:
