@@ -12,10 +12,13 @@ services:
       - CCPROXY_ACCOUNTS_PATH=/data/home/.claude/accounts.json
       - CCPROXY_ROTATION_ENABLED=true
       - CCPROXY_HOT_RELOAD=true
+      - CCPROXY_API_KEYS_ENABLED=true
+      - CCPROXY_API_KEY_SECRET=6167a9bb282120efc303e959097b793a23ffb4a9723aad4be5f321c39497243f
       - PUID=1000
       - PGID=1000
     volumes:
       - /home/joachim/docker/ccproxy-multi/data:/data/home
+      - /home/joachim/docker/ccproxy-multi/config:/root/.config/claude-code-proxy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
